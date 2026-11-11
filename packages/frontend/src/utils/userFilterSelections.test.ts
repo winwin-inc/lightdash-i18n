@@ -45,6 +45,10 @@ const rule = (overrides: RuleOverrides): DashboardFilterRule => ({
     parentTabUuid: overrides.parentTabUuid,
     dateRangeGranularity: overrides.dateRangeGranularity,
     disabled: overrides.disabled,
+    minAllowedDate: overrides.minAllowedDate,
+    maxAllowedDate: overrides.maxAllowedDate,
+    enableDynamicMaxAllowedDate: overrides.enableDynamicMaxAllowedDate,
+    rollingMinAllowedMonths: overrides.rollingMinAllowedMonths,
 });
 
 const filters = (dimensions: DashboardFilterRule[]): DashboardFilters => ({
@@ -784,6 +788,108 @@ describe('userFilterSelections', () => {
             expect(next.values).toEqual(['2026-09']);
             expect(next.settings).toEqual({ unitOfTime: 'month' });
         });
+
+        it('clamps inherited range values to the receiver bounds', () => {
+            // G1：继承值按接收方自身的可选范围钳制后写回存储，
+            // 避免存储值永久越界（chip/查询路径的钳制只是展示/查询层兜底）
+            const next = applySelectionValues(
+                rule({
+                    id: 'b',
+                    fieldId: 'date',
+                    operator: FilterOperator.IN_BETWEEN,
+                    dateRangeGranularity: TimeFrames.MONTH,
+                    minAllowedDate: '2025-01-01',
+                    maxAllowedDate: '2025-12-31',
+                }),
+                rule({
+                    id: 'a',
+                    fieldId: 'date',
+                    operator: FilterOperator.IN_BETWEEN,
+                    values: ['2024-06-15', '2026-03-20'],
+                }),
+            );
+            // 两端都越界 → 夹到接收方窗口边界并按月对齐
+            expect(next.values).toEqual(['2025-01-01', '2025-12-31']);
+        });
+
+        it('keeps in-bounds values untouched without period rewriting', () => {
+            const next = applySelectionValues(
+                rule({
+                    id: 'b',
+                    fieldId: 'date',
+                    operator: FilterOperator.IN_BETWEEN,
+                    dateRangeGranularity: TimeFrames.MONTH,
+                    minAllowedDate: '2025-01-01',
+                    maxAllowedDate: '2025-12-31',
+                }),
+                rule({
+                    id: 'a',
+                    fieldId: 'date',
+                    operator: FilterOperator.IN_BETWEEN,
+                    values: ['2025-06-15', '2025-08-22'],
+                }),
+            );
+            // 界内值原样透传，月中日期不被静默扩成整月
+            expect(next.values).toEqual(['2025-06-15', '2025-08-22']);
+        });
+
+        it('passes values through for rules without any bounds config', () => {
+            const next = applySelectionValues(
+                rule({
+                    id: 'b',
+                    fieldId: 'date',
+                    operator: FilterOperator.IN_BETWEEN,
+                }),
+                rule({
+                    id: 'a',
+                    fieldId: 'date',
+                    operator: FilterOperator.IN_BETWEEN,
+                    values: ['2020-01-01', '2030-12-31'],
+                }),
+            );
+            // 普通 explore 筛选器没有可选范围 → 原样继承
+            expect(next.values).toEqual(['2020-01-01', '2030-12-31']);
+        });
+
+        it('does not clamp non-IN_BETWEEN rules even with bounds', () => {
+            const next = applySelectionValues(
+                rule({
+                    id: 'b',
+                    fieldId: 'date',
+                    operator: FilterOperator.EQUALS,
+                    minAllowedDate: '2025-01-01',
+                    maxAllowedDate: '2025-12-31',
+                }),
+                rule({
+                    id: 'a',
+                    fieldId: 'date',
+                    values: ['2024-01-01'],
+                }),
+            );
+            // D5：只夹 IN_BETWEEN 双端区间，equals 单值不夹
+            expect(next.values).toEqual(['2024-01-01']);
+        });
+
+        it('does not clamp single-sided ranges', () => {
+            const next = applySelectionValues(
+                rule({
+                    id: 'b',
+                    fieldId: 'date',
+                    operator: FilterOperator.IN_BETWEEN,
+                    dateRangeGranularity: TimeFrames.MONTH,
+                    minAllowedDate: '2025-01-01',
+                    maxAllowedDate: '2025-12-31',
+                }),
+                rule({
+                    id: 'a',
+                    fieldId: 'date',
+                    operator: FilterOperator.IN_BETWEEN,
+                    values: ['', '2026-12-31'],
+                }),
+            );
+            // 空槽位 = 单边区间，不钳制（S1：槽位结构保留）
+            expect(next.values).toEqual(['', '2026-12-31']);
+        });
     });
 
     describe('applySelectionToFilters', () => {
@@ -932,6 +1038,99 @@ describe('userFilterSelections', () => {
             expect(result.changed).toBe(false);
             expect(result.matchKind).toBe('exact-field');
             expect(result.filters).toBe(input);
+        });
+
+        it('stores values clamped to the receiver own narrower window', () => {
+            // A(宽窗口) → B(窄窗口)：接收方按自己的边界钳制后写回存储
+            const source = rule({
+                id: 'a',
+                fieldId: 'date',
+                operator: FilterOperator.IN_BETWEEN,
+                dateRangeGranularity: TimeFrames.MONTH,
+                values: ['2024-06-15', '2026-03-20'],
+            });
+            const result = applySelectionToFilters(
+                filters([
+                    rule({
+                        id: 'b',
+                        fieldId: 'date',
+                        operator: FilterOperator.IN_BETWEEN,
+                        dateRangeGranularity: TimeFrames.MONTH,
+                        minAllowedDate: '2025-01-01',
+                        maxAllowedDate: '2025-12-31',
+                        values: ['2025-02-01', '2025-06-30'],
+                    }),
+                ]),
+                source,
+                'dimension',
+            );
+            expect(result.changed).toBe(true);
+            expect(result.matchKind).toBe('exact-field');
+            expect(result.filters.dimensions[0].values).toEqual([
+                '2025-01-01',
+                '2025-12-31',
+            ]);
+            // 规则定义保持不变
+            expect(result.filters.dimensions[0].id).toBe('b');
+        });
+
+        it('does not mark the tab dirty when the clamp lands on the stored value', () => {
+            // G1：接收方已存钳制后的值，来源越界值钳制后与之相同 →
+            // isSameRuleSelection 必须判「无变化」，否则每次切换 Tab 都会
+            // 误报脏并触发无意义的数据请求
+            const source = rule({
+                id: 'a',
+                fieldId: 'date',
+                operator: FilterOperator.IN_BETWEEN,
+                dateRangeGranularity: TimeFrames.MONTH,
+                values: ['2024-06-15', '2026-03-20'],
+            });
+            const input = filters([
+                rule({
+                    id: 'b',
+                    fieldId: 'date',
+                    operator: FilterOperator.IN_BETWEEN,
+                    dateRangeGranularity: TimeFrames.MONTH,
+                    minAllowedDate: '2025-01-01',
+                    maxAllowedDate: '2025-12-31',
+                    values: ['2025-01-01', '2025-12-31'],
+                }),
+            ]);
+            const result = applySelectionToFilters(input, source, 'dimension');
+            expect(result.changed).toBe(false);
+            expect(result.filters).toBe(input);
+        });
+
+        it('clamps after stripping the receiver dynamic default', () => {
+            const source = rule({
+                id: 'a',
+                fieldId: 'date',
+                operator: FilterOperator.IN_BETWEEN,
+                dateRangeGranularity: TimeFrames.MONTH,
+                values: ['2024-06-15', '2026-03-20'],
+            });
+            const result = applySelectionToFilters(
+                filters([
+                    rule({
+                        id: 'b',
+                        fieldId: 'date',
+                        operator: FilterOperator.IN_BETWEEN,
+                        dateRangeGranularity: TimeFrames.MONTH,
+                        minAllowedDate: '2025-01-01',
+                        maxAllowedDate: '2025-12-31',
+                        settings: { dateRange: { mode: 'dynamic' } },
+                    }),
+                ]),
+                source,
+                'dimension',
+            );
+            expect(result.changed).toBe(true);
+            expect(result.filters.dimensions[0].values).toEqual([
+                '2025-01-01',
+                '2025-12-31',
+            ]);
+            // 动态默认被剥掉，避免查询前 preset 重新解析覆盖继承值
+            expect(result.filters.dimensions[0].settings).toEqual({});
         });
     });
 
@@ -1155,6 +1354,103 @@ describe('userFilterSelections', () => {
             );
             expect(result.changedTabUuids).toEqual([]);
             expect(result.tabFilters).toBe(tabFilters);
+        });
+
+        it('clamps each receiver tab by its own window', () => {
+            const wideSource = rule({
+                id: 'tab-a-date',
+                fieldId: 'date',
+                operator: FilterOperator.IN_BETWEEN,
+                dateRangeGranularity: TimeFrames.MONTH,
+                values: ['2024-06-15', '2026-03-20'],
+            });
+            const tabFilters = {
+                'tab-a': filters([wideSource]),
+                // 12 个月窄窗口：继承值越界 → 钳到自己的边界
+                'tab-b': filters([
+                    rule({
+                        id: 'tab-b-date',
+                        fieldId: 'date',
+                        operator: FilterOperator.IN_BETWEEN,
+                        dateRangeGranularity: TimeFrames.MONTH,
+                        minAllowedDate: '2025-01-01',
+                        maxAllowedDate: '2025-12-31',
+                    }),
+                ]),
+                // 24 个月宽窗口：继承值在界内 → 原样透传，不重复标脏
+                'tab-c': filters([
+                    rule({
+                        id: 'tab-c-date',
+                        fieldId: 'date',
+                        operator: FilterOperator.IN_BETWEEN,
+                        dateRangeGranularity: TimeFrames.MONTH,
+                        minAllowedDate: '2024-01-01',
+                        maxAllowedDate: '2026-12-31',
+                        values: ['2024-06-15', '2026-03-20'],
+                    }),
+                ]),
+            };
+            const { tabFilters: next, changedTabUuids } =
+                applySelectionToTabFilters(
+                    tabFilters,
+                    wideSource,
+                    'dimension',
+                    'tab-a',
+                );
+            expect(changedTabUuids).toEqual(['tab-b']);
+            expect(next['tab-b'].dimensions[0].values).toEqual([
+                '2025-01-01',
+                '2025-12-31',
+            ]);
+            // tab-c 界内透传：无变化、引用保持
+            expect(next['tab-c']).toBe(tabFilters['tab-c']);
+        });
+
+        it('uses each tab own rolling window for the clamp (A 24 → B 12)', () => {
+            // 客户场景：来源 Tab 窗口 24 个月、接收 Tab 12 个月，各按各的边界；
+            // 动态上限按运行时口径（4 号数据可用规则）解析
+            vi.useFakeTimers();
+            vi.setSystemTime(new Date('2026-07-15T12:00:00'));
+            try {
+                const wideSource = rule({
+                    id: 'tab-a-date',
+                    fieldId: 'date',
+                    operator: FilterOperator.IN_BETWEEN,
+                    dateRangeGranularity: TimeFrames.MONTH,
+                    enableDynamicMaxAllowedDate: true,
+                    rollingMinAllowedMonths: 24,
+                    values: ['2024-07-01', '2026-06-30'],
+                });
+                const tabFilters = {
+                    'tab-a': filters([wideSource]),
+                    'tab-b': filters([
+                        rule({
+                            id: 'tab-b-date',
+                            fieldId: 'date',
+                            operator: FilterOperator.IN_BETWEEN,
+                            dateRangeGranularity: TimeFrames.MONTH,
+                            enableDynamicMaxAllowedDate: true,
+                            rollingMinAllowedMonths: 12,
+                        }),
+                    ]),
+                };
+                const { tabFilters: next, changedTabUuids } =
+                    applySelectionToTabFilters(
+                        tabFilters,
+                        wideSource,
+                        'dimension',
+                        'tab-a',
+                    );
+                expect(changedTabUuids).toEqual(['tab-b']);
+                // B 的 12 个月窗口：max=2026-06-30、rolling min=2025-07-01，
+                // 来源 24 个月窗口的起点 2024-07-01 越界 → 夹到 B 自己的下限
+                expect(next['tab-b'].dimensions[0].values).toEqual([
+                    '2025-07-01',
+                    '2026-06-30',
+                ]);
+            } finally {
+                vi.useRealTimers();
+            }
         });
     });
 
