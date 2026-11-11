@@ -97,7 +97,9 @@ rollingMinAllowedMonths?: number;
   - 最早可选 ⓘ：「留空 = 不限制；选「近 N 个月」= 每月随数据窗口自动后移 1 个月，无需人工改」
   - 最晚可选/开关 ⓘ：「月粒度 4 号前可选到上上月、4 号及以后可选到上月；季度为最近一个完整季度。留空且未开启 = 不限制」
 - **动态状态可视化**（回答「如何标记是动态的」）：约束处于动态时，对应输入框旁显示蓝色 `Badge`（size=xs，variant=light）并附解析后的当前值，如「动态 · 当前=2026-10」；固定日期时不显示 Badge，picker 可编辑。动态 min（近 N 个月）与动态 max 同样式，用户一眼分辦哪些维度在自动滚动；
-- 选「近 N 个月」时写入 `rollingMinAllowedMonths` 并清空 `minAllowedDate`；反向切回时清空 rolling 字段。
+- 选「近 N 个月」时写入 `rollingMinAllowedMonths` 并清空 `minAllowedDate`；反向切回时清空 rolling 字段；
+- **无需单独开关**：模式选择器本身承载开关语义（`undefined` = 关、切回固定 = 关）；与 max 侧 Switch 的差异原因——动态 max 无参数，滚动 min 需要配 N，避免「开关+数字」双控件冗余；
+- **出现条件与默认值**：仅月粒度 + 在之间的日期筛选器显示该模式选择器（与动态 max 开关出现条件对齐）；不配置时行为与现状完全一致，存量看板零影响。
 
 **运行时**（`DateFilterInputs.tsx` → 各月粒度 picker）：无需改动——bounds 计算出来后月历自然置灰，即满足「不让勾选」。
 
