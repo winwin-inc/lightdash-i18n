@@ -5,6 +5,8 @@
 > 需求来源：新品数据库看板（多 tab）。底层各主题表数据可用窗口不同（有的近 24 个月、有的近 12 个月），但看板日期筛选器（「首订单时间 在之间」，月粒度）目前可任选任意年月，选超范围即出现「无可用数据」/ null。
 >
 > 期望：**每个 tab 各自拥有日期筛选器与可选时间范围；范围外的年月在月历中置灰、不可勾选**。
+>
+> 补充痛点（二期反馈）：新品分布页有同比指标，超 24 个月肯定无数据。即便设置了最早开始时间（静态），随数据窗口逐月前移，**约束和默认值都需要每月人工改**；期望「最早开始时间设置一次后，下个月自动往后移 1 个月」。
 
 ---
 
@@ -19,6 +21,7 @@
 | Tab 级筛选器 | `DashboardTab.filters`（jsonb）、前端 `tabFilters: Record<tabUuid, DashboardFilters>` | 每个 tab 可建自己的筛选器集合，pill 只在所属 tab 显示；查询按 tab 合并（`mergeFiltersForTab`）后下发 |
 | 筛选器日期约束（静态 min/max） | `DashboardFilterRule.minAllowedDate / maxAllowedDate`（`common/src/types/filter.ts:186-195`） | 配置入口 `FilterSettings` → `DateRangeConstraintEditor.tsx`；运行时经 `getDashboardFilterDatePickerBounds` 转成 Mantine picker 的 `minDate/maxDate`，**日历中范围外日期已置灰** |
 | 动态最晚可选月（动态 max） | `enableDynamicMaxAllowedDate` + `getDynamicMaxAllowedDate`（`filterDateUtils.ts:125-152`） | 月粒度：4 号前 → 上上月末、4 号起 → 上月末；季度 → 上一完整季度末 |
+| **动态区间默认值（默认值自动滚动）** | `settings.dateRange.mode='dynamic'` + `start/end`（direction/count/unit，`common/src/types/filter.ts:236-299`） | 默认值用「距今 N 个月」描述，展示/查询时按当前日期重新解析；前端 `prepareDashboardFilterRuleForQuery` 查询前解析，**后端编译器同样解析动态区间**（`filtersCompiler.ts` inBetween 动态分支）→ 定时推送等无前端场景也生效 |
 | 保存期校验（唯一硬拦截） | `validateDashboardFilterDynamicDateRange`（`FilterConfiguration/utils/index.ts:44`） | 仅覆盖「动态区间默认值」，越界 toast 并阻止保存 |
 | 跨 tab 同字段取值同步 | `syncSelectionToAllTabs`（`utils/userFilterSelections.ts:652`） | 用户在某 tab 改值会同步到其它 tab 的同字段规则 |
 
@@ -26,7 +29,7 @@
 
 | # | 缺口 | 影响 |
 |---|---|---|
-| G-A | **没有「动态 min」**：可选最早日期只能是固定日期，会随时间过期 | 「近 24 个月 / 近 12 个月」是滚动窗口，必须支持滚动下限 ← **本需求核心缺口** |
+| G-A | **没有「动态 min」**：可选最早日期只能是固定日期，会随时间过期（对称的动态 max 已有） | 「近 24 个月 / 近 12 个月」是滚动窗口，必须支持滚动下限 ← **本需求核心缺口**；注意：**默认值**层面的逐月滚动已由动态区间默认值覆盖（§1.2），缺的只是**约束下限**的滚动 |
 | G-B | 固定值不受约束：作者默认值、URL/embed 覆盖值、**跨 tab 同步值**越界时原样进查询 | tab A（24 个月窗口）选的值同步到 tab B（12 个月窗口）后会查到空数据，恰是要修的问题 |
 | G-C | `applyDimensionOverrides` 未回填 `enableDynamicMaxAllowedDate / dateRangeGranularity`（`common/src/types/filter.ts:744-755`） | URL 覆盖路径会丢动态 max / 粒度元数据 |
 | G-D | 保存期校验不覆盖固定值默认值 | 作者先设默认值后收紧约束时静默越界 |
@@ -40,6 +43,16 @@
 ---
 
 ## 2. 方案设计
+
+### 2.0 直接回答：能否「设置一次，每月自动后移 1 个月」
+
+| 要滚动的东西 | 结论 |
+|---|---|
+| 最晚可选月 | ✅ 已有（`enableDynamicMaxAllowedDate`，含 4 号数据可用规则），零开发 |
+| 筛选默认值（用户实际选中的区间） | ✅ 已有（动态区间默认值），**零开发、纯配置**：默认值设为「距今 23 个月 至 距今 1 个月」+ 粒度月，之后每月自动 +1；后端编译也解析，定时推送同样自动滚动 |
+| 最早可选月（约束下限） | ❌ 需开发（本方案 §2.1，`rollingMinAllowedMonths`）——实现模式完全对称照抄 `getDynamicMaxAllowedDate`，属低成本增量 |
+
+三者配齐后的效果：**一次配置 = 可选窗口永久钉在「最近 N 个有数据的整月」，约束下限、最晚上限、默认值三者每月同步自动滑动，无需任何人工维护**。
 
 ### 2.1 新增「滚动近 N 个月」下限（G-A，核心）
 
@@ -60,13 +73,25 @@ rollingMinAllowedMonths?: number;
   - max 无法解析（未配置且未开动态 max）时退化为 `startOf(now.subtract(N, 'month'))`；
 - 与固定 `minAllowedDate` 取**更晚者**（已有 `mergeMinDate` 工具）。
 
+**「每月自动 +1」示例**（N=24，今天 2026-11-11，4 号已过 → max=2026-10 月末）：
+
+- 本月（11 月）可选窗口：`2024-11 至 2026-10`（24 个整月）
+- 12 月 1–3 号（上月数据未到）：max 仍为 2026-10 末 → 窗口不变（`2024-11 至 2026-10`）
+- 12 月 4 号起（11 月数据到达）：max=2026-11 末 → 窗口自动滑动为 `2024-12 至 2026-11`
+
+即：min 每月随数据窗口自动 +1 个月，且窗口起点只在每月 4 号这一口径上变化，与数据到达节奏对齐，不会出现月中窗口漂移。
+
 **配置 UI**（`DateRangeConstraintEditor.tsx` 最小值一侧）：
 
 - SegmentedControl：`固定日期 | 近 N 个月`；选后者时渲染 NumberInput（1–120，默认 24），写入 `rollingMinAllowedMonths` 并清空 `minAllowedDate`；反向切回时清空 rolling 字段。
 
 **运行时**（`DateFilterInputs.tsx` → 各月粒度 picker）：无需改动——bounds 计算出来后月历自然置灰，即满足「不让勾选」。
 
-### 2.2 查询前按规则边界钳制（G-B）
+### 2.2 默认值免维护（零开发，纯配置）
+
+「每月人工改默认值」用已有动态区间默认值消除：各 tab 筛选器默认值切到「动态日期」模式，设为距今 23 个月 ～ 距今 1 个月（粒度月对齐到月初/月末）。展示 chip、查询参数、定时推送均逐月自动滚动；若默认值与约束窗口出现瞬时偏差，由 §2.3 的钳制兑底。
+
+### 2.3 查询前按规则边界钳制（G-B）
 
 `prepareDashboardFilterRuleForQuery` / `resolveDisplayValues`（`FilterInputs/utils.ts`）：
 
@@ -74,19 +99,19 @@ rollingMinAllowedMonths?: number;
 - 这样三处越界来源一次堵齐：作者过期默认值、URL/embed 注入、跨 tab 同步值。
 - 同步路径兜底：`syncSelectionToAllTabs` 同值时接收方按自身边界钳制（与 picker 置灰语义一致：用户手动也选不出的值，同步也进不来）。
 
-### 2.3 元数据保真与保存校验（G-C / G-D）
+### 2.4 元数据保真与保存校验（G-C / G-D）
 
 - `applyDimensionOverrides` 回填清单补 `enableDynamicMaxAllowedDate`、`dateRangeGranularity`、`rollingMinAllowedMonths`；
 - 保存期校验扩展为覆盖固定值默认值（`validateDashboardFilterDynamicDateRange` → 更名/扩展为通用区间校验，越界即 toast 阻断）。
 
-### 2.4 配套接线（无行为变更）
+### 2.5 配套接线（无行为变更）
 
 - `getFilterRuleRevertableObject`（`FilterConfiguration/utils/index.ts:251`）补新字段；
 - `dashboardOperationEventQueue.ts` 的 `date_constraint` changeKind 映射补新字段（改约束触发一次取数属预期）；
 - `dashboardOperationLogDiff`（backend）与 `dashboard-as-code-1.0.json` schema 补字段；跑 `pnpm generate-api`；
 - i18n：`public/locales/{zh,en}/translation.json` 的 `components_dashboard_filter.configuration.date_range.*` 新增「近 N 个月」相关键。
 
-### 2.5 明确不做（本期）
+### 2.6 明确不做（本期）
 
 - 后端查询期校验/钳制（G-E）：需求是 UI 层「不可勾选」，前端已闭环；列为后续可选加固；
 - 日/年粒度的滚动窗口、单值动态（EQUALS）钳制；
@@ -99,7 +124,7 @@ rollingMinAllowedMonths?: number;
 1. 编辑模式下删除顶部的全局「首订单时间」筛选器；
 2. 逐 tab 在**本 tab 内**新建日期筛选器「首订单时间」，操作符「在之间」、粒度「月」；
 3. 约束设置：可选最早 = 近 N 个月（分布/热卖等近 24 个月 tab 设 24，仅近 12 个月数据的 tab 设 12）；可选最晚 = 开启「按数据更新限制」（4 号规则动态 max）；
-4. 各 tab 默认值按业务需要设置（保存校验会拦截越界默认值）。
+4. 默认值切到「动态日期」模式：距今 23 个月 ～ 距今 1 个月（粒度月对齐），逐月自动滚动免维护（仅近 12 个月的 tab 设距今 11 ～ 1）；保存校验会拦截越界默认值。
 
 ---
 
@@ -107,7 +132,7 @@ rollingMinAllowedMonths?: number;
 
 | 阶段 | 内容 | 预估 |
 |---|---|---|
-| P1 | rollingMinAllowedMonths：类型 + bounds 解析 + 约束编辑器 UI + i18n + 单测（`filterDateUtils.test.ts` 等） | 1–1.5 天 |
+| P1 | rollingMinAllowedMonths：类型 + bounds 解析（对称照抄动态 max）+ 约束编辑器 UI + i18n + 单测（`filterDateUtils.test.ts` 等）；**默认值动态滚动为纯配置，不在开发范围** | 1–1.5 天 |
 | P2 | 查询前钳制 + 同步钳制 + `applyDimensionOverrides` 回填 + 保存校验扩展 + 单测 | 1 天 |
 | P3 | 配套接线（as-code schema、operationLogDiff、generate-api、回滚对象/事件队列）+ 新品数据库看板逐 tab 配置与验收 | 0.5–1 天 |
 
@@ -119,13 +144,17 @@ rollingMinAllowedMonths?: number;
 
 ## 5. 待确认的语义问题（开发前需拍板）
 
-1. **「近 N 个月」窗口锚点**：建议 = 与「可选最晚月」耦合（可选的恰好是最近 N 个有数据的整月；4 号前数据未到的月份不占额度）。备选 = 与今天耦合（固定从「今-月 N-1」起算，4 号前窗口会短一个月）。
+1. **「近 N 个月」窗口锚点**：建议 = 与「可选最晚月」耦合（可选的恰好是最近 N 个有数据的整月；4 号前数据未到的月份不占额度），备选 = 与今天耦合。✅ 已按「与最晚月耦合」写入 §2.1，如有异议请提出。
 2. **SQL 图表 tile**：新品数据库各 tab 是否存在 SQL 图表？若有，tab 级筛选器对它们无效，需要单独决策（改造成本高）。
 3. **跨 tab 同值同步**：保留（同步后按各 tab 边界钳制，推荐）还是关闭日期字段的同步（各 tab 完全独立）？
 
 ---
 
-## 6. 风险
+## 6. 同比指标的注意点
+
+新品分布含同比：筛选窗口钉在 24 个整月时，窗口**前 12 个月**的同比对比对象在窗口之外 → 同比值必然为 null。这是数据本身只有 24 个月造成的（把窗口放大也一样），不是筛选器缺陷。若业务希望「同比列尽量不空」，可把默认值设为「距今 11 个月 至 距今 1 个月」（近 12 个月，同比完整），同时允许查看者在 24 个月窗口内自行调整。
+
+## 7. 风险
 
 - 查询 key 含整条筛选器规则对象：作者改约束本身会触发一次取数（现状语义，不算新增风险）；
 - 钳制固定值会改变「作者默认值越界」时的查询语义（从查空数据变为查夹紧后的最近合法区间）——这正是需求意图，但需在验收时与业务确认展示一致；
