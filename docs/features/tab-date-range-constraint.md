@@ -81,9 +81,23 @@ rollingMinAllowedMonths?: number;
 
 即：min 每月随数据窗口自动 +1 个月，且窗口起点只在每月 4 号这一口径上变化，与数据到达节奏对齐，不会出现月中窗口漂移。
 
-**配置 UI**（`DateRangeConstraintEditor.tsx` 最小值一侧）：
+**配置 UI**（`DateRangeConstraintEditor.tsx`，月粒度示例）：
 
-- SegmentedControl：`固定日期 | 近 N 个月`；选后者时渲染 NumberInput（1–120，默认 24），写入 `rollingMinAllowedMonths` 并清空 `minAllowedDate`；反向切回时清空 rolling 字段。
+```
+日期选择器  [月 ▾]
+────────────────────────────────────────────
+最早可选 ⓘ   [ 固定日期 | 近N个月 ]        ← SegmentedControl
+  固定: [2024年10月 ▾]   近N: [ 24 ] 个月  （动态）
+最晚可选 ⓘ   [ 2026年10月 ▾ ]              ← 开动态后变为 Badge
+  ☐ 跟随数据更新 ⓘ
+```
+
+- **内联长文案全部移除**：删掉现有 `hint`（留空说明）与 `dynamic_max_description`（4 号规则）两段 Text；
+- **改为图标 + Tooltip**：`min_label`/`max_label`/开关 label 旁各加一个 `IconInfoCircle`（Mantine `Tooltip`，withArrow，hover+focus 触发，键盘可达）：
+  - 最早可选 ⓘ：「留空 = 不限制；选「近 N 个月」= 每月随数据窗口自动后移 1 个月，无需人工改」
+  - 最晚可选/开关 ⓘ：「月粒度 4 号前可选到上上月、4 号及以后可选到上月；季度为最近一个完整季度。留空且未开启 = 不限制」
+- **动态状态可视化**（回答「如何标记是动态的」）：约束处于动态时，对应输入框旁显示蓝色 `Badge`（size=xs，variant=light）并附解析后的当前值，如「动态 · 当前=2026-10」；固定日期时不显示 Badge，picker 可编辑。动态 min（近 N 个月）与动态 max 同样式，用户一眼分辦哪些维度在自动滚动；
+- 选「近 N 个月」时写入 `rollingMinAllowedMonths` 并清空 `minAllowedDate`；反向切回时清空 rolling 字段。
 
 **运行时**（`DateFilterInputs.tsx` → 各月粒度 picker）：无需改动——bounds 计算出来后月历自然置灰，即满足「不让勾选」。
 
@@ -107,9 +121,9 @@ rollingMinAllowedMonths?: number;
 ### 2.5 配套接线（无行为变更）
 
 - `getFilterRuleRevertableObject`（`FilterConfiguration/utils/index.ts:251`）补新字段；
+- i18n：`public/locales/{zh,en}/translation.json` 的 `components_dashboard_filter.configuration.date_range.*`——新增 tooltip 键（`min_tooltip` / `max_tooltip`）、Badge 键（`dynamic_badge`「动态」/ `dynamic_badge_current`「动态 · 当前={value}」）、模式键（`rolling_mode_label`「近 N 个月」/ `fixed_mode_label`「固定日期」）；原 `hint` / `dynamic_max_description` 长文案键废弃；
 - `dashboardOperationEventQueue.ts` 的 `date_constraint` changeKind 映射补新字段（改约束触发一次取数属预期）；
 - `dashboardOperationLogDiff`（backend）与 `dashboard-as-code-1.0.json` schema 补字段；跑 `pnpm generate-api`；
-- i18n：`public/locales/{zh,en}/translation.json` 的 `components_dashboard_filter.configuration.date_range.*` 新增「近 N 个月」相关键。
 
 ### 2.6 明确不做（本期）
 
