@@ -72,7 +72,7 @@ GroupService 构造时挂 UserGroupsEnabled → health check / API 门控
 | 管理界面排序打磨：组成员按字母排、选择器排序、admin 设置统一排序 | #31312、#31635、#31067 | 小步 UX 跟进，可合并成一个小 PR |
 | Space 分享面板显示组内自定义角色成员；禁用继承时保留空组授权 | #30626、#31805 | 小修，跟随 |
 | SCIM 组 schema 扩展（组同步） | #28065 | **暂缓**：SCIM 在上游属 EE（`packages/backend/src/ee/`），按既有 EE 口径只标记不解绑 |
-| Role Sets 管理界面（org / 项目 / 组三维度） | #27569 | **暂缓**：Role Sets 上轮已明确不进必迁清单，维持 |
+| Role Sets 管理界面（org / 项目 / 组三维度） | #27569（归上游 1.195.0，属上一窗口 0.2513→2.57 的遗留项，v2 时已明确暂缓） | **维持暂缓**：custom roles 为 EE license 能力，依赖多角色模型；上轮已明确不进必迁清单 |
 | AI agent 按 group 限制可用性、组访问可搜索 | #30899、#32208 | **暂缓**：依赖 agent-identity 体系，随 AI 全家桶口径 |
 | 组织用户属性 as code（YAML） | #29620 | 与分组相邻（组属性覆盖），若做 content-as-code 增量可一并评估 |
 

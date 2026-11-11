@@ -32,7 +32,7 @@
 | **MCP** | 27 | 项目级访问限制（#31783）、`X-Lightdash-Agent` header pin（#31488）、composer session 节点复用（#31813）、custom chart type 渲染（#31183） | 中价值：自研 MCP 权限层刚对齐 v1，这些是增量，逐个对照 |
 | **Embed** | 19 | 嵌入式 AI agent（只读 token #32105、写动作多 Space #31303）、看板服务端渲染 PDF/图片导出（#31240、#31788） | 维持上轮口径「Embed 暂缓」；服务端 PDF 导出子项可单独评估 |
 | **Onboarding 重做** | 13 | 全新注册/组织 setup 流程、AI onboarding agent 扫描 live sources（#32072）、starter chart types | 低-中价值 |
-| **User Groups 常开** | — | 3.179.0 移除 `user-groups-enabled` flag（#32201）+ SCIM 组扩展（#28065）+ Role Sets 组维度 UI（#27569） | 专题另见 [`./v3-user-groups-status.md`](./v3-user-groups-status.md)：主干本仓已有，开 flag 即用 |
+| **User Groups 常开** | — | 3.179.0 移除 `user-groups-enabled` flag（#32201）+ SCIM 组扩展（#28065） | 专题另见 [`./v3-user-groups-status.md`](./v3-user-groups-status.md)：主干本仓已有，开 flag 即用（Role Sets 组维度 UI #27569 属上一窗口 1.19x 遗留暂缓项，非本窗口增量） |
 | **其他值得记录** | — | 预聚合 fingerprint 体系（唯一破坏性变更，见 §1）；组织用户属性 as code（#29620）；service accounts 转license-only（#31476） | 逐项按需 |
 
 ## 3. 工具链差距（迁移前置）
