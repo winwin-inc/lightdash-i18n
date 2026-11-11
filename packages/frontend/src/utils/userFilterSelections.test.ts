@@ -1719,3 +1719,50 @@ describe('userFilterSelections', () => {
         });
     });
 });
+
+describe('applySelectionValues round trip (A → B → A)', () => {
+    it('inherits clamped values back into the wider tab without out-of-window values', () => {
+        // 场景：作者窗口 A(24 个月) → B(12 个月) → 同步回 A。
+        // 期望：B 按自身窗口钳制；钳后值再回到 A 时在 A 的窗口内原样继承；
+        // A 的约束字段（rolling/动态 max）不因同步而改变。
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date('2026-07-15T12:00:00'));
+        try {
+            const tabA = rule({
+                id: 'tab-a-date',
+                fieldId: 'date',
+                operator: FilterOperator.IN_BETWEEN,
+                dateRangeGranularity: TimeFrames.MONTH,
+                enableDynamicMaxAllowedDate: true,
+                rollingMinAllowedMonths: 24,
+            });
+            const tabB = rule({
+                id: 'tab-b-date',
+                fieldId: 'date',
+                operator: FilterOperator.IN_BETWEEN,
+                dateRangeGranularity: TimeFrames.MONTH,
+                enableDynamicMaxAllowedDate: true,
+                rollingMinAllowedMonths: 12,
+            });
+            // 作者在 A 上选择了完整 24 个月窗口（运行时窗口 2024-07-01 ~ 2026-06-30）
+            const aSelected = {
+                ...tabA,
+                values: ['2024-07-01', '2026-06-30'],
+            };
+
+            // A → B：B 按自身 12 个月窗口钳制（2025-07-01 ~ 2026-06-30）
+            const bAfter = applySelectionValues(tabB, aSelected);
+            expect(bAfter.values).toEqual(['2025-07-01', '2026-06-30']);
+            expect(bAfter.rollingMinAllowedMonths).toBe(12);
+
+            // B → A：钳后值在 A 的 24 个月窗口内 → 原样继承，A 不越界
+            const aAfter = applySelectionValues({ ...tabA }, bAfter);
+            expect(aAfter.values).toEqual(['2025-07-01', '2026-06-30']);
+            expect(aAfter.rollingMinAllowedMonths).toBe(24);
+            expect(aAfter.enableDynamicMaxAllowedDate).toBe(true);
+            expect(aAfter.id).toBe('tab-a-date');
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+});
