@@ -2823,6 +2823,8 @@
         },
         "mode_tooltip": "Shape of the default range: \"Dynamic dates\" rolls forward month by month relative to now; \"Fixed dates\" uses literal dates. Only \"is between\" filters use this switch; single-value filters set their dynamic default inside the value control.",
         "default_out_of_range": "The default date is outside the allowed range",
+        "default_after_max_bounds": "Latest selectable: {{max}}",
+        "default_before_min_bounds": "Earliest selectable: {{min}}",
         "start_after_end": "Start date cannot be later than end date",
         "granularity_label": "Date selector",
         "granularity": {
