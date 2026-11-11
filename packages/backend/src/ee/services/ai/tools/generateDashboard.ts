@@ -16,9 +16,9 @@ import type {
     SendFileFn,
     UpdateProgressFn,
     UpdatePromptFn,
-} from '../types/aiAgentDependencies';
-import { toModelOutput } from '../utils/toModelOutput';
-import { toolErrorHandler } from '../utils/toolErrorHandler';
+} from '../../../../services/ai/types/aiAgentDependencies';
+import { toModelOutput } from '../../../../services/ai/utils/toModelOutput';
+import { toolErrorHandler } from '../../../../services/ai/utils/toolErrorHandler';
 import { validateBarVizConfig } from '../utils/validateBarVizConfig';
 import { validateTableVizConfig } from '../utils/validateTableVizConfig';
 import { validateTimeSeriesVizConfig } from '../utils/validateTimeSeriesVizConfig';

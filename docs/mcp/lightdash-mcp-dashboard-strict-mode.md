@@ -2,7 +2,9 @@
 
 > **状态：已实施（v2），合入分支 `feat/mcp-dashboard-strict`。** 代码位置：`packages/lightdash-mcp/src/lib/requiredDashboardContext.ts`（唯一闸门）+ `packages/backend` 的 `associatedCount`。本文描述目标行为、环境变量、权限口径与返回契约；实现与设计的细微差异集中在 §10.4。
 >
-> 关联阅读：[MCP 看板上下文](./mcp-dashboard-context.md)、[client-use 内容可见性](../features/client-use-viewer-content-scope.md)、[上线流程](./mcp-service-launch.md)、[工具与权限对照](./mcp-tools-permissions.md)、[包 README](../../packages/lightdash-mcp/README.md)。
+> **内置 MCP 同步实现（2026-11-10，主站 v2.7.1）**：本文描述的整套行为已对齐移植到主站内置 MCP（`packages/backend/src/services/McpService/tools/access/`，进程内实现，文案/判定/guard 契约逐字一致，独立评审验证）。开关同名 `MCP_DASHBOARD_STRICT` / `MCP_DASHBOARD_CONTACT`，默认关闭；部署与验收见 [内置部署指南 §7](./mcp-builtin-deploy.md)。差异仅在实现形态（进程内直调 service vs HTTP）与少量可接受偏差（见 v2.7.1 提交说明）。
+>
+> 关联阅读：[MCP 看板上下文](./mcp-dashboard-context.md)、[client-use 内容可见性](../features/client-use-viewer-content-scope.md)、[上线流程](./mcp-standalone-launch.md)、[工具与权限对照](./mcp-tools-permissions.md)、[包 README](../../packages/lightdash-mcp/README.md)。
 
 ## 0. v2 相对 v1 的变更
 
@@ -420,7 +422,7 @@
 | 文件 | 更新内容 |
 |------|----------|
 | `packages/lightdash-mcp/README.md:64-79,117` | 环境变量表去掉"未实现"、`/health` 字段加 `dashboardStrict` |
-| `docs/mcp/mcp-service-launch.md:213-237,337` | §5.4 条件②、§5.5 流程图、§8.2 验收行 6 要按 `MCP_DASHBOARD_STRICT` 拆两套期望（否则上线验收会按严格模式关闭的口径判失败） |
+| `docs/mcp/mcp-standalone-launch.md:213-237,337` | §5.4 条件②、§5.5 流程图、§8.2 验收行 6 要按 `MCP_DASHBOARD_STRICT` 拆两套期望（否则上线验收会按严格模式关闭的口径判失败） |
 | `docs/mcp/mcp-dashboard-context.md:95-125` | 规则表加"以下为 `MCP_DASHBOARD_STRICT=false` 的行为" |
 | `docs/mcp/mcp-tools-permissions.md` | 已加严格模式注记，实施后再补状态枚举 |
 | `src/config.ts:4` 注释 | 注释指向 `packages/lightdash-mcp/.env.example`，但该文件在仓库里**不存在**；实施时补上或改注释 |

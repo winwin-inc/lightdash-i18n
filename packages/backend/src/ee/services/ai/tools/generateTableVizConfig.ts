@@ -7,7 +7,7 @@ import {
     toolTableVizOutputSchema,
 } from '@lightdash/common';
 import { tool } from 'ai';
-import { NO_RESULTS_RETRY_PROMPT } from '../prompts/noResultsRetry';
+import { NO_RESULTS_RETRY_PROMPT } from '../../../../services/ai/prompts/noResultsRetry';
 import type {
     CreateOrUpdateArtifactFn,
     GetExploreFn,
@@ -15,12 +15,12 @@ import type {
     RunMiniMetricQueryFn,
     SendFileFn,
     UpdateProgressFn,
-} from '../types/aiAgentDependencies';
+} from '../../../../services/ai/types/aiAgentDependencies';
 import { convertQueryResultsToCsv } from '../utils/convertQueryResultsToCsv';
-import { populateCustomMetricsSQL } from '../utils/populateCustomMetricsSQL';
-import { serializeData } from '../utils/serializeData';
-import { toModelOutput } from '../utils/toModelOutput';
-import { toolErrorHandler } from '../utils/toolErrorHandler';
+import { populateCustomMetricsSQL } from '../../../../services/ai/utils/populateCustomMetricsSQL';
+import { serializeData } from '../../../../services/ai/utils/serializeData';
+import { toModelOutput } from '../../../../services/ai/utils/toModelOutput';
+import { toolErrorHandler } from '../../../../services/ai/utils/toolErrorHandler';
 import { validateTableVizConfig } from '../utils/validateTableVizConfig';
 
 type Dependencies = {

@@ -10,7 +10,7 @@ import {
     type TableCalculation,
 } from '@lightdash/common';
 
-import { validateSelectedFieldsExistence } from './validators';
+import { validateSelectedFieldsExistence } from '../../../../services/ai/utils/validators';
 
 const mockExplore: Explore = {
     targetDatabase: SupportedDbtAdapter.POSTGRES,

@@ -134,6 +134,10 @@ const useTableConfig = (
     const [pivotAutoFillWidth, setPivotAutoFillWidth] = useState<boolean>(
         tableChartConfig?.pivotAutoFillWidth ?? false,
     );
+    const [showFieldDescriptionTooltip, setShowFieldDescriptionTooltip] =
+        useState<boolean>(
+            tableChartConfig?.showFieldDescriptionTooltip ?? true,
+        );
     const [pivotColumnMaxWidth, setPivotColumnMaxWidth] = useState<
         number | undefined
     >(tableChartConfig?.pivotColumnMaxWidth);
@@ -200,6 +204,7 @@ const useTableConfig = (
             ? itemsInMetricQuery(resultsData.metricQuery)
             : undefined;
     }, [resultsData?.metricQuery]);
+    const knownFieldIdsRef = useRef<Set<string>>(new Set());
 
     const getFieldLabelDefault = useCallback(
         (fieldId: string | null | undefined) => {
@@ -577,30 +582,37 @@ const useTableConfig = (
         setColumnProperties(incoming);
     }, [tableChartConfig?.columns]);
 
-    // Remove columnProperties from map if the column has been removed from results
+    // 只删「本次会话里出现过、现在从查询中消失」的列属性。
+    // 首帧的 resultsData.metricQuery 可能是上一页残留或上一份查询（explorerStore 是模块级单例、
+    // useQueryResults 开了 keepPreviousData），按它判断会把已保存的列配置整体删掉并回写落库。
     useEffect(() => {
-        if (Object.keys(columnProperties).length > 0 && selectedItemIds) {
-            const newColumnProperties = Object.keys(columnProperties).reduce<
-                Record<string, ColumnProperties>
-            >(
-                (acc, field) =>
-                    selectedItemIds.includes(field)
-                        ? {
-                              ...acc,
-                              [field]: columnProperties[field],
-                          }
-                        : acc,
-                {},
+        // 没有可用字段集时不判断（避免用空集合清空全部配置）
+        if (!selectedItemIds || selectedItemIds.length === 0) return;
+
+        const knownFieldIds = knownFieldIdsRef.current;
+        selectedItemIds.forEach((fieldId) => knownFieldIds.add(fieldId));
+
+        setColumnProperties((previous) => {
+            const removedFieldIds = Object.keys(previous).filter(
+                (fieldId) =>
+                    !selectedItemIds.includes(fieldId) &&
+                    knownFieldIds.has(fieldId),
             );
-            // only update if something changed, otherwise we get into an infinite loop
-            if (
-                Object.keys(columnProperties).length !==
-                Object.keys(newColumnProperties).length
-            ) {
-                setColumnProperties(newColumnProperties);
-            }
-        }
-    }, [selectedItemIds, columnProperties]);
+            if (removedFieldIds.length === 0) return previous;
+
+            // 一帧就要删掉全部列属性时，更可能是结果来源变了（merge/分页表/跨图表残留），
+            // 而不是用户逐个移除了字段。此时保守保留：孤儿配置不渲染、不报错，
+            // 但一次误删会永久丢失用户设置。
+            const wouldRemoveAll =
+                removedFieldIds.length === Object.keys(previous).length &&
+                removedFieldIds.length > 1;
+            if (wouldRemoveAll) return previous;
+
+            const next = { ...previous };
+            removedFieldIds.forEach((fieldId) => delete next[fieldId]);
+            return next;
+        });
+    }, [selectedItemIds]);
 
     const updateColumnProperty = useCallback(
         (field: string, properties: Partial<ColumnProperties>) => {
@@ -702,6 +714,7 @@ const useTableConfig = (
             showColumnCalculation,
             showRowCalculation,
             showTableNames,
+            showFieldDescriptionTooltip,
             showResultsTotal,
             enablePagination,
             pageSize,
@@ -723,6 +736,7 @@ const useTableConfig = (
             showRowCalculation,
             hideRowNumbers,
             showTableNames,
+            showFieldDescriptionTooltip,
             showResultsTotal,
             enablePagination,
             pageSize,
@@ -786,6 +800,8 @@ const useTableConfig = (
             setPivotMetricHeaderPosition,
             pivotAutoFillWidth,
             setPivotAutoFillWidth,
+            showFieldDescriptionTooltip,
+            setShowFieldDescriptionTooltip,
             pivotDimensionColumnMaxWidth,
             setPivotDimensionColumnMaxWidth,
             pivotColumnMaxWidth,
@@ -843,6 +859,8 @@ const useTableConfig = (
             setPivotMetricHeaderPosition,
             pivotAutoFillWidth,
             setPivotAutoFillWidth,
+            showFieldDescriptionTooltip,
+            setShowFieldDescriptionTooltip,
             pivotDimensionColumnMaxWidth,
             setPivotDimensionColumnMaxWidth,
             pivotColumnMaxWidth,

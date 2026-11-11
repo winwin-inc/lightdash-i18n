@@ -4,13 +4,13 @@ import {
     legacyFollowUpToolsTransform,
 } from '../../followUpTools';
 import { AiResultType } from '../../types';
-import { customMetricsSchema } from '../customMetrics';
-import { filtersSchemaTransformed, filtersSchemaV2 } from '../filters';
-import { baseOutputMetadataSchema } from '../outputMetadata';
-import { tableCalcsSchema } from '../tableCalcs/tableCalcs';
-import { createToolSchema } from '../toolSchemaBuilder';
-import visualizationMetadataSchema from '../visualizationMetadata';
-import { tableVizConfigSchema } from '../visualizations';
+import { customMetricsSchema } from '../../../../schemas/mcp/customMetrics';
+import { filtersSchemaTransformed, filtersSchemaV2 } from '../../../../schemas/mcp/filters';
+import { baseOutputMetadataSchema } from '../../../../schemas/mcp/outputMetadata';
+import { tableCalcsSchema } from '../../../../schemas/mcp/tableCalcs/tableCalcs';
+import { createToolSchema } from '../../../../schemas/mcp/toolSchemaBuilder';
+import visualizationMetadataSchema from '../../../../schemas/mcp/visualizationMetadata';
+import { tableVizConfigSchema } from '../../../../schemas/mcp/tableVizConfig';
 
 export const TOOL_TABLE_VIZ_DESCRIPTION = `Use this tool to query data to display in a table or summarized if limit is set to 1.`;
 

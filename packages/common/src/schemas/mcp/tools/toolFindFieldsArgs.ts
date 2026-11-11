@@ -1,0 +1,51 @@
+import { z } from 'zod';
+import { baseOutputMetadataSchema } from '../outputMetadata';
+import { createToolSchema } from '../toolSchemaBuilder';
+
+export const TOOL_FIND_FIELDS_DESCRIPTION = `Tool: "findFields"
+
+Purpose:
+Finds the most relevant Fields (Metrics & Dimensions) within Explores, returning detailed info about each.
+
+Usage tips:
+- Use "findExplores" first to discover available Explores and their field labels.
+- Use full field labels in search terms (e.g. "Total Revenue", "Order Date").
+- Pass all needed fields in one request.
+- Fields are sorted by relevance, with a maximum score of 1 and a minimum of 0, so the top results are the most relevant.
+- If results aren't relevant, retry with clearer or more specific terms.
+- Results are paginated — use the next page token to get more results if needed.
+`;
+
+export const toolFindFieldsArgsSchema = createToolSchema({
+    type: 'find_fields',
+    description: TOOL_FIND_FIELDS_DESCRIPTION,
+})
+    .extend({
+        table: z.string().describe('The table to search in.'),
+        fieldSearchQueries: z.array(
+            z.object({
+                label: z.string().describe('Full field label'),
+            }),
+        ),
+        catalogTags: z
+            .array(z.string())
+            .optional()
+            .describe(
+                'Optional catalog tags to filter fields by. Overrides the tags stored by set_project for this call. Pass an empty array to disable tag filtering.',
+            ),
+    })
+    .withPagination()
+    .build();
+
+export type ToolFindFieldsArgs = z.infer<typeof toolFindFieldsArgsSchema>;
+
+export const toolFindFieldsArgsSchemaTransformed = toolFindFieldsArgsSchema;
+
+export type ToolFindFieldsArgsTransformed = ToolFindFieldsArgs;
+
+export const toolFindFieldsOutputSchema = z.object({
+    result: z.string(),
+    metadata: baseOutputMetadataSchema,
+});
+
+export type ToolFindFieldsOutput = z.infer<typeof toolFindFieldsOutputSchema>;

@@ -62,8 +62,8 @@
 | `get_mcp_docs` | 返回 MCP 内置说明 |
 | `get_site_info` | 返回站点根地址 |
 | `get_lightdash_version` | 返回实例健康信息与版本 |
-| `set_project` | 在当前 PAT 会话里记住默认项目 |
-| `get_current_project` | 读取当前会话里的默认项目 |
+| `set_project` | 为当前用户 + 当前组织记住默认项目（持久化到数据库，跨重启/跨副本一致） |
+| `get_current_project` | 读取默认项目及其来源 |
 | `get_my_access` | 返回当前令牌的组织角色和各项目有效能力。默认不返回表名单；`includeExplores=true` 才返回。设计见 [mcp-get-my-access.md](./mcp-get-my-access.md) |
 
 ## 查看者即可

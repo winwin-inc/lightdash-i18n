@@ -5520,7 +5520,13 @@
       },
       "stack_series_sort_by_value": "堆叠系列排序",
       "series_sort": "系列排序",
-      "tried": "尝试引用未知ID的字段:"
+      "tried": "尝试引用未知ID的字段:",
+      "baseline": "作为基准线",
+      "baseline_style_width": "线宽",
+      "baseline_style_line_type": "线型",
+      "baseline_line_type_solid": "实线",
+      "baseline_line_type_dashed": "虚线",
+      "hide_metric_name": "隐藏指标名"
     }
   },
   "components_visualization_configs_chart_funnel": {
@@ -5674,6 +5680,8 @@
       "pivot_column_max_width_hint": "同时约束内容自适应与撑满拉伸；留空使用默认上限 450，占位值为更紧的建议值",
       "display": "显示",
       "show_table_names": "显示表名",
+      "show_field_description_tooltip": "显示字段描述",
+      "show_field_description_tooltip_hint": "悬停表头时显示字段描述（来自 dbt）",
       "show_row_numbers": "显示行号",
       "value_alignment": "数值对齐",
       "alignment": "对齐方式",
@@ -8384,6 +8392,32 @@
   },
   "components_lightdash_visualization": {
     "unable_to_load_visualization": "无法加载图表"
+  },
+  "components_chart_error_details": {
+    "summary_invalid_one": "本图有 {{count}} 个字段不可用",
+    "summary_invalid_other": "本图有 {{count}} 个字段不可用",
+    "summary_none": "未发现失效字段，错误可能来自字段引用之外的原因",
+    "summary_uncertain": "本次查询共 {{count}} 个字段，错误可能来自其中之一",
+    "error_short": "图表加载失败",
+    "view_details": "查看详情",
+    "technical_details": "技术详情",
+    "group_dimension": "维度",
+    "group_metric": "指标",
+    "group_table_calculation": "表计算",
+    "more_in_group": "还有 {{count}} 个",
+    "invalid_badge": "不可用",
+    "origin_query": "图表字段",
+    "origin_filter": "图表筛选",
+    "origin_sort": "图表排序",
+    "origin_dashboard_filter": "看板筛选",
+    "origin_dashboard_sort": "看板排序",
+    "origin_date_zoom": "日期缩放",
+    "origin_unknown": "来源不详",
+    "permission": "无权限访问该图表数据",
+    "not_found": "模型不可用，图表无法加载",
+    "parameter": "缺少必需参数，请先配置参数",
+    "chart_type_label": "类型：{{type}}",
+    "note_query_fields_only": "仅列出查询字段，不含自定义图表 spec 引用"
   },
   "components_run_query_settings": {
     "auto_fetch_results": "自动获取结果",

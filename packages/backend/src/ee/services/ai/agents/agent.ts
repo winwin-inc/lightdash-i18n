@@ -12,17 +12,17 @@ import {
 } from 'ai';
 import Logger from '../../../../logging/logger';
 import { getSystemPrompt } from '../prompts/system';
-import { getFindCharts } from '../tools/findCharts';
-import { getFindDashboards } from '../tools/findDashboards';
-import { getFindExplores } from '../tools/findExplores';
-import { getFindFields } from '../tools/findFields';
+import { getFindCharts } from '../../../../services/ai/tools/findCharts';
+import { getFindDashboards } from '../../../../services/ai/tools/findDashboards';
+import { getFindExplores } from '../../../../services/ai/tools/findExplores';
+import { getFindFields } from '../../../../services/ai/tools/findFields';
 import { getGenerateBarVizConfig } from '../tools/generateBarVizConfig';
 import { getGenerateDashboard } from '../tools/generateDashboard';
 import { getGenerateTableVizConfig } from '../tools/generateTableVizConfig';
 import { getGenerateTimeSeriesVizConfig } from '../tools/generateTimeSeriesVizConfig';
 import { getImproveContext } from '../tools/improveContext';
 import { getProposeChange } from '../tools/proposeChange';
-import { getSearchFieldValues } from '../tools/searchFieldValues';
+import { getSearchFieldValues } from '../../../../services/ai/tools/searchFieldValues';
 import type {
     AiAgentArgs,
     AiAgentDependencies,

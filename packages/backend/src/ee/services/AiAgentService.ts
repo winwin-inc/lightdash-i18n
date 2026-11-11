@@ -131,7 +131,7 @@ import {
     StoreToolCallFn,
     StoreToolResultsFn,
     UpdateProgressFn,
-} from './ai/types/aiAgentDependencies';
+} from '../../services/ai/types/aiAgentDependencies';
 import {
     getDeepLinkBlocks,
     getExploreBlocks,
@@ -139,8 +139,8 @@ import {
     getFollowUpToolBlocks,
     getProposeChangeBlocks,
 } from './ai/utils/getSlackBlocks';
-import { populateCustomMetricsSQL } from './ai/utils/populateCustomMetricsSQL';
-import { validateSelectedFieldsExistence } from './ai/utils/validators';
+import { populateCustomMetricsSQL } from '../../services/ai/utils/populateCustomMetricsSQL';
+import { validateSelectedFieldsExistence } from '../../services/ai/utils/validators';
 import { AiOrganizationSettingsService } from './AiOrganizationSettingsService';
 
 type ThreadMessageContext = Array<

@@ -11,7 +11,7 @@ import {
     validateSelectedFieldsExistence,
     validateSortFieldsAreSelected,
     validateTableCalculations,
-} from './validators';
+} from '../../../../services/ai/utils/validators';
 
 export const validateTimeSeriesVizConfig = (
     vizTool: ToolTimeSeriesArgsTransformed,

@@ -119,4 +119,65 @@ describe('OAuthService edge cases', () => {
             } as AnyType),
         ).rejects.toThrow('Invalid redirect_uri');
     });
+
+    describe('default scope', () => {
+        it('should default to the MCP read scope when no scope is requested', async () => {
+            const request = {
+                body: { client_id: 'client-id' },
+            } as AnyType;
+            const response = {} as OAuth2Server.Response;
+            const authorize = jest.fn().mockResolvedValue({});
+            mockOAuthModel.getClientScopes = jest.fn().mockResolvedValue([]);
+            oauthService.setOAuthServer({ authorize } as AnyType);
+
+            await oauthService.authorize(request, response, {
+                user_id: 'u',
+                organization_uuid: 'o',
+            } as AnyType);
+
+            expect(request.body.scope).toEqual('mcp:read');
+            expect(authorize).toHaveBeenCalled();
+        });
+
+        it('should use the MCP scopes registered by the client', async () => {
+            const request = {
+                body: { client_id: 'client-id' },
+            } as AnyType;
+            const response = {} as OAuth2Server.Response;
+            mockOAuthModel.getClientScopes = jest
+                .fn()
+                .mockResolvedValue(['mcp:read', 'mcp:write']);
+            oauthService.setOAuthServer({
+                authorize: jest.fn().mockResolvedValue({}),
+            } as AnyType);
+
+            await oauthService.authorize(request, response, {
+                user_id: 'u',
+                organization_uuid: 'o',
+            } as AnyType);
+
+            expect(request.body.scope).toEqual('mcp:read mcp:write');
+        });
+
+        it('should keep the requested scope', async () => {
+            const request = {
+                body: { client_id: 'client-id', scope: 'mcp:write' },
+            } as AnyType;
+            const response = {} as OAuth2Server.Response;
+            mockOAuthModel.getClientScopes = jest
+                .fn()
+                .mockResolvedValue(['mcp:read', 'mcp:write']);
+            oauthService.setOAuthServer({
+                authorize: jest.fn().mockResolvedValue({}),
+            } as AnyType);
+
+            await oauthService.authorize(request, response, {
+                user_id: 'u',
+                organization_uuid: 'o',
+            } as AnyType);
+
+            expect(request.body.scope).toEqual('mcp:write');
+            expect(mockOAuthModel.getClientScopes).not.toHaveBeenCalled();
+        });
+    });
 });

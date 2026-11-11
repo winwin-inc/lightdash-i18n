@@ -69,6 +69,10 @@ pnpm -F backend rollback-last
 
 ## 开发流程
 
+0. **分支约定**（详见 `.agents/rules/branching.md`）：
+   - **bug 修复**：默认在 `fix/bugs` 分支上开发/修 bug，不要擅自切到 dev；若目标代码只在 dev 有，先把 dev 合入 `fix/bugs`（fast-forward 或 merge）再改，改动一律提交在 `fix/bugs`
+   - **功能开发**：在 `feat/xx` 分支上进行；完成后由 `feat/xx` 合并到 `dev`（或视发布安排 `pre`/`main`）。功能分支**不要**直接合入 `release` 或 `fix/bugs`；`fix/bugs` 只承接 bug 修复
+   - 功能分支可定期把最新 `release`/`dev` 合入自己，保持基线不过期（如本次 `feat/mcp-unified-backend` 合入了 `origin/release`）
 1. **包管理**：使用 `pnpm`（v9.15.5+），不要用 npm 或 yarn
 2. **TypeScript**：各包使用 TypeScript project references 做类型检查
 3. **Lint**：ESLint（Airbnb 配置），包含 `no-floating-promises`
@@ -151,6 +155,15 @@ pnpm -F backend rollback-last
 ## 开发排错
 
 -   dbt 相关问题时，确认仓库根目录有 python3 venv，且已安装 dbt-core、dbt-postgres
+
+## Agent 协作纪律（强制）
+
+所有 agent（含子 agent）必须遵守 `.agents/` 下的规则，要点：
+
+-   **聚焦测试**：只跑与改动直接相关的单文件/单用例测试（详见 `.agents/rules/testing-discipline.md` 与 `.agents/skills/focused-testing/SKILL.md`）；全量 test/lint/typecheck 由主控收尾统一执行，worker 不做批量验证
+-   frontend vitest 冷启动极慢（重插件 transform 40min+、默认堆会 OOM），必须按 focused-testing 技能中的方式探路；所有验证命令必须带 `timeout`
+-   环境性失败同类最多重试 2 次，之后必须上报，禁止蛮试
+-   多 agent 派发/验收/生成物同步流程见 `.agents/rules/multi-agent.md`；给既有组件新增 context 依赖时必须同步检查其既有测试的 Provider mock
 
 ## 本地数据库调试
 

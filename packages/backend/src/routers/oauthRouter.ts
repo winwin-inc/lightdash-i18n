@@ -10,6 +10,7 @@ import express from 'express';
 import Logger from '../logging/logger';
 import { DEFAULT_OAUTH_CLIENT_ID } from '../models/OAuth2Model';
 import {
+    MCP_SUPPORTED_SCOPES,
     OAuthScope,
     OAuthService,
 } from '../services/OAuthService/OAuthService';
@@ -300,19 +301,26 @@ oauthRouter.post('/register', async (req, res) => {
             });
         }
 
-        const scopes = typeof scope === 'string' ? scope.split(' ') : [];
+        const requestedScopes = (
+            typeof scope === 'string' ? scope.split(' ') : []
+        ).filter((sc) => sc.length > 0);
         /*
-        // Do not enforce client scopes for now until more MCP clients support this
-        const invalidScopes = scopes.filter((sc) => !sc.startsWith('mcp:'));
-        if (invalidScopes.length > 0 || scopes.length === 0) {
-            return res.status(400).json({
-                error: 'invalid_scope',
-                error_description: `Only scopes starting with 'mcp:' are allowed. Invalid scopes: ${invalidScopes.join(
-                    ', ',
-                )}`,
-            });
-        }
+        Only MCP scopes are supported. Unknown scopes are dropped and, when no
+        valid scope is requested, the client gets the default read scope.
         */
+        const scopes = requestedScopes.filter((sc) =>
+            MCP_SUPPORTED_SCOPES.includes(sc),
+        );
+        if (scopes.length === 0) {
+            scopes.push(OAuthScope.MCP_READ);
+        }
+        if (scopes.length !== requestedScopes.length) {
+            Logger.warn(
+                `Ignoring unsupported scopes for Oauth client ${client_name}: requested ${requestedScopes.join(
+                    ' ',
+                )}`,
+            );
+        }
 
         const client = await getOAuthService(req).registerClient({
             clientName: client_name,

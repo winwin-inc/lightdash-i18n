@@ -15,13 +15,16 @@ import {
     NotImplementedError,
     OauthAccount,
     OauthAuth,
+    AuthorizationError,
 } from '@lightdash/common';
 import {
     allowApiKeyAuthentication,
     allowOauthAuthentication,
     isAuthenticated,
 } from '../controllers/authentication';
-import { ExtraContext, McpService } from '../ee/services/McpService/McpService';
+import { McpService } from '../services/McpService/McpService';
+import { buildMcpAuthInfo } from '../services/McpService/mcpAuthInfo';
+import { McpAuthContext } from '../services/McpService/McpAuthContext';
 import Logger from '../logging/logger';
 
 const mcpRouter = express.Router({ mergeParams: true });
@@ -35,6 +38,13 @@ function getMcpService(req: express.Request): McpService {
 }
 
 /*
+Builds the MCP authentication context from the authenticated request.
+
+MCP only supports token based authentication:
+- Lightdash OAuth access token (scope limited)
+- Personal access token (not scope limited)
+*/
+/*
 MCP servers MUST use the HTTP header WWW-Authenticate when returning a 401 Unauthorized to indicate
 the location of the resource server metadata URL as described in RFC9728 Section 5.1 “WWW-Authenticate Response”.
 https://www.rfc-editor.org/rfc/rfc9728#section-5.1
@@ -47,6 +57,10 @@ const returnHeaderIfUnauthenticated = (
     if (req.account?.isAuthenticated()) {
         next();
     } else {
+        Logger.warn('MCP request without authentication', {
+            path: req.originalUrl,
+            method: req.method,
+        });
         const oauthService = req.services.getOauthService();
         const baseUrl = oauthService.getSiteUrl();
         res.set(
@@ -56,6 +70,26 @@ const returnHeaderIfUnauthenticated = (
         res.status(401).json({ error: 'Unauthorized' });
     }
 };
+
+// MCP health endpoint - returns the state of the MCP server without
+// requiring a full MCP session.
+mcpRouter.get('/health', async (req, res) => {
+    try {
+        const mcpService = getMcpService(req);
+        const isEnabled = req.user
+            ? await mcpService.isEnabled(req.user)
+            : false;
+
+        return res.status(200).json({
+            status: isEnabled ? 'ok' : 'disabled',
+            version: McpService.getVersion(),
+            stateless: true,
+        });
+    } catch (error) {
+        Logger.error(`MCP health check error: ${getErrorMessage(error)}`);
+        return res.status(500).json({ status: 'error' });
+    }
+});
 
 // MCP endpoint - supports Streamable HTTP
 // Keep the MCP router as raw Express because:
@@ -79,14 +113,20 @@ mcpRouter.all(
 
             const mcpServer = mcpService.getServer();
 
+            // Validate MCP access for every transport (POST and GET): tokens
+            // without the required scopes must not open an SSE stream either.
+            // NOTE: this must run BEFORE mcpServer.connect() so a rejected
+            // request never attaches its transport to the shared server.
+            const authInfo = buildMcpAuthInfo(req.user, req.account);
+            mcpService.canAccessMcp(authInfo.extra);
+            const authContext = authInfo.extra as McpAuthContext;
+
             if (req.method === 'GET') {
                 // Handle SSE transport for MCP
                 res.writeHead(200, {
                     'Content-Type': 'text/event-stream',
                     'Cache-Control': 'no-cache',
                     Connection: 'keep-alive',
-                    'Access-Control-Allow-Origin': '*',
-                    'Access-Control-Allow-Headers': 'Cache-Control',
                 });
 
                 // Keep connection alive with periodic heartbeat
@@ -110,49 +150,33 @@ mcpRouter.all(
                     enableJsonResponse: true,
                     sessionIdGenerator: undefined,
                 });
-                await mcpServer.connect(transport);
 
-                // Add auth info to request for the transport
                 // The token details is loaded on the authentication middleware allowOauthAuthentication
                 const authReq: IncomingMessage & {
                     auth?: AuthInfo;
                 } = req;
 
-                if (req.user && req.account?.isOauthUser()) {
-                    const oauthAuth = req.account as OauthAccount;
-                    const extra: ExtraContext = {
-                        user: req.user,
-                        account: oauthAuth,
-                    };
-                    authReq.auth = {
-                        token: oauthAuth.authentication.token,
-                        clientId: oauthAuth.authentication.clientId,
-                        scopes: oauthAuth.authentication.scopes,
-                        extra,
-                    };
-                }
+                Logger.info('MCP request authenticated', {
+                    userId: req.user?.userUuid,
+                    organizationUuid: authContext?.user?.organizationUuid,
+                    authType: authContext?.authType,
+                    scopes: authContext?.scopes,
+                    clientId: authInfo.clientId,
+                });
 
-                if (req.user && req.account?.isPatUser()) {
-                    const apiKeyAuth = req.account as ApiKeyAccount;
-                    const extra: ExtraContext = {
-                        user: req.user,
-                        account: apiKeyAuth,
-                    };
-                    authReq.auth = {
-                        token: apiKeyAuth.authentication.source,
-                        clientId: 'API key', // hardcoded client and scopes for PAT authentication
-                        scopes: ['mcp:read', 'mcp:write'],
-                        extra,
-                    };
-                }
+                authReq.auth = authInfo;
 
+                await mcpServer.connect(transport);
                 return await transport.handleRequest(authReq, res, req.body);
             }
 
             res.status(405).json({ error: 'Method not allowed' });
             return await Promise.resolve();
         } catch (error) {
-            Logger.error(`MCP endpoint error: ${getErrorMessage(error)}`);
+            Logger.error(`MCP endpoint error: ${getErrorMessage(error)}`, {
+                path: req.originalUrl,
+                method: req.method,
+            });
             if (error instanceof LightdashError) {
                 return res
                     .status(error.statusCode)

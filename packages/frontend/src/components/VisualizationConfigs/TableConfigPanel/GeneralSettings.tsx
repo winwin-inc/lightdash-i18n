@@ -176,6 +176,8 @@ const GeneralSettings: FC = () => {
         setShowSubtotals,
         setShowRowGrouping,
         setShowTableNames,
+        showFieldDescriptionTooltip,
+        setShowFieldDescriptionTooltip,
         showColumnCalculation,
         showResultsTotal,
         showRowCalculation,
@@ -459,6 +461,30 @@ const GeneralSettings: FC = () => {
                         setHideRowNumbers(!hideRowNumbers);
                     }}
                 />
+                <Tooltip
+                    label={t(
+                        'components_visualization_configs_table.settings.show_field_description_tooltip_hint',
+                    )}
+                    w={300}
+                    multiline
+                    fz="xs"
+                    withinPortal
+                    position="top-start"
+                >
+                    <Box>
+                        <Checkbox
+                            label={t(
+                                'components_visualization_configs_table.settings.show_field_description_tooltip',
+                            )}
+                            checked={showFieldDescriptionTooltip}
+                            onChange={() => {
+                                setShowFieldDescriptionTooltip(
+                                    (current) => !current,
+                                );
+                            }}
+                        />
+                    </Box>
+                </Tooltip>
             </Config.Section>
 
             <Config.Section>

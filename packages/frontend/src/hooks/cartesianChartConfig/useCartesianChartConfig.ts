@@ -497,6 +497,64 @@ const useCartesianChartConfig = ({
         },
         [],
     );
+
+    /**
+     * Declares (enabled) or removes (disabled) a metric field as a baseline
+     * series in the chart layout.
+     *
+     * Enabling also resets `hideMetricName` on the field's series: the merged
+     * baseline is a single reference line whose label is always the metric
+     * name, so a leftover "hide metric name" check from the pivoted state
+     * would stay visible in the panel but do nothing.
+     */
+    const setBaselineFieldEnabled = useCallback(
+        (fieldId: string, enabled: boolean) => {
+            setDirtyLayout((prev) => {
+                const currentFieldIds = prev?.baselineFieldIds ?? [];
+                const nextFieldIds = enabled
+                    ? currentFieldIds.includes(fieldId)
+                        ? currentFieldIds
+                        : [...currentFieldIds, fieldId]
+                    : currentFieldIds.filter((id) => id !== fieldId);
+
+                return {
+                    ...prev,
+                    baselineFieldIds: nextFieldIds,
+                };
+            });
+            if (enabled) {
+                setDirtyEchartsConfig((prev) => {
+                    if (!prev?.series) return prev;
+                    const hasStaleHideMetricName = prev.series.some(
+                        (serie) =>
+                            serie.encode?.yRef?.field === fieldId &&
+                            serie.hideMetricName !== undefined,
+                    );
+                    if (!hasStaleHideMetricName) return prev;
+                    return {
+                        ...prev,
+                        series: prev.series.map((serie) =>
+                            serie.encode?.yRef?.field === fieldId
+                                ? { ...serie, hideMetricName: undefined }
+                                : serie,
+                        ),
+                    };
+                });
+            }
+        },
+        [],
+    );
+
+    /** Partially updates the shared baseline style on the chart layout. */
+    const updateBaselineStyle = useCallback(
+        (style: NonNullable<CompleteCartesianChartLayout['baselineStyle']>) => {
+            setDirtyLayout((prev) => ({
+                ...prev,
+                baselineStyle: { ...prev?.baselineStyle, ...style },
+            }));
+        },
+        [],
+    );
     const addSingleSeries = useCallback((yField: string) => {
         setDirtyLayout((prev) => ({
             ...prev,
@@ -1056,6 +1114,7 @@ const useCartesianChartConfig = ({
                     yFields: dirtyLayout.yField,
                     defaultLabel,
                     itemsMap,
+                    baselineFieldIds: dirtyLayout?.baselineFieldIds,
                 });
                 const newSeries = mergeExistingAndExpectedSeries({
                     expectedSeriesMap,
@@ -1184,6 +1243,8 @@ const useCartesianChartConfig = ({
         setXAxisLineOnZero,
         setBarMaxWidth,
         setBarMaxWidthMobile,
+        setBaselineFieldEnabled,
+        updateBaselineStyle,
         updateSeries,
         referenceLines,
         setReferenceLines,

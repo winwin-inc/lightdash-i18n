@@ -31,6 +31,7 @@
 | [数仓查询超时后上游没有取消](./ops/warehouse-query-cancel.md) | 客户端超时只断 socket、MCP 把“还在跑”报成失败的机制与修复（**已实施**） |
 | [导出与 API 分进程（scheduler 独立 Deployment）](./ops/export-scheduler-split.md) | 同一镜像换启动参数把 graphile worker 拆出去；k8s 清单、迁移竞争与验证步骤（**暂不实现**） |
 | [一键导出整个看板（按 Tab 分 Excel）](./ops/dashboard-xlsx-export-plan.md) | 三种布局（每图一文件 / 单文件多工作表 / 按 Tab 分文件）对照、性能成本与上线前待办（**已实现，暂不上线**） |
+| [report-server ⇄ Lightdash 空间授权排查与修复](./ops/report-server-lightdash-space-auth.md) | `is_auth`/`is_auth_project` 乐观标记导致「授权看似成功但用户无权限」；接口契约、判别 SQL、修复补丁（**排查结论／修复待开发**） |
 | [fix-duplicate-chart-slugs.sql](./ops/fix-duplicate-chart-slugs.sql) | 重复 chart slug 的人工修复步骤（migration 注释里引用） |
 
 ## cli/ — CLI 与内容即代码
@@ -72,6 +73,7 @@
 | [表格可视化体验优化批次（W1–W4）](./visualization/table-ux-optimization-plan.md) | 列宽拖拽（编辑落库 / 查看本地记住）、表头不折行、重置、冻列偏移（**已实施**） |
 | [表格列宽可拖拽调整（W1 详版）](./visualization/table-column-resize-plan.md) | 分支/实现细节、上游 PR 对照与已知坑 |
 | [表格滚动卡顿排查](./visualization/table-scroll-performance.md) | 平表虚拟化 / 透视表 v2（Canvas）现状与逐项结论 |
+| [图表错误态诊断与可恢复](./visualization/chart-error-diagnostics-plan.md) | 图打不开时看不到字段/类型；判定链以 explore 为准（v2）、P0 三步拆分、embed/minimal 门控（**草案**） |
 
 ## features/ — 其他产品能力
 
@@ -80,6 +82,7 @@
 | [受限角色内容可见性（client-use）](./features/client-use-viewer-content-scope.md) | viewer / interactive_viewer 的可见范围与排障对照（**已实施**） |
 | [操作日志 + 使用分析导出 i18n](./features/operation-audit-log-plan.md) | migration、列表展示、清除接口（**待开发**） |
 | [维度按自定义值顺序排序（业态排序）](./features/custom-sort-order-plan.md) | `SortField.valueOrder` + CASE 排名 SQL + 排序面板多值编辑器（**草案/待确认**） |
+| [自建 MCP 服务与 OAuth 认证](./features/self-hosted-mcp-with-oauth.md) | **已实施**：从 Lightdash 内嵌实现抽离的复用要点——无状态 Streamable HTTP、双通道鉴权、`validateScope` 交集发放、三起真实事故根因、最小可运行骨架、自建 OAuth 客户端清单与抽离切分线 |
 
 ## dev-tooling/
 

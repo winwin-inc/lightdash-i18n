@@ -12,16 +12,16 @@ import { tool } from 'ai';
 import type {
     GetExploreCompilerFn,
     GetExploreFn,
-} from '../types/aiAgentDependencies';
-import { CreateChangeFn } from '../types/aiAgentDependencies';
-import { populateCustomMetricSQL } from '../utils/populateCustomMetricsSQL';
-import { toModelOutput } from '../utils/toModelOutput';
-import { toolErrorHandler } from '../utils/toolErrorHandler';
+} from '../../../../services/ai/types/aiAgentDependencies';
+import { CreateChangeFn } from '../../../../services/ai/types/aiAgentDependencies';
+import { populateCustomMetricSQL } from '../../../../services/ai/utils/populateCustomMetricsSQL';
+import { toModelOutput } from '../../../../services/ai/utils/toModelOutput';
+import { toolErrorHandler } from '../../../../services/ai/utils/toolErrorHandler';
 import { validateChangesetApplyChange } from '../utils/validateChangesetApply';
 import {
     validateFieldEntityType,
     validateTableNames,
-} from '../utils/validators';
+} from '../../../../services/ai/utils/validators';
 
 export const translateToolProposeChangeArgs = async (
     toolArgs: ToolProposeChangeArgs,

@@ -26,6 +26,7 @@ import { GroupsService } from './GroupService';
 import { HealthService } from './HealthService/HealthService';
 import { LightdashAnalyticsService } from './LightdashAnalyticsService/LightdashAnalyticsService';
 import { LogService } from './LogService/LogService';
+import { McpService } from './McpService/McpService';
 import { MetricsExplorerService } from './MetricsExplorerService/MetricsExplorerService';
 import { NotificationsService } from './NotificationsService/NotificationsService';
 import { OAuthService } from './OAuthService/OAuthService';
@@ -145,7 +146,7 @@ interface ServiceManifest {
     cacheService: unknown;
     serviceAccountService: unknown;
     instanceConfigurationService: unknown;
-    mcpService: unknown;
+    mcpService: McpService;
     rolesService: RolesService;
     slackService: SlackService;
     changesetService: ChangesetService;
@@ -1122,8 +1123,29 @@ export class ServiceRepository
         return this.getService('supportService');
     }
 
-    public getMcpService<McpServiceImplT>(): McpServiceImplT {
-        return this.getService('mcpService');
+    public getMcpService(): McpService {
+        return this.getService(
+            'mcpService',
+            () =>
+                new McpService({
+                    lightdashConfig: this.context.lightdashConfig,
+                    analytics: this.context.lightdashAnalytics,
+                    catalogService: this.getCatalogService(),
+                    projectService: this.getProjectService(),
+                    userAttributesModel: this.models.getUserAttributesModel(),
+                    searchModel: this.models.getSearchModel(),
+                    spaceModel: this.models.getSpaceModel(),
+                    spaceService: this.getSpaceService(),
+                    mcpContextModel: this.models.getMcpContextModel(),
+                    organizationModel: this.models.getOrganizationModel(),
+                    projectModel: this.models.getProjectModel(),
+                    featureFlagService: this.getFeatureFlagService(),
+                    contentService: this.getContentService(),
+                    savedChartService: this.getSavedChartService(),
+                    dashboardService: this.getDashboardService(),
+                    searchService: this.getSearchService(),
+                }),
+        );
     }
 
     public getSpotlightService(): SpotlightService {

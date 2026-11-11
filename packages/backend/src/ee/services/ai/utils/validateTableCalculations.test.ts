@@ -8,7 +8,7 @@ import {
     type Explore,
     type TableCalcsSchema,
 } from '@lightdash/common';
-import { validateTableCalculations } from './validators';
+import { validateTableCalculations } from '../../../../services/ai/utils/validators';
 
 const mockExplore: Explore = {
     targetDatabase: SupportedDbtAdapter.POSTGRES,

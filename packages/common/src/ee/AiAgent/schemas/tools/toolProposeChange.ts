@@ -1,9 +1,9 @@
 import { z } from 'zod';
 import { type Dimension, type Metric, type Table } from '../../../..';
 import { AiResultType } from '../../types';
-import { customMetricBaseSchema } from '../customMetrics';
-import { getFieldIdSchema } from '../fieldId';
-import { createToolSchema } from '../toolSchemaBuilder';
+import { customMetricBaseSchema } from '../../../../schemas/mcp/customMetrics';
+import { getFieldIdSchema } from '../../../../schemas/mcp/fieldId';
+import { createToolSchema } from '../../../../schemas/mcp/toolSchemaBuilder';
 
 // ============================================================================
 // Tool Description

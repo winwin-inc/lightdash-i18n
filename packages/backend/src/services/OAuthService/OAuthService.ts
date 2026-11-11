@@ -12,6 +12,12 @@ export enum OAuthScope {
     MCP_WRITE = 'mcp:write',
 }
 
+/** Scopes that grant access to the MCP server */
+export const MCP_SUPPORTED_SCOPES: string[] = [
+    OAuthScope.MCP_READ,
+    OAuthScope.MCP_WRITE,
+];
+
 type OAuthServiceArguments = {
     userModel: UserModel;
     oauthModel: OAuth2Model;
@@ -64,11 +70,43 @@ export class OAuthService extends BaseService {
         response: OAuth2Server.Response,
         user: UserWithOrganizationUuid,
     ): Promise<OAuth2Server.AuthorizationCode> {
+        await this.applyDefaultScope(request);
         return this.oauthServer.authorize(request, response, {
             authenticateHandler: {
                 handle: () => user,
             },
         });
+    }
+
+    /**
+     * MCP clients that do not send a `scope` parameter get the default MCP
+     * scopes, so that the issued token can be used against the MCP server.
+     * Clients that do request scopes are always honoured.
+     */
+    private async applyDefaultScope(request: OAuth2Server.Request): Promise<void> {
+        const requestedScope =
+            request.body?.scope ?? request.query?.scope ?? undefined;
+        if (requestedScope) {
+            return;
+        }
+
+        const clientId =
+            request.body?.client_id ?? request.query?.client_id ?? undefined;
+        if (!clientId) {
+            return;
+        }
+
+        const clientScopes = await this.oauthModel.getClientScopes(clientId);
+        const mcpScopes = clientScopes.filter((scope) =>
+            MCP_SUPPORTED_SCOPES.includes(scope),
+        );
+        const scopes = mcpScopes.length > 0 ? mcpScopes : [OAuthScope.MCP_READ];
+
+        if (request.body) {
+            request.body.scope = scopes.join(' ');
+        } else if (request.query) {
+            request.query.scope = scopes.join(' ');
+        }
     }
 
     public async token(

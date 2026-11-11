@@ -109,8 +109,12 @@ export class GitIntegrationService extends BaseService {
                 'User is not part of an organization.',
             );
         }
+        // "Not installed" is a normal state, not an error: use the non-throwing
+        // lookup so this returns { enabled: false } instead of a 404. The
+        // throwing getInstallationId stays for callers that genuinely require
+        // an installation (e.g. GithubAppService).
         const installationId =
-            await this.githubAppInstallationsModel.getInstallationId(
+            await this.githubAppInstallationsModel.findInstallationId(
                 user.organizationUuid,
             );
         return {

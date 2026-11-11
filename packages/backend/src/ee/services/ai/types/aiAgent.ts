@@ -20,7 +20,7 @@ import {
     TrackEventFn,
     UpdateProgressFn,
     UpdatePromptFn,
-} from './aiAgentDependencies';
+} from '../../../../services/ai/types/aiAgentDependencies';
 
 type AnyAiModel<P = AiProvider> = P extends AiProvider ? AiModel<P> : never;
 

@@ -1,13 +1,13 @@
 import { z } from 'zod';
 import { AiResultType } from '../../types';
-import { customMetricsSchema } from '../customMetrics';
-import { getFieldIdSchema } from '../fieldId';
-import { filtersSchemaTransformed, filtersSchemaV2 } from '../filters';
-import { baseOutputMetadataSchema } from '../outputMetadata';
-import sortFieldSchema from '../sortField';
-import { tableCalcsSchema } from '../tableCalcs/tableCalcs';
-import { createToolSchema } from '../toolSchemaBuilder';
-import visualizationMetadataSchema from '../visualizationMetadata';
+import { customMetricsSchema } from '../../../../schemas/mcp/customMetrics';
+import { getFieldIdSchema } from '../../../../schemas/mcp/fieldId';
+import { filtersSchemaTransformed, filtersSchemaV2 } from '../../../../schemas/mcp/filters';
+import { baseOutputMetadataSchema } from '../../../../schemas/mcp/outputMetadata';
+import sortFieldSchema from '../../../../schemas/mcp/sortField';
+import { tableCalcsSchema } from '../../../../schemas/mcp/tableCalcs/tableCalcs';
+import { createToolSchema } from '../../../../schemas/mcp/toolSchemaBuilder';
+import visualizationMetadataSchema from '../../../../schemas/mcp/visualizationMetadata';
 
 // Query configuration schema - what data to fetch
 const queryConfigSchema = z.object({

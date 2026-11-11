@@ -260,6 +260,10 @@ export const lightdashConfigMock: LightdashConfig = {
     },
     mcp: {
         enabled: true,
+        oauthRequiredScopes: ['mcp:read'],
+        defaultProjectUuid: null,
+        dashboardStrict: false,
+        dashboardContact: '请联系客服开通看板访问权限。',
     },
     customRoles: {
         enabled: false,

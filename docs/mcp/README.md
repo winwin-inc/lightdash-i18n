@@ -1,9 +1,20 @@
 # Lightdash MCP 文档
 
+> **版本口径**：
+> - **v2（正式版）** = 主站内置 MCP，入口 `https://<site>/api/v1/mcp` → [v2 接入指南](./mcp-v2-guide.md) **（新接入只看这篇）**
+> - **v1（弃用）** = 独立包 `packages/lightdash-mcp`，入口 `http://<host>:<port>/mcp` → [独立包去留评估](./lightdash-mcp-retirement-evaluation.md)
+>
+> 下表中未标注的文档描述的是 v1 旧部署形态。
+
 | 文档 | 给谁 |
 |------|------|
+| **[v2 接入指南（主站正式版）](./mcp-v2-guide.md)** | **新接入方 / 运维**：URL、OAuth + PAT、26 工具、无状态语义、v1→v2 迁移清单 |
+| [**线上地址速查**](./mcp-endpoints.md) | **所有人**：预发/生产两套 MCP（内置 v2 + 独立包 v1）在两个站点的实际连接地址、认证方式与强制看板模式开关状态 |
+| [**统一改造归档（含 P8 规划）**](./mcp-unified-backend-status.md) | **接手方**：已完成阶段与提交、当前代码状态、已定稿决策、P8「默认项目语义 + 四级兜底链」完整规划；含上线排障记录（§6） |
+| [**独立包去留评估**](./lightdash-mcp-retirement-evaluation.md) | **决策者**：独立包继续维护 / 转薄壳 / 退役的对比与推荐路径 |
 | [**外部接入指南**](./lightdash-mcp-external-guide.md) | **可单独转发给外部接入方**（含流程图） |
-| [**MCP 服务上线流程**](./mcp-service-launch.md) | **上线负责人**：打 tag → GitHub Actions → Jenkins → 集群（四套部署目标），含配置清单、关联关系、权限模型、验收与回滚 |
+| [**内置 MCP 部署与验收（v2）**](./mcp-builtin-deploy.md) | **上线负责人**：主站内置 `/api/v1/mcp` 的预发/上线配置清单（`MCP_ENABLED`、PAT/OAuth 二选一）、curl 验收步骤、回滚 |
+| [**MCP 独立包上线流程（v1）**](./mcp-standalone-launch.md) | **上线负责人**：v1 独立包 `packages/lightdash-mcp` 的打 tag → GitHub Actions → Jenkins → 集群流程（四套部署目标），含配置清单、关联关系、权限模型、验收与回滚 |
 | [**强制看板模式 v2（已实施）**](./lightdash-mcp-dashboard-strict-mode.md) | **已实施**：外部部署所有查询工具一律必须解析出 `dashboardUuid`（与角色无关）；0 候选按后端 `associatedCount` 分流；无权限 / 未配置看板 / 多候选的返回契约 |
 | [客户端接入（Claude Code / Cursor + Skills）](./client-setup.md) | **开发/分析师**：怎么连、怎么挂 Skills、工具分组、常见 401/422 |
 | [架构与鉴权概览](./architecture.md) | 开发维护：为何自建、独立进程取舍、只依赖公开 REST + PAT |
