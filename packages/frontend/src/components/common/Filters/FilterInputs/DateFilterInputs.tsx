@@ -17,10 +17,7 @@ import dayjs from 'dayjs';
 import { useTranslation } from 'react-i18next';
 import { type FilterInputsProps } from '.';
 import useFiltersContext from '../useFiltersContext';
-import {
-    getDashboardFilterDatePickerBounds,
-    getFirstDayOfWeek,
-} from '../utils/filterDateUtils';
+import { getFirstDayOfWeek, resolveRuleBounds } from '../utils/filterDateUtils';
 import { usePlaceholderByFilterTypeAndOperator } from '../utils/getPlaceholderByFilterTypeAndOperator';
 import DefaultFilterInputs from './DefaultFilterInputs';
 import FilterDatePicker from './FilterDatePicker';
@@ -33,6 +30,7 @@ import FilterQuarterPicker from './FilterQuarterPicker';
 import FilterUnitOfTimeAutoComplete from './FilterUnitOfTimeAutoComplete';
 import FilterWeekPicker from './FilterWeekPicker';
 import FilterYearPicker from './FilterYearPicker';
+import { clampFixedDateRangeValues } from './utils';
 
 const DateFilterInputs = <T extends BaseFilterRule = DateFilterRule>(
     props: FilterInputsProps<T>,
@@ -68,25 +66,29 @@ const DateFilterInputs = <T extends BaseFilterRule = DateFilterRule>(
     });
 
     const dashboardRule = isDashboardFilterRule(rule) ? rule : undefined;
-    const timeIntervalStr =
+    const fieldTimeInterval =
         isDimension(field) && field.timeInterval
-            ? String(field.timeInterval)
+            ? field.timeInterval
             : undefined;
     const isRangeOperator =
         rule.operator === FilterOperator.IN_BETWEEN ||
         rule.operator === FilterOperator.NOT_IN_BETWEEN;
     const boundsGranularity = isRangeOperator
         ? dashboardRule?.dateRangeGranularity ?? TimeFrames.DAY
-        : timeIntervalStr;
-    const { minDate: cfgMin, maxDate: cfgMax } =
-        getDashboardFilterDatePickerBounds(
-            dashboardRule?.minAllowedDate,
-            dashboardRule?.maxAllowedDate,
-            boundsGranularity,
-            dayjs(),
-            true,
-            !!dashboardRule?.enableDynamicMaxAllowedDate,
-        );
+        : fieldTimeInterval;
+    // 边界解析统一走 resolveRuleBounds（含 rolling 下限门禁：仅
+    // IN_BETWEEN + 月粒度消费），与 chip / 查询 / 保存校验同源
+    const { minDate: cfgMin, maxDate: cfgMax } = resolveRuleBounds({
+        operator: dashboardRule?.operator,
+        minAllowedDate: dashboardRule?.minAllowedDate,
+        maxAllowedDate: dashboardRule?.maxAllowedDate,
+        dateRangeGranularity: boundsGranularity,
+        enableDynamicMaxAllowedDate: dashboardRule?.enableDynamicMaxAllowedDate,
+        rollingMinAllowedMonths: dashboardRule?.rollingMinAllowedMonths,
+        // 必须透传 settings：字段归属按默认值模式（dynamic/fixed）判定，
+        // 缺失时 isDynamicMode 恒为 false，动态约束（rolling/跟随数据更新）不生效
+        settings: dashboardRule?.settings,
+    });
 
     switch (rule.operator) {
         case FilterOperator.EQUALS:
@@ -452,6 +454,18 @@ const DateFilterInputs = <T extends BaseFilterRule = DateFilterRule>(
                 />
             );
         case FilterOperator.IN_BETWEEN:
+            // 查看模式下把固定区间取值按可选范围钳制后再交给 picker：
+            // chip 已显示钳后值，picker 若仍显示原始越界值，开合弹层再选值
+            // 会把越界值写回存储（E4）。编辑模式保留原始存储值，越界默认值
+            // 由保存校验显式拦截（作者需要看到真实存储值）。
+            const viewModePickerRule = (() => {
+                if (isEditMode || !dashboardRule) return rule;
+                const clamped = clampFixedDateRangeValues(rule, rule.values);
+                return clamped === rule.values
+                    ? rule
+                    : { ...rule, values: clamped };
+            })();
+
             if (isTimestamp) {
                 return (
                     <FilterDateTimeRangePicker
@@ -461,10 +475,16 @@ const DateFilterInputs = <T extends BaseFilterRule = DateFilterRule>(
                         autoFocus={true}
                         firstDayOfWeek={getFirstDayOfWeek(startOfWeek)}
                         value={
-                            rule.values && rule.values[0] && rule.values[1]
+                            viewModePickerRule.values &&
+                            viewModePickerRule.values[0] &&
+                            viewModePickerRule.values[1]
                                 ? [
-                                      dayjs(rule.values[0]).toDate(),
-                                      dayjs(rule.values[1]).toDate(),
+                                      dayjs(
+                                          viewModePickerRule.values[0],
+                                      ).toDate(),
+                                      dayjs(
+                                          viewModePickerRule.values[1],
+                                      ).toDate(),
                                   ]
                                 : null
                         }
@@ -497,7 +517,7 @@ const DateFilterInputs = <T extends BaseFilterRule = DateFilterRule>(
             return (
                 <FilterDynamicDateRangePicker
                     rule={
-                        rule as unknown as Parameters<
+                        viewModePickerRule as unknown as Parameters<
                             typeof FilterDynamicDateRangePicker
                         >[0]['rule']
                     }
