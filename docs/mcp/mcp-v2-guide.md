@@ -254,6 +254,7 @@ curl -s "$SITE_URL/api/v1/mcp/health"
 | 无项目时 | 可能报错也可能回退 | 明确 `ForbiddenError` | 补错误处理 |
 | 身份 | 服务端 PAT 的主人 | 调用者本人 | 权限可能变多/变少，按真实用户算 |
 | 错误文案 | 压平文本 | 原生错误（更详细） | 若按文本匹配需回归 |
+| 查询结果行结构 | 扁平标量行（`{field: value}`）+ `valueFormat`（`raw` 默认 / `formatted`） | 同左（已对齐：`run_semantic_metric_query` / `run_saved_chart` / `run_dashboard_tiles` 将嵌套 cell `{field:{value:{raw,formatted}}}` 拍平为标量，`run_metric_query` 仍返回 CSV） | 无需迁移动作；需要展示格式化值时传 `valueFormat: "formatted"` |
 
 ### 6.2 迁移自查清单
 
