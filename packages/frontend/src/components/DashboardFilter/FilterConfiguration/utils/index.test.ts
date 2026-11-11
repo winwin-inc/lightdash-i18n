@@ -405,32 +405,12 @@ describe('validateDashboardFilterDateRange', () => {
         ).toBe('2026-06-30');
     });
 
-    it('returns end_after_max for fixed values beyond the rolling window', () => {
+    it('passes fixed values inside the static bounds (fixed mode)', () => {
         const rule = createFilterRule({
             operator: FilterOperator.IN_BETWEEN,
             dateRangeGranularity: TimeFrames.MONTH,
-            enableDynamicMaxAllowedDate: true,
-            rollingMinAllowedMonths: 24,
-            values: ['2024-11-01', '2026-10-31'],
-        });
-
-        // 2026-07-03（4 号前）→ 最晚可选 = 2026-05-31
-        const error = validateDashboardFilterDateRange(
-            rule,
-            new Date('2026-07-03'),
-        );
-        expect(error?.code).toBe('end_after_max');
-        expect(
-            error?.maxDate && dayjs(error.maxDate).format('YYYY-MM-DD'),
-        ).toBe('2026-05-31');
-    });
-
-    it('passes fixed values inside the rolling window', () => {
-        const rule = createFilterRule({
-            operator: FilterOperator.IN_BETWEEN,
-            dateRangeGranularity: TimeFrames.MONTH,
-            enableDynamicMaxAllowedDate: true,
-            rollingMinAllowedMonths: 24,
+            minAllowedDate: '2024-11-01',
+            maxAllowedDate: '2026-05-31',
             values: ['2025-07-01', '2026-05-31'],
         });
 
@@ -444,6 +424,7 @@ describe('validateDashboardFilterDateRange', () => {
             operator: FilterOperator.IN_BETWEEN,
             dateRangeGranularity: TimeFrames.MONTH,
             rollingMinAllowedMonths: 24,
+            settings: { dateRange: { mode: 'dynamic' } },
             values: ['2025-07-01', '2026-06-30'],
         });
 
@@ -458,6 +439,7 @@ describe('validateDashboardFilterDateRange', () => {
             dateRangeGranularity: TimeFrames.MONTH,
             enableDynamicMaxAllowedDate: true,
             rollingMinAllowedMonths: 24,
+            settings: { dateRange: { mode: 'dynamic' } },
             values: [],
         });
 
@@ -471,6 +453,7 @@ describe('validateDashboardFilterDateRange', () => {
             operator: FilterOperator.NOT_IN_BETWEEN,
             dateRangeGranularity: TimeFrames.MONTH,
             rollingMinAllowedMonths: 24,
+            settings: { dateRange: { mode: 'dynamic' } },
             values: ['2025-07-01', '2026-06-30'],
         });
 

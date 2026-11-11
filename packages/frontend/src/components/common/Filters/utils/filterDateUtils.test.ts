@@ -288,6 +288,53 @@ describe('getDashboardFilterDatePickerBounds with rollingMinAllowedMonths', () =
 });
 
 describe('resolveRuleBounds', () => {
+    it('dynamic mode ignores stale static earliest (ownership isolation)', () => {
+        // 动态模式：最早归 rolling，残留的静态最早（2024-01-01）不得把窗口拉宽
+        const bounds = resolveRuleBounds(
+            {
+                operator: FilterOperator.IN_BETWEEN,
+                dateRangeGranularity: TimeFrames.MONTH,
+                enableDynamicMaxAllowedDate: true,
+                rollingMinAllowedMonths: 12,
+                settings: {
+                    dateRange: { mode: 'dynamic' },
+                },
+                minAllowedDate: '2024-01-01',
+            },
+            dayjs('2026-11-11'),
+        );
+
+        expect(bounds.minDate).toEqual(
+            dayjs('2025-11-01').startOf('month').toDate(),
+        );
+        expect(bounds.maxDate).toEqual(
+            dayjs('2026-10-31').endOf('month').toDate(),
+        );
+    });
+
+    it('fixed mode ignores rolling / dynamic max fields (ownership isolation)', () => {
+        // 固定模式：只消费静态最早/最晚；rolling 与跟随数据更新是动态模式专属，
+        // 残留时（保存规范化前的存量脏数据）不得生效
+        const bounds = resolveRuleBounds(
+            {
+                operator: FilterOperator.IN_BETWEEN,
+                dateRangeGranularity: TimeFrames.MONTH,
+                enableDynamicMaxAllowedDate: true,
+                rollingMinAllowedMonths: 12,
+                minAllowedDate: '2025-06-01',
+                maxAllowedDate: '2026-03-31',
+                settings: {
+                    dateRange: { mode: 'fixed' },
+                },
+            },
+            dayjs('2026-11-11'),
+        );
+
+        // 动态 max（上月末=2026-10-31）不参与：固定最晚 2026-03-31 生效
+        expect(bounds.maxDate).toEqual(dayjs('2026-03-31').endOf('day').toDate());
+        // rolling 下限（2025-11-01）不参与：静态最早 2025-06-01 生效
+        expect(bounds.minDate).toEqual(dayjs('2025-06-01').startOf('day').toDate());
+    });
     it('consumes rolling for IN_BETWEEN + month granularity', () => {
         const bounds = resolveRuleBounds(
             {
@@ -295,6 +342,7 @@ describe('resolveRuleBounds', () => {
                 dateRangeGranularity: TimeFrames.MONTH,
                 enableDynamicMaxAllowedDate: true,
                 rollingMinAllowedMonths: 12,
+                settings: { dateRange: { mode: 'dynamic' } },
             },
             dayjs('2026-11-11'),
         );
@@ -315,6 +363,7 @@ describe('resolveRuleBounds', () => {
                 dateRangeGranularity: TimeFrames.MONTH,
                 enableDynamicMaxAllowedDate: true,
                 rollingMinAllowedMonths: 12,
+                settings: { dateRange: { mode: 'dynamic' } },
             },
             dayjs('2026-11-11'),
         );
@@ -346,6 +395,7 @@ describe('resolveRuleBounds', () => {
             dateRangeGranularity: TimeFrames.MONTH,
             enableDynamicMaxAllowedDate: true,
             rollingMinAllowedMonths: 24,
+            settings: { dateRange: { mode: 'dynamic' as const } },
         };
 
         // 2026-03-03 (before the 4th):

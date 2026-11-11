@@ -83,6 +83,7 @@ describe('clampFixedDateRangeValues', () => {
         dateRangeGranularity: TimeFrames.MONTH,
         enableDynamicMaxAllowedDate: true,
         rollingMinAllowedMonths: 24,
+        settings: { dateRange: { mode: 'dynamic' } },
     });
 
     it('clamps both out-of-bounds ends to the resolved rolling window', () => {
@@ -270,6 +271,7 @@ describe('resolveDisplayValues', () => {
     });
 
     it('clamps fixed values to the resolved bounds for display (chip parity)', () => {
+        // 固定模式：固定默认值 + 静态最晚边界 → chip 显示钳后值（与查询一致）
         const rule: DashboardFilterRule = {
             id: 'filter-1',
             label: 'Created month',
@@ -279,18 +281,18 @@ describe('resolveDisplayValues', () => {
                 tableName: 'orders',
             },
             dateRangeGranularity: TimeFrames.MONTH,
-            enableDynamicMaxAllowedDate: true,
+            maxAllowedDate: '2026-05-31',
             values: ['2024-01-01', '2026-06-30'],
         };
 
-        // 2026-07-03（4 号前）→ 动态最晚月 = 2026-05-31
         expect(resolveDisplayValues(rule, new Date('2026-07-03'))).toEqual([
             '2024-01-01',
             '2026-05-31',
         ]);
     });
 
-    it('clamps fixed values to the rolling min for display', () => {
+    it('clamps fixed values to the static min for display', () => {
+        // 固定模式：静态最早边界钳制固定默认值的开始（归属隔离后 rolling 只在动态模式）
         const rule: DashboardFilterRule = {
             id: 'filter-1',
             label: 'Created month',
@@ -300,8 +302,7 @@ describe('resolveDisplayValues', () => {
                 tableName: 'orders',
             },
             dateRangeGranularity: TimeFrames.MONTH,
-            enableDynamicMaxAllowedDate: true,
-            rollingMinAllowedMonths: 24,
+            minAllowedDate: '2024-11-01',
             values: ['2024-06-15', '2026-09-20'],
         };
 
@@ -355,6 +356,7 @@ describe('prepareDashboardFilterRuleForQuery', () => {
     });
 
     it('clamps out-of-bounds fixed values before they reach the query', () => {
+        // 固定模式：固定默认值 + 静态最早/最晚边界（新归属模型下 rolling 只在动态模式）
         const rule: DashboardFilterRule = {
             id: 'filter-1',
             label: 'Created month',
@@ -364,8 +366,8 @@ describe('prepareDashboardFilterRuleForQuery', () => {
                 tableName: 'orders',
             },
             dateRangeGranularity: TimeFrames.MONTH,
-            enableDynamicMaxAllowedDate: true,
-            rollingMinAllowedMonths: 24,
+            minAllowedDate: '2024-11-01',
+            maxAllowedDate: '2026-10-31',
             values: ['2024-01-15', '2027-01-01'],
         };
 
@@ -387,8 +389,8 @@ describe('prepareDashboardFilterRuleForQuery', () => {
                 tableName: 'orders',
             },
             dateRangeGranularity: TimeFrames.MONTH,
-            enableDynamicMaxAllowedDate: true,
-            rollingMinAllowedMonths: 24,
+            minAllowedDate: '2024-11-01',
+            maxAllowedDate: '2026-10-31',
             values: ['2024-12-15', '2026-09-20'],
         };
 
@@ -597,6 +599,63 @@ describe('stripDisallowedDynamicDateRange (P2-4)', () => {
             settings: dynamicSettings,
         };
         expect(stripDisallowedDynamicDateRange(rule)).toBe(rule);
+    });
+
+    it('strips static earliest in dynamic mode (ownership to rolling)', () => {
+        const rule: DashboardFilterRule = {
+            id: 'filter-1',
+            label: 'Created month',
+            operator: FilterOperator.IN_BETWEEN,
+            target: { fieldId: 'orders_created_month', tableName: 'orders' },
+            dateRangeGranularity: TimeFrames.MONTH,
+            enableDynamicMaxAllowedDate: true,
+            rollingMinAllowedMonths: 24,
+            minAllowedDate: '2024-01-01',
+            settings: dynamicSettings,
+        };
+        const next = stripDisallowedDynamicDateRange(rule);
+        expect(next.minAllowedDate).toBeUndefined();
+        expect(next.rollingMinAllowedMonths).toBe(24);
+        expect(next.enableDynamicMaxAllowedDate).toBe(true);
+    });
+
+    it('strips fixed latest in dynamic mode when dynamic max is on', () => {
+        // 固定最晚会静默覆盖动态上限（fixedMax ?? dynamicMax），二者不能共存
+        const rule: DashboardFilterRule = {
+            id: 'filter-1',
+            label: 'Created month',
+            operator: FilterOperator.IN_BETWEEN,
+            target: { fieldId: 'orders_created_month', tableName: 'orders' },
+            dateRangeGranularity: TimeFrames.MONTH,
+            enableDynamicMaxAllowedDate: true,
+            rollingMinAllowedMonths: 12,
+            maxAllowedDate: '2026-03-31',
+            settings: dynamicSettings,
+        };
+        const next = stripDisallowedDynamicDateRange(rule);
+        expect(next.maxAllowedDate).toBeUndefined();
+        expect(next.enableDynamicMaxAllowedDate).toBe(true);
+        expect(next.rollingMinAllowedMonths).toBe(12);
+    });
+
+    it('strips rolling fields in fixed mode (static constraints only)', () => {
+        const rule: DashboardFilterRule = {
+            id: 'filter-1',
+            label: 'Created month',
+            operator: FilterOperator.IN_BETWEEN,
+            target: { fieldId: 'orders_created_month', tableName: 'orders' },
+            dateRangeGranularity: TimeFrames.MONTH,
+            enableDynamicMaxAllowedDate: true,
+            rollingMinAllowedMonths: 24,
+            settings: { dateRange: { mode: 'fixed' } },
+            minAllowedDate: '2025-01-01',
+            maxAllowedDate: '2026-03-31',
+        };
+        const next = stripDisallowedDynamicDateRange(rule);
+        expect(next.rollingMinAllowedMonths).toBeUndefined();
+        expect(next.enableDynamicMaxAllowedDate).toBeUndefined();
+        expect(next.minAllowedDate).toBe('2025-01-01');
+        expect(next.maxAllowedDate).toBe('2026-03-31');
     });
 
     it('treats missing granularity as day and strips residue', () => {

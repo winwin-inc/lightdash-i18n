@@ -1125,8 +1125,10 @@ describe('userFilterSelections', () => {
                 'dimension',
             );
             expect(result.changed).toBe(true);
+            // 归属隔离：动态模式下静态最早是残留（保存时剥离），不参与钳制；
+            // 静态最晚仍作为 rolling 锚点/固定窗口生效（end 被钳）
             expect(result.filters.dimensions[0].values).toEqual([
-                '2025-01-01',
+                '2024-06-15',
                 '2025-12-31',
             ]);
             // 动态默认被剥掉，避免查询前 preset 重新解析覆盖继承值
@@ -1412,6 +1414,9 @@ describe('userFilterSelections', () => {
             vi.useFakeTimers();
             vi.setSystemTime(new Date('2026-07-15T12:00:00'));
             try {
+                // 来源 = 查看者在 tab-a 选值后的规则：取值已固化为字面量
+                //（动态 settings 在选值时被剥掉），作者约束字段保留。
+                // source-dynamic 的规则是占位符，跨 tab 继承会被门禁跳过。
                 const wideSource = rule({
                     id: 'tab-a-date',
                     fieldId: 'date',
@@ -1431,6 +1436,7 @@ describe('userFilterSelections', () => {
                             dateRangeGranularity: TimeFrames.MONTH,
                             enableDynamicMaxAllowedDate: true,
                             rollingMinAllowedMonths: 12,
+                            settings: { dateRange: { mode: 'dynamic' } },
                         }),
                     ]),
                 };
@@ -1735,6 +1741,7 @@ describe('applySelectionValues round trip (A → B → A)', () => {
                 dateRangeGranularity: TimeFrames.MONTH,
                 enableDynamicMaxAllowedDate: true,
                 rollingMinAllowedMonths: 24,
+                settings: { dateRange: { mode: 'dynamic' } },
             });
             const tabB = rule({
                 id: 'tab-b-date',
@@ -1743,6 +1750,7 @@ describe('applySelectionValues round trip (A → B → A)', () => {
                 dateRangeGranularity: TimeFrames.MONTH,
                 enableDynamicMaxAllowedDate: true,
                 rollingMinAllowedMonths: 12,
+                settings: { dateRange: { mode: 'dynamic' } },
             });
             // 作者在 A 上选择了完整 24 个月窗口（运行时窗口 2024-07-01 ~ 2026-06-30）
             const aSelected = {

@@ -27,6 +27,9 @@ import FilterDatePicker from '../../common/Filters/FilterInputs/FilterDatePicker
 import FilterMonthAndYearPicker from '../../common/Filters/FilterInputs/FilterMonthAndYearPicker';
 import FilterQuarterPicker from '../../common/Filters/FilterInputs/FilterQuarterPicker';
 import FilterYearPicker from '../../common/Filters/FilterInputs/FilterYearPicker';
+import {
+    resolveDateRangeMode,
+} from '../../common/Filters/FilterInputs/dateRangeMode';
 import useFiltersContext from '../../common/Filters/useFiltersContext';
 import {
     getFirstDayOfWeek,
@@ -42,35 +45,6 @@ type Props = {
 
 /** Window size seeded when the rolling-earliest switch is first enabled. */
 const DEFAULT_ROLLING_MIN_ALLOWED_MONTHS = 12;
-
-/**
- * 开启滚动开关时的初始窗口推断（避免作者已设好的窗口在开启瞬间跳变）：
- * 1) 固定最早+最晚并存 → 区间整月数（2024-11 ~ 2026-10 → 24）；
- * 2) 动态默认区间存在 → 其跨度（距今 12~1 → 12 个整月，恰好填满窗口）；
- * 3) 兜底默认 12。
- */
-const inferRollingSeedMonths = (rule: DashboardFilterRule): number => {
-    if (rule.minAllowedDate && rule.maxAllowedDate) {
-        const months =
-            dayjs(rule.maxAllowedDate).diff(dayjs(rule.minAllowedDate), 'month') +
-            1;
-        if (
-            months >= ROLLING_MIN_ALLOWED_MONTHS_MIN &&
-            months <= ROLLING_MIN_ALLOWED_MONTHS_MAX
-        ) {
-            return months;
-        }
-    }
-    const startCount = rule.settings?.dateRange?.start?.count;
-    if (
-        typeof startCount === 'number' &&
-        startCount >= ROLLING_MIN_ALLOWED_MONTHS_MIN &&
-        startCount <= ROLLING_MIN_ALLOWED_MONTHS_MAX
-    ) {
-        return startCount;
-    }
-    return DEFAULT_ROLLING_MIN_ALLOWED_MONTHS;
-};
 
 /**
  * ⓘ tooltip with keyboard access (focusable via tabIndex, focus shows the
@@ -124,6 +98,10 @@ const DateRangeConstraintEditor: FC<Props> = ({
         ? filterRule.dateRangeGranularity ?? TimeFrames.DAY
         : TimeFrames.DAY;
 
+    const isDynamicMode =
+        resolveDateRangeMode(filterRule.settings?.dateRange, granularity) ===
+        'dynamic';
+
     const showDynamicMaxSwitch =
         filterRule.operator === FilterOperator.IN_BETWEEN &&
         (granularity === TimeFrames.MONTH ||
@@ -161,7 +139,7 @@ const DateRangeConstraintEditor: FC<Props> = ({
                       filterRule.rollingMinAllowedMonths,
                   )
                     ? filterRule.rollingMinAllowedMonths
-                    : inferRollingSeedMonths(filterRule)
+                    : DEFAULT_ROLLING_MIN_ALLOWED_MONTHS
                 : undefined,
         });
     };
@@ -284,7 +262,7 @@ const DateRangeConstraintEditor: FC<Props> = ({
 
     return (
         <Stack spacing="xs" mt="xs">
-            {showRollingWindowInput && (
+            {showRollingWindowInput && isDynamicMode && (
                 <Stack spacing={4}>
                     <Group spacing="xs" noWrap align="center">
                         <Switch
@@ -341,6 +319,7 @@ const DateRangeConstraintEditor: FC<Props> = ({
                 </Stack>
             )}
             {showRollingWindowInput &&
+                isDynamicMode &&
                 rollingConfigured &&
                 rollingActive &&
                 (rollingBadge ?? (
@@ -356,7 +335,7 @@ const DateRangeConstraintEditor: FC<Props> = ({
                         )}
                     </Text>
                 ))}
-            {showDynamicMaxSwitch && (
+            {showDynamicMaxSwitch && isDynamicMode && (
                 <Group spacing="xs" noWrap align="center">
                     <Switch
                         size="xs"
@@ -394,13 +373,13 @@ const DateRangeConstraintEditor: FC<Props> = ({
                     />
                 </Group>
             )}
+            {!(granularity === TimeFrames.MONTH && isDynamicMode) && (
             <Group noWrap align="flex-start">
                 {granularity === TimeFrames.MONTH ? (
                     <>
                         <FilterMonthAndYearPicker
                             clearable
                             w={160}
-                            disabled={rollingConfigured}
                             label={labelWithHint('min_label')}
                             value={minDateValue}
                             maxDate={maxDateValue ?? undefined}
@@ -413,7 +392,6 @@ const DateRangeConstraintEditor: FC<Props> = ({
                         <FilterMonthAndYearPicker
                             clearable
                             w={160}
-                            disabled={!!filterRule.enableDynamicMaxAllowedDate}
                             label={labelWithHint('max_label')}
                             value={maxDateValue}
                             minDate={minDateValue ?? undefined}
@@ -512,6 +490,7 @@ const DateRangeConstraintEditor: FC<Props> = ({
                     </>
                 )}
             </Group>
+            )}
         </Stack>
     );
 };

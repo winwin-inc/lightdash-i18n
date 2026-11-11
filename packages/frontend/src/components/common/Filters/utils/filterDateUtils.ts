@@ -3,6 +3,7 @@ import {
     isRollingMinAllowedMonthsActive,
     isValidRollingMinAllowedMonths,
     TimeFrames,
+    type DateRangeSetting,
     type FilterOperator,
     type WeekDay,
 } from '@lightdash/common';
@@ -352,6 +353,8 @@ export type RuleDateBoundsInput = {
     dateRangeGranularity?: TimeFrames;
     enableDynamicMaxAllowedDate?: boolean;
     rollingMinAllowedMonths?: number;
+    /** 默认值模式（dynamic/fixed）——决定约束字段的归属，防止跨模式混用 */
+    settings?: { dateRange?: DateRangeSetting } | null;
 };
 
 /**
@@ -366,20 +369,28 @@ export const resolveRuleBounds = (
     options: { applyDataAvailabilityDelay?: boolean } = {},
 ): { minDate?: Date; maxDate?: Date } => {
     const granularity = rule.dateRangeGranularity ?? TimeFrames.DAY;
-    const rollingMinAllowedMonths = isRollingMinAllowedMonthsActive({
-        operator: rule.operator,
-        dateRangeGranularity: granularity,
-        rollingMinAllowedMonths: rule.rollingMinAllowedMonths,
-    })
-        ? rule.rollingMinAllowedMonths
-        : undefined;
+    // 字段归属隔离（防跨模式混用导致查询数据错误）：
+    // - 动态模式：最早只归 rolling（忽略残留的静态最早）；最晚 = 固定最晚（作为
+    //   rolling 锚点，含「固定窗口」语义）?? 跟随数据更新
+    // - 固定模式：只消费静态最早/最晚；rolling / 跟随数据更新字段不参与
+    //   （保存规范化会剥离，这里对存量脏数据兜底）
+    const isDynamicMode = rule.settings?.dateRange?.mode === 'dynamic';
+    const rollingMinAllowedMonths =
+        isDynamicMode &&
+        isRollingMinAllowedMonthsActive({
+            operator: rule.operator,
+            dateRangeGranularity: granularity,
+            rollingMinAllowedMonths: rule.rollingMinAllowedMonths,
+        })
+            ? rule.rollingMinAllowedMonths
+            : undefined;
     return getDashboardFilterDatePickerBounds(
-        rule.minAllowedDate,
+        isDynamicMode ? undefined : rule.minAllowedDate,
         rule.maxAllowedDate,
         granularity,
         referenceDate,
         options.applyDataAvailabilityDelay ?? true,
-        !!rule.enableDynamicMaxAllowedDate,
+        isDynamicMode && !!rule.enableDynamicMaxAllowedDate,
         rollingMinAllowedMonths,
     );
 };

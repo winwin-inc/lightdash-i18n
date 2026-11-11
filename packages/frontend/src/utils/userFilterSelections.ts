@@ -511,12 +511,16 @@ export const applySelectionValues = (
     if (!sourceHasValues && isDynamicDateRule(rule)) {
         return rule;
     }
-    const target = stripDynamicDateSettings(rule);
     const inheritedValues =
         source.values !== undefined ? [...source.values] : [];
+    // 先按接收方自身边界钳制（此时 settings.dateRange 尚在，rolling /
+    // 跟随数据更新可被 resolveRuleBounds 消费），再剥离动态默认 settings——
+    // 剥离后写入存储的已是钳后值（G1），杜绝跨模式字段混用导致的错边钳制
+    const clampedValues = clampFixedDateRangeValues(rule, inheritedValues);
+    const target = stripDynamicDateSettings(rule);
     return {
         ...target,
-        values: clampFixedDateRangeValues(target, inheritedValues),
+        values: clampedValues,
         disabled: source.disabled ?? false,
     };
 };

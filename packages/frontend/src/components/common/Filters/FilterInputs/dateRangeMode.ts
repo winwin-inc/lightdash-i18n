@@ -210,11 +210,68 @@ export const stripDisallowedDynamicDateRange = <
     rule: T,
 ): T => {
     const granularity = rule.dateRangeGranularity ?? TimeFrames.DAY;
-    if (isDynamicDateRangeAllowed(granularity)) return rule;
-    if (rule.settings?.dateRange == null) return rule;
-    const { dateRange: _dropped, ...restSettings } = rule.settings;
-    return {
+    const settings = rule.settings;
+    // 约束字段（rolling / 跟随数据更新 / 静态最早最晚）不在 GranularDateRangeModeRule 上，
+    // 统一经此视图访问，避免各分支重复断言
+    const withConstraints = rule as GranularDateRangeModeRule & {
+        rollingMinAllowedMonths?: number;
+        enableDynamicMaxAllowedDate?: boolean;
+        minAllowedDate?: string;
+        maxAllowedDate?: string;
+    };
+    if (!isDynamicDateRangeAllowed(granularity)) {
+        // 粒度不允许动态默认：动态默认与动态约束（rolling / 跟随数据更新上限）一并清理
+        const withConstraints = rule as GranularDateRangeModeRule & {
+            rollingMinAllowedMonths?: number;
+            enableDynamicMaxAllowedDate?: boolean;
+        };
+        if (
+            withConstraints.settings?.dateRange == null &&
+            withConstraints.rollingMinAllowedMonths == null &&
+            !withConstraints.enableDynamicMaxAllowedDate
+        ) {
+            return rule;
+        }
+        const { dateRange: _dropped, ...restSettings } = settings ?? {};
+        return {
+            ...rule,
+            settings:
+                Object.keys(restSettings).length > 0 ? restSettings : undefined,
+            rollingMinAllowedMonths: undefined,
+            enableDynamicMaxAllowedDate: undefined,
+        } as T;
+    }
+    // 粒度允许但默认值是固定模式：约束只支持静态（固定最早/最晚日期），
+    // 动态约束与固定默认值会出现「默认值不动、窗口滚动」的交叉错位，一并清理
+    if (settings?.dateRange?.mode !== 'dynamic') {
+        if (
+            withConstraints.rollingMinAllowedMonths == null &&
+            !withConstraints.enableDynamicMaxAllowedDate
+        ) {
+            return rule;
+        }
+        return {
+            ...rule,
+            rollingMinAllowedMonths: undefined,
+            enableDynamicMaxAllowedDate: undefined,
+        } as T & { rollingMinAllowedMonths?: undefined; enableDynamicMaxAllowedDate?: undefined };
+    }
+    // 动态模式：最早归 rolling（清理残留静态最早）；开启「跟随数据更新」时
+    // 最晚归其所有（清理共存固定最晚——固定值会静默覆盖动态上限）。
+    // 保存后存储与 UI/查询保持单一口径，杜绝跨模式字段混用导致的查询错误。
+    const hasStaticMin = withConstraints.minAllowedDate != null;
+    const hasFixedMaxConflict =
+        !!withConstraints.enableDynamicMaxAllowedDate &&
+        withConstraints.maxAllowedDate != null;
+    if (!hasStaticMin && !hasFixedMaxConflict) {
+        return rule;
+    }
+    const strippedConstraint = {
         ...rule,
-        settings: Object.keys(restSettings).length > 0 ? restSettings : undefined,
-    } as T;
+        minAllowedDate: undefined,
+    } as T & { maxAllowedDate?: string | undefined };
+    if (hasFixedMaxConflict) {
+        strippedConstraint.maxAllowedDate = undefined;
+    }
+    return strippedConstraint;
 };
