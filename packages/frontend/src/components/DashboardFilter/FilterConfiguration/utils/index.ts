@@ -287,6 +287,7 @@ export const getFilterRuleRevertableObject = (
         maxAllowedDate: filterRule.maxAllowedDate,
         enableDynamicMaxAllowedDate: filterRule.enableDynamicMaxAllowedDate,
         dateRangeGranularity: filterRule.dateRangeGranularity,
+        rollingMinAllowedMonths: filterRule.rollingMinAllowedMonths,
         readOnly: filterRule.readOnly,
         hidden: filterRule.hidden,
         clearable: filterRule.clearable,

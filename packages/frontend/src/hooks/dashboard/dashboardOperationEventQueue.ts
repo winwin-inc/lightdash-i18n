@@ -91,6 +91,7 @@ const baseFilterSummary = (rule: DashboardFilterRule) => ({
     dateRangeGranularity: (
         rule as DashboardFilterRule & { dateRangeGranularity?: unknown }
     ).dateRangeGranularity,
+    rollingMinAllowedMonths: rule.rollingMinAllowedMonths,
     tileTargetCount: Object.keys(rule.tileTargets || {}).length,
 });
 
@@ -208,6 +209,7 @@ export const enqueueFilterUpdatedFromDiff = (
         'maxAllowedDate',
         'enableDynamicMaxAllowedDate',
         'dateRangeGranularity',
+        'rollingMinAllowedMonths',
         'settings',
     ] as const;
     if (
