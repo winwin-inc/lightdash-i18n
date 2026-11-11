@@ -213,7 +213,7 @@ export const stripDisallowedDynamicDateRange = <
     const settings = rule.settings;
     // 约束字段（rolling / 跟随数据更新 / 静态最早最晚）不在 GranularDateRangeModeRule 上，
     // 统一经此视图访问，避免各分支重复断言
-    const withConstraints = rule as GranularDateRangeModeRule & {
+    const constrainedView = rule as GranularDateRangeModeRule & {
         rollingMinAllowedMonths?: number;
         enableDynamicMaxAllowedDate?: boolean;
         minAllowedDate?: string;
@@ -221,14 +221,10 @@ export const stripDisallowedDynamicDateRange = <
     };
     if (!isDynamicDateRangeAllowed(granularity)) {
         // 粒度不允许动态默认：动态默认与动态约束（rolling / 跟随数据更新上限）一并清理
-        const withConstraints = rule as GranularDateRangeModeRule & {
-            rollingMinAllowedMonths?: number;
-            enableDynamicMaxAllowedDate?: boolean;
-        };
         if (
-            withConstraints.settings?.dateRange == null &&
-            withConstraints.rollingMinAllowedMonths == null &&
-            !withConstraints.enableDynamicMaxAllowedDate
+            constrainedView.settings?.dateRange == null &&
+            constrainedView.rollingMinAllowedMonths == null &&
+            !constrainedView.enableDynamicMaxAllowedDate
         ) {
             return rule;
         }
@@ -245,8 +241,8 @@ export const stripDisallowedDynamicDateRange = <
     // 动态约束与固定默认值会出现「默认值不动、窗口滚动」的交叉错位，一并清理
     if (settings?.dateRange?.mode !== 'dynamic') {
         if (
-            withConstraints.rollingMinAllowedMonths == null &&
-            !withConstraints.enableDynamicMaxAllowedDate
+            constrainedView.rollingMinAllowedMonths == null &&
+            !constrainedView.enableDynamicMaxAllowedDate
         ) {
             return rule;
         }
@@ -259,10 +255,10 @@ export const stripDisallowedDynamicDateRange = <
     // 动态模式：最早归 rolling（清理残留静态最早）；开启「跟随数据更新」时
     // 最晚归其所有（清理共存固定最晚——固定值会静默覆盖动态上限）。
     // 保存后存储与 UI/查询保持单一口径，杜绝跨模式字段混用导致的查询错误。
-    const hasStaticMin = withConstraints.minAllowedDate != null;
+    const hasStaticMin = constrainedView.minAllowedDate != null;
     const hasFixedMaxConflict =
-        !!withConstraints.enableDynamicMaxAllowedDate &&
-        withConstraints.maxAllowedDate != null;
+        !!constrainedView.enableDynamicMaxAllowedDate &&
+        constrainedView.maxAllowedDate != null;
     if (!hasStaticMin && !hasFixedMaxConflict) {
         return rule;
     }
