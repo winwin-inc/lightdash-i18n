@@ -1,3 +1,5 @@
+import dayjs from 'dayjs';
+
 import {
     FilterOperator,
     TimeFrames,
@@ -13,7 +15,7 @@ import {
     mergePendingExcludedValueIntoRule,
     normalizeExcludedValues,
     removeValuesExcludedFromFilterRule,
-    validateDashboardFilterDynamicDateRange,
+    validateDashboardFilterDateRange,
 } from './index';
 
 const createFilterRule = (
@@ -187,7 +189,7 @@ describe('applyExcludedValuesToFilterRule', () => {
     });
 });
 
-describe('validateDashboardFilterDynamicDateRange', () => {
+describe('validateDashboardFilterDateRange', () => {
     it('returns start_after_end when start is more recent than end', () => {
         const rule = createFilterRule({
             operator: FilterOperator.IN_BETWEEN,
@@ -210,11 +212,8 @@ describe('validateDashboardFilterDynamicDateRange', () => {
         });
 
         expect(
-            validateDashboardFilterDynamicDateRange(
-                rule,
-                new Date('2026-07-10'),
-            ),
-        ).toBe('start_after_end');
+            validateDashboardFilterDateRange(rule, new Date('2026-07-10')),
+        ).toEqual({ code: 'start_after_end' });
     });
 
     it('returns end_after_max when dynamic end exceeds rolling max', () => {
@@ -240,10 +239,8 @@ describe('validateDashboardFilterDynamicDateRange', () => {
         });
 
         expect(
-            validateDashboardFilterDynamicDateRange(
-                rule,
-                new Date('2026-03-03'),
-            ),
+            validateDashboardFilterDateRange(rule, new Date('2026-03-03'))
+                ?.code,
         ).toBe('end_after_max');
     });
 
@@ -269,14 +266,11 @@ describe('validateDashboardFilterDynamicDateRange', () => {
         });
 
         expect(
-            validateDashboardFilterDynamicDateRange(
-                rule,
-                new Date('2026-03-03'),
-            ),
+            validateDashboardFilterDateRange(rule, new Date('2026-03-03')),
         ).toBeNull();
     });
 
-    it('allows 1 month ago before the 4th because config validation ignores data availability delay', () => {
+    it('rejects a 1-month-ago end before the 4th (runtime caliber, P1-5)', () => {
         const rule = createFilterRule({
             operator: FilterOperator.IN_BETWEEN,
             dateRangeGranularity: TimeFrames.MONTH,
@@ -298,12 +292,17 @@ describe('validateDashboardFilterDynamicDateRange', () => {
             },
         });
 
+        // 2026-03-03（4 号前）：校验与运行时同口径（applyDataAvailabilityDelay=true）
+        // → 最晚可选 = 2026-01-31，动态 end=2026-02-28 越界。
+        // 旧口径（false）会在这里放行，导致每月 1–3 号保存与页面行为差 1 个月。
+        const error = validateDashboardFilterDateRange(
+            rule,
+            new Date('2026-03-03'),
+        );
+        expect(error?.code).toBe('end_after_max');
         expect(
-            validateDashboardFilterDynamicDateRange(
-                rule,
-                new Date('2026-03-03'),
-            ),
-        ).toBeNull();
+            error?.maxDate && dayjs(error.maxDate).format('YYYY-MM-DD'),
+        ).toBe('2026-01-31');
     });
 
     it('passes when dynamic end is within rolling max', () => {
@@ -329,21 +328,142 @@ describe('validateDashboardFilterDynamicDateRange', () => {
         });
 
         expect(
-            validateDashboardFilterDynamicDateRange(
-                rule,
-                new Date('2026-05-10'),
-            ),
+            validateDashboardFilterDateRange(rule, new Date('2026-05-10')),
         ).toBeNull();
     });
 
-    it('returns null for fixed date mode', () => {
+    it('returns null for fixed values without any bounds config', () => {
         expect(
-            validateDashboardFilterDynamicDateRange(
+            validateDashboardFilterDateRange(
                 createFilterRule({
                     operator: FilterOperator.IN_BETWEEN,
                     values: ['2026-01-01', '2026-03-31'],
                 }),
+                new Date('2026-07-10'),
             ),
+        ).toBeNull();
+    });
+
+    it('validates fixed default values against the bounds (P1-5)', () => {
+        const rule = createFilterRule({
+            operator: FilterOperator.IN_BETWEEN,
+            dateRangeGranularity: TimeFrames.MONTH,
+            minAllowedDate: '2025-01-01',
+            maxAllowedDate: '2026-06-30',
+            values: ['2024-11-05', '2026-06-20'],
+        });
+
+        const error = validateDashboardFilterDateRange(
+            rule,
+            new Date('2026-07-10'),
+        );
+        expect(error?.code).toBe('start_before_min');
+        expect(
+            error?.minDate && dayjs(error.minDate).format('YYYY-MM-DD'),
+        ).toBe('2025-01-01');
+        expect(
+            error?.maxDate && dayjs(error.maxDate).format('YYYY-MM-DD'),
+        ).toBe('2026-06-30');
+    });
+
+    it('returns end_after_max for fixed values beyond the rolling window', () => {
+        const rule = createFilterRule({
+            operator: FilterOperator.IN_BETWEEN,
+            dateRangeGranularity: TimeFrames.MONTH,
+            enableDynamicMaxAllowedDate: true,
+            rollingMinAllowedMonths: 24,
+            values: ['2024-11-01', '2026-10-31'],
+        });
+
+        // 2026-07-03（4 号前）→ 最晚可选 = 2026-05-31
+        const error = validateDashboardFilterDateRange(
+            rule,
+            new Date('2026-07-03'),
+        );
+        expect(error?.code).toBe('end_after_max');
+        expect(
+            error?.maxDate && dayjs(error.maxDate).format('YYYY-MM-DD'),
+        ).toBe('2026-05-31');
+    });
+
+    it('passes fixed values inside the rolling window', () => {
+        const rule = createFilterRule({
+            operator: FilterOperator.IN_BETWEEN,
+            dateRangeGranularity: TimeFrames.MONTH,
+            enableDynamicMaxAllowedDate: true,
+            rollingMinAllowedMonths: 24,
+            values: ['2025-07-01', '2026-05-31'],
+        });
+
+        expect(
+            validateDashboardFilterDateRange(rule, new Date('2026-07-03')),
+        ).toBeNull();
+    });
+
+    it('rejects rolling without any latest bound (rolling_requires_max)', () => {
+        const rule = createFilterRule({
+            operator: FilterOperator.IN_BETWEEN,
+            dateRangeGranularity: TimeFrames.MONTH,
+            rollingMinAllowedMonths: 24,
+            values: ['2025-07-01', '2026-06-30'],
+        });
+
+        expect(
+            validateDashboardFilterDateRange(rule, new Date('2026-07-10')),
+        ).toEqual({ code: 'rolling_requires_max' });
+    });
+
+    it('accepts rolling with a dynamic max bound', () => {
+        const rule = createFilterRule({
+            operator: FilterOperator.IN_BETWEEN,
+            dateRangeGranularity: TimeFrames.MONTH,
+            enableDynamicMaxAllowedDate: true,
+            rollingMinAllowedMonths: 24,
+            values: [],
+        });
+
+        expect(
+            validateDashboardFilterDateRange(rule, new Date('2026-07-10')),
+        ).toBeNull();
+    });
+
+    it('does not enforce the rolling gate for NOT_IN_BETWEEN', () => {
+        const rule = createFilterRule({
+            operator: FilterOperator.NOT_IN_BETWEEN,
+            dateRangeGranularity: TimeFrames.MONTH,
+            rollingMinAllowedMonths: 24,
+            values: ['2025-07-01', '2026-06-30'],
+        });
+
+        expect(
+            validateDashboardFilterDateRange(rule, new Date('2026-07-10')),
+        ).toBeNull();
+    });
+
+    it('treats an invalid rolling N as not configured', () => {
+        const rule = createFilterRule({
+            operator: FilterOperator.IN_BETWEEN,
+            dateRangeGranularity: TimeFrames.MONTH,
+            rollingMinAllowedMonths: 0,
+            values: ['2025-07-01', '2026-06-30'],
+        });
+
+        expect(
+            validateDashboardFilterDateRange(rule, new Date('2026-07-10')),
+        ).toBeNull();
+    });
+
+    it('skips half-empty fixed values (hasFilterValueSet guards those)', () => {
+        const rule = createFilterRule({
+            operator: FilterOperator.IN_BETWEEN,
+            dateRangeGranularity: TimeFrames.MONTH,
+            minAllowedDate: '2025-01-01',
+            maxAllowedDate: '2026-06-30',
+            values: ['2024-11-05'],
+        });
+
+        expect(
+            validateDashboardFilterDateRange(rule, new Date('2026-07-10')),
         ).toBeNull();
     });
 
@@ -370,10 +490,8 @@ describe('validateDashboardFilterDynamicDateRange', () => {
         });
 
         expect(
-            validateDashboardFilterDynamicDateRange(
-                rule,
-                new Date('2026-04-10'),
-            ),
+            validateDashboardFilterDateRange(rule, new Date('2026-04-10'))
+                ?.code,
         ).toBe('end_after_max');
     });
 });

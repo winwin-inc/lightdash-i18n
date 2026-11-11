@@ -7,6 +7,7 @@ import {
     type DashboardFilters,
 } from '@lightdash/common';
 
+import { clampFixedDateRangeValues } from '../components/common/Filters/FilterInputs/utils';
 import {
     CATEGORY_COLUMN_LEVELS,
     getCategoryColumnName,
@@ -489,20 +490,32 @@ export const applyFilterSelection = (
 /**
  * 跨 Tab 继承：只搬「用户选的取值 + 生效状态」，不动作者的控件配置。
  *
- * - `values` 覆盖为来源的取值
+ * - `values` 覆盖为来源的取值，并按**接收方自身**的可选范围钳制后写回存储
+ *   （避免存储值永久越界、以及 chip/查询各自钳制后 `isSameRuleSelection`
+ *   误判无变化，G1；来源与接收方窗口不同如 A(24)→B(12) 时各按各的边界）
+ * - 来源被清空（无显式取值）且接收方仍是动态默认形态时：保留接收方的
+ *   动态默认不动（P1-6/D6）。查看者的「清空」不应销毁其它 Tab 的作者默认
+ *   形态，否则该 Tab 本次会话内不再自动滚动；接收方继续按自己的动态默认
+ *   过滤，等价于回到作者配置
  * - `disabled` 跟随来源：有值 → 启用（"任何值"的规则也会被启用并真正参与过滤）；
  *   来源被清空 → 同步成"任何值"
- * - `settings` 只在接收方是动态默认时去掉 singleDate / dateRange，
+ * - 其余情况下 `settings` 只在接收方是动态默认时去掉 singleDate / dateRange，
  *   其余粒度 / 日期边界 / 排除项保持接收方作者配置
  */
 export const applySelectionValues = (
     rule: DashboardFilterRule,
     source: DashboardFilterRule,
 ): DashboardFilterRule => {
+    const sourceHasValues = (source.values ?? []).length > 0;
+    if (!sourceHasValues && isDynamicDateRule(rule)) {
+        return rule;
+    }
     const target = stripDynamicDateSettings(rule);
+    const inheritedValues =
+        source.values !== undefined ? [...source.values] : [];
     return {
         ...target,
-        values: source.values !== undefined ? [...source.values] : [],
+        values: clampFixedDateRangeValues(target, inheritedValues),
         disabled: source.disabled ?? false,
     };
 };

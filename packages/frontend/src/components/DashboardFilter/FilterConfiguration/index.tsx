@@ -5,12 +5,14 @@ import {
     DimensionType,
     FilterType,
     findDefaultTileFilterField,
+    formatDate,
     getFilterTypeFromItem,
     getFilterTypeFromItemType,
     getItemId,
     isFilterableField,
     isMetric,
     isTableCalculation,
+    TimeFrames,
     type DashboardFieldTarget,
     type DashboardFilterableField,
     type DashboardFilterRule,
@@ -67,7 +69,8 @@ import {
     mergeExcludedValues,
     mergePendingExcludedValueIntoRule,
     removeValuesExcludedFromFilterRule,
-    validateDashboardFilterDynamicDateRange,
+    validateDashboardFilterDateRange,
+    type DashboardFilterDateRangeValidationError,
 } from './utils';
 import {
     buildParentOptionLabels,
@@ -132,6 +135,64 @@ const FilterConfiguration: FC<Props> = ({
     const { t } = useTranslation();
     const { showToastError } = useToaster();
     const isMobileDevice = useIsMobileDevice();
+
+    /**
+     * 保存期日期区间校验的报错文案（P1-5）：
+     * - 越界错误带解析后的实际边界（「实际最早/最晚可选」），
+     *   否则作者无法理解每月 1–3 号的拦截
+     * - rolling 无最晚可选月复用约束编辑器同文案（rolling_requires_max）
+     */
+    const getDateRangeValidationMessage = useCallback(
+        (error: DashboardFilterDateRangeValidationError): string => {
+            switch (error.code) {
+                case 'start_after_end':
+                    return t(
+                        'components_dashboard_filter.configuration.date_range.start_after_end',
+                        '开始日期不能晚于结束日期',
+                    );
+                case 'rolling_requires_max':
+                    return t(
+                        'components_dashboard_filter.configuration.date_range.rolling_requires_max',
+                    );
+                case 'end_after_max': {
+                    const max = error.maxDate
+                        ? formatDate(error.maxDate, TimeFrames.DAY)
+                        : '';
+                    return `${t(
+                        'components_dashboard_filter.configuration.date_range.default_out_of_range',
+                        '默认值日期超出了限制范围',
+                    )}（${t(
+                        'components_dashboard_filter.configuration.date_range.default_after_max_bounds',
+                        {
+                            defaultValue: '实际最晚可选：{{max}}',
+                            max,
+                        },
+                    )}）`;
+                }
+                case 'start_before_min': {
+                    const min = error.minDate
+                        ? formatDate(error.minDate, TimeFrames.DAY)
+                        : '';
+                    return `${t(
+                        'components_dashboard_filter.configuration.date_range.default_out_of_range',
+                        '默认值日期超出了限制范围',
+                    )}（${t(
+                        'components_dashboard_filter.configuration.date_range.default_before_min_bounds',
+                        {
+                            defaultValue: '实际最早可选：{{min}}',
+                            min,
+                        },
+                    )}）`;
+                }
+                default:
+                    return assertUnreachable(
+                        error.code,
+                        'unknown date range validation error',
+                    );
+            }
+        },
+        [t],
+    );
 
     const [selectedTabId, setSelectedTabId] = useState<FilterTabs>(DEFAULT_TAB);
     const [selectedField, setSelectedField] = useState<
@@ -991,25 +1052,14 @@ const FilterConfiguration: FC<Props> = ({
 
                                         if (isEditMode || isCreatingNew) {
                                             const validationError =
-                                                validateDashboardFilterDynamicDateRange(
+                                                validateDashboardFilterDateRange(
                                                     ruleToSave,
                                                 );
                                             if (validationError) {
-                                                const messageKey =
-                                                    validationError ===
-                                                    'start_after_end'
-                                                        ? 'components_dashboard_filter.configuration.date_range.start_after_end'
-                                                        : 'components_dashboard_filter.configuration.date_range.default_out_of_range';
-                                                const defaultMessage =
-                                                    validationError ===
-                                                    'start_after_end'
-                                                        ? '开始日期不能晚于结束日期'
-                                                        : '默认值日期超出了限制范围';
                                                 showToastError({
                                                     key: 'dashboard-filter-date-range-validation',
-                                                    title: t(
-                                                        messageKey,
-                                                        defaultMessage,
+                                                    title: getDateRangeValidationMessage(
+                                                        validationError,
                                                     ),
                                                     autoClose: 3000,
                                                 });

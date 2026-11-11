@@ -37,7 +37,8 @@ import { type MomentInput } from 'moment';
 import { useTranslation } from 'react-i18next';
 import {
     clampDateRangeValuesToBounds,
-    getDashboardFilterDatePickerBounds,
+    resolveRuleBounds,
+    type RuleDateBoundsInput,
 } from '../utils/filterDateUtils';
 import { useFilterOperatorLabel } from './constants';
 import { useUnitOfTimeLabels } from './useUnitOfTimeLabels';
@@ -203,6 +204,52 @@ export const getSingleDateRuleWithFixedValues = <
     } as T;
 };
 
+/** 固定区间取值钳制的规则输入：BaseFilterRule 之外还需看板侧的日期约束字段。 */
+export type FixedDateRangeClampRule = RuleDateBoundsInput & {
+    values?: AnyType[];
+};
+
+/** 槽位是否有可钳制的取值（空串/undefined/null 视为单边区间，不钳）。 */
+const isPopulatedSlot = (value: AnyType): boolean =>
+    value != null && value !== '';
+
+/**
+ * 将固定区间取值钳制到规则自身的可选范围（含 rolling 下限），供
+ * chip 展示（resolveDisplayValues）、查询参数（prepareDashboardFilterRuleForQuery）
+ * 与跨 tab 同步写回（applySelectionValues）三条路径共用，保证三处口径一致。
+ *
+ * - 仅 IN_BETWEEN 且双端有值时钳制（D5：单边 / NOT_IN_BETWEEN / EQUALS 不夹，
+ *   夹紧 NOT_IN_BETWEEN 会反转排除语义）
+ * - 边界用 resolveRuleBounds 以运行时口径（applyDataAvailabilityDelay=true）解析
+ * - 规则未配置任何边界（普通 explore 筛选器）时原引用透传，行为与现状一致
+ */
+export const clampFixedDateRangeValues = (
+    rule: FixedDateRangeClampRule,
+    values: AnyType[] | undefined,
+    now: Date = new Date(),
+): AnyType[] | undefined => {
+    if (rule.operator !== FilterOperator.IN_BETWEEN) return values;
+    if (values == null || values.length < 2) return values;
+    if (!isPopulatedSlot(values[0]) || !isPopulatedSlot(values[1])) {
+        return values;
+    }
+    const hasBoundsConfig =
+        rule.minAllowedDate != null ||
+        rule.maxAllowedDate != null ||
+        rule.enableDynamicMaxAllowedDate === true ||
+        rule.rollingMinAllowedMonths != null;
+    if (!hasBoundsConfig) return values;
+
+    const { minDate, maxDate } = resolveRuleBounds(rule, now);
+    if (minDate == null && maxDate == null) return values;
+    return clampDateRangeValuesToBounds(
+        [values[0], values[1]],
+        minDate,
+        maxDate,
+        rule.dateRangeGranularity ?? TimeFrames.DAY,
+    );
+};
+
 /**
  * If the rule has a dynamic date range or single-date default, re-resolve
  * `values` from settings using the current date so the displayed chip label
@@ -219,6 +266,7 @@ export const resolveDisplayValues = (
         maxAllowedDate?: string;
         dateRangeGranularity?: TimeFrames;
         enableDynamicMaxAllowedDate?: boolean;
+        rollingMinAllowedMonths?: number;
     },
     now: Date = new Date(),
 ): AnyType[] | undefined => {
@@ -226,21 +274,16 @@ export const resolveDisplayValues = (
         const resolved = resolveSingleDateValue(rule, now);
         return resolved != null ? [resolved] : rule.values;
     }
-    if (!isDateRangeDynamic(rule)) return rule.values;
+    if (!isDateRangeDynamic(rule)) {
+        // 固定区间取值同样按可选范围钳制后展示，与查询/同步两条路径保持一致
+        return clampFixedDateRangeValues(rule, rule.values, now);
+    }
     const dr = rule.settings?.dateRange;
     if (!dr) return rule.values;
     const granularity = rule.dateRangeGranularity ?? TimeFrames.DAY;
-    const resolved = resolveDateRangeValues(rule, granularity, now).filter(
-        (value): value is string => value !== null,
-    );
-    const { minDate, maxDate } = getDashboardFilterDatePickerBounds(
-        rule.minAllowedDate,
-        rule.maxAllowedDate,
-        granularity,
-        now,
-        true,
-        !!rule.enableDynamicMaxAllowedDate,
-    );
+    // 不做 null 预过滤：clamp 保留槽位结构，单边区间不塌缩（S1 契约）
+    const resolved = resolveDateRangeValues(rule, granularity, now);
+    const { minDate, maxDate } = resolveRuleBounds(rule, now);
     return clampDateRangeValuesToBounds(
         resolved,
         minDate,
@@ -274,7 +317,10 @@ export const resolveDynamicDateRangeRule = <
     return { ...rule, values: resolved };
 };
 
-/** 查询前解析动态日期并去掉动态 settings，保证接口参数与筛选器展示一致 */
+/**
+ * 查询前解析动态日期并去掉动态 settings；固定区间取值按可选范围钳制
+ * （现状只夹动态、固定值直接短路，导致存储的越界固定值原样进查询）。
+ */
 export const prepareDashboardFilterRuleForQuery = <
     T extends BaseFilterRule & {
         settings?: {
@@ -285,10 +331,21 @@ export const prepareDashboardFilterRuleForQuery = <
 >(
     rule: T,
     now: Date = new Date(),
-): T =>
-    getSingleDateRuleWithFixedValues(
-        getDateRangeRuleWithFixedValues(resolveDynamicDateRangeRule(rule, now)),
+): T => {
+    const resolved = resolveDynamicDateRangeRule(rule, now);
+    const clampedValues = clampFixedDateRangeValues(
+        resolved,
+        resolved.values,
+        now,
     );
+    const clamped =
+        clampedValues === resolved.values
+            ? resolved
+            : ({ ...resolved, values: clampedValues } as T);
+    return getSingleDateRuleWithFixedValues(
+        getDateRangeRuleWithFixedValues(clamped),
+    );
+};
 
 const useValueAsString = () => {
     const { t } = useTranslation();
