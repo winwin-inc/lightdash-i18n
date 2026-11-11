@@ -12,6 +12,7 @@ import {
     parseDateRangeCount,
     resolveDateRangeMode,
     resolveDynamicDateRangeValues,
+    type DateRangeModeRule,
 } from './dateRangeMode';
 
 // stripDisallowedDynamicDateRange 的用例见 ../components 侧
@@ -94,8 +95,8 @@ describe('dateRangeMode', () => {
             const next = normalizeDateRangeSetting(
                 {
                     mode: 'dynamic',
-                    start: { direction: 'later', count: 3, unit: 'days' },
-                    end: { direction: 'ago', count: 1, unit: 'days' },
+                    start: { direction: 'later', count: 3, unit: UnitOfTime.days },
+                    end: { direction: 'ago', count: 1, unit: UnitOfTime.days },
                 },
                 UnitOfTime.months,
             );
@@ -127,8 +128,8 @@ describe('dateRangeMode', () => {
             const values = resolveDynamicDateRangeValues(
                 {
                     mode: 'dynamic',
-                    start: { direction: 'ago', count: 12, unit: 'months' },
-                    end: { direction: 'ago', count: 1, unit: 'months' },
+                    start: { direction: 'ago', count: 12, unit: UnitOfTime.months },
+                    end: { direction: 'ago', count: 1, unit: UnitOfTime.months },
                 },
                 TimeFrames.MONTH,
             );
@@ -141,7 +142,7 @@ describe('dateRangeMode', () => {
 
     describe('buildDateRangeModeChangeRule', () => {
         it('seeds the documented 12 → 1 month defaults when switching to dynamic without prior config', () => {
-            const next = buildDateRangeModeChangeRule(
+            const next = buildDateRangeModeChangeRule<DateRangeModeRule>(
                 { values: [] },
                 'dynamic',
                 TimeFrames.MONTH,
@@ -161,7 +162,7 @@ describe('dateRangeMode', () => {
         });
 
         it('keeps existing counts and re-resolves values when dynamic config already exists', () => {
-            const next = buildDateRangeModeChangeRule(
+            const next = buildDateRangeModeChangeRule<DateRangeModeRule>(
                 {
                     values: [],
                     settings: {
@@ -170,9 +171,9 @@ describe('dateRangeMode', () => {
                             start: {
                                 direction: 'ago',
                                 count: 23,
-                                unit: 'months',
+                                unit: UnitOfTime.months,
                             },
-                            end: { direction: 'ago', count: 1, unit: 'months' },
+                            end: { direction: 'ago', count: 1, unit: UnitOfTime.months },
                         },
                     },
                 },
@@ -185,7 +186,7 @@ describe('dateRangeMode', () => {
         });
 
         it('locks the unit to quarters on quarter granularity', () => {
-            const next = buildDateRangeModeChangeRule(
+            const next = buildDateRangeModeChangeRule<DateRangeModeRule>(
                 { values: [] },
                 'dynamic',
                 TimeFrames.QUARTER,
@@ -207,7 +208,7 @@ describe('dateRangeMode', () => {
                     unitOfTime: 'months' as const,
                 },
             };
-            const next = buildDateRangeModeChangeRule(
+            const next = buildDateRangeModeChangeRule<DateRangeModeRule>(
                 rule,
                 'fixed',
                 TimeFrames.MONTH,

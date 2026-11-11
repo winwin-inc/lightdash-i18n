@@ -18,9 +18,9 @@ import {
     Tooltip,
     type PopoverProps,
 } from '@mantine/core';
-import { IconInfoCircle } from '@tabler/icons-react';
+import { IconHelpCircle } from '@tabler/icons-react';
 import dayjs from 'dayjs';
-import { useMemo, type FC } from 'react';
+import { useMemo, type FC, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import FilterDatePicker from '../../common/Filters/FilterInputs/FilterDatePicker';
@@ -47,16 +47,22 @@ const DEFAULT_ROLLING_MIN_ALLOWED_MONTHS = 12;
  * ⓘ tooltip with keyboard access (focusable via tabIndex, focus shows the
  * Mantine tooltip). Replaces the former long-form hint/description texts.
  */
-const InfoTooltip: FC<{ label: string }> = ({ label }) => (
+/** 对齐「类目层级」label 后的帮助图标：默认色 IconHelpCircle，hover/focus 显示说明 */
+const InfoTooltip: FC<{ label: string; children?: ReactNode }> = ({
+    label,
+    children,
+}) => (
     <Tooltip withinPortal variant="xs" position="top" label={label}>
-        <Box
-            component="span"
-            display="inline-flex"
-            tabIndex={0}
-            sx={{ cursor: 'help', outline: 'none' }}
-        >
-            <MantineIcon icon={IconInfoCircle} size="sm" color="dimmed" />
-        </Box>
+        {children ?? (
+            <Box
+                component="span"
+                display="inline-flex"
+                tabIndex={0}
+                sx={{ cursor: 'help', outline: 'none' }}
+            >
+                <MantineIcon size="sm" icon={IconHelpCircle} />
+            </Box>
+        )}
     </Tooltip>
 );
 
@@ -196,6 +202,24 @@ const DateRangeConstraintEditor: FC<Props> = ({
         : null;
 
     const formatBadgeMonth = (d: Date) => dayjs(d).format('YYYY-MM');
+
+    const labelWithHint = (key: 'min_label' | 'max_label') => {
+        const hintKey = key === 'min_label' ? 'min_tooltip' : 'max_tooltip';
+        return (
+            <Group spacing="xs" noWrap mb={2} sx={{ flexWrap: 'nowrap' }}>
+                <Text size="xs" fw={500}>
+                    {t(
+                        `components_dashboard_filter.configuration.date_range.${key}`,
+                    )}
+                </Text>
+                <InfoTooltip
+                    label={t(
+                        `components_dashboard_filter.configuration.date_range.${hintKey}`,
+                    )}
+                />
+            </Group>
+        );
+    };
     const rollingBadge =
         rollingActive && effectiveBounds.maxDate != null ? (
             dynamicMaxInEffect ? (
@@ -234,11 +258,17 @@ const DateRangeConstraintEditor: FC<Props> = ({
                             handleRollingSwitchChange(e.currentTarget.checked)
                         }
                         label={
-                            <Text size="xs" fw={500}>
-                                {t(
-                                    'components_dashboard_filter.configuration.date_range.rolling_label',
+                            <InfoTooltip
+                                label={t(
+                                    'components_dashboard_filter.configuration.date_range.rolling_tooltip',
                                 )}
-                            </Text>
+                            >
+                                <Text size="xs" fw={500}>
+                                    {t(
+                                        'components_dashboard_filter.configuration.date_range.rolling_label',
+                                    )}
+                                </Text>
+                            </InfoTooltip>
                         }
                     />
                     {rollingConfigured && (
@@ -301,11 +331,17 @@ const DateRangeConstraintEditor: FC<Props> = ({
                             });
                         }}
                         label={
-                            <Text size="xs" fw={500}>
-                                {t(
-                                    'components_dashboard_filter.configuration.date_range.dynamic_max_label',
+                            <InfoTooltip
+                                label={t(
+                                    'components_dashboard_filter.configuration.date_range.dynamic_max_tooltip',
                                 )}
-                            </Text>
+                            >
+                                <Text size="xs" fw={500}>
+                                    {t(
+                                        'components_dashboard_filter.configuration.date_range.dynamic_max_label',
+                                    )}
+                                </Text>
+                            </InfoTooltip>
                         }
                     />
                     <InfoTooltip
@@ -325,9 +361,8 @@ const DateRangeConstraintEditor: FC<Props> = ({
                     <>
                         <FilterMonthAndYearPicker
                             clearable
-                            label={t(
-                                'components_dashboard_filter.configuration.date_range.min_label',
-                            )}
+                            disabled={rollingConfigured}
+                            label={labelWithHint('min_label')}
                             value={minDateValue}
                             maxDate={maxDateValue ?? undefined}
                             popoverProps={{
@@ -339,9 +374,7 @@ const DateRangeConstraintEditor: FC<Props> = ({
                         <FilterMonthAndYearPicker
                             clearable
                             disabled={!!filterRule.enableDynamicMaxAllowedDate}
-                            label={t(
-                                'components_dashboard_filter.configuration.date_range.max_label',
-                            )}
+                            label={labelWithHint('max_label')}
                             value={maxDateValue}
                             minDate={minDateValue ?? undefined}
                             popoverProps={{
@@ -355,9 +388,7 @@ const DateRangeConstraintEditor: FC<Props> = ({
                     <>
                         <FilterYearPicker
                             clearable
-                            label={t(
-                                'components_dashboard_filter.configuration.date_range.min_label',
-                            )}
+                            label={labelWithHint('min_label')}
                             value={minDateValue}
                             maxDate={maxDateValue ?? undefined}
                             popoverProps={{
@@ -368,9 +399,7 @@ const DateRangeConstraintEditor: FC<Props> = ({
                         />
                         <FilterYearPicker
                             clearable
-                            label={t(
-                                'components_dashboard_filter.configuration.date_range.max_label',
-                            )}
+                            label={labelWithHint('max_label')}
                             value={maxDateValue}
                             minDate={minDateValue ?? undefined}
                             popoverProps={{
@@ -383,11 +412,7 @@ const DateRangeConstraintEditor: FC<Props> = ({
                 ) : granularity === TimeFrames.QUARTER ? (
                     <>
                         <Stack spacing="xxs">
-                            <Text size="xs" fw={500}>
-                                {t(
-                                    'components_dashboard_filter.configuration.date_range.min_label',
-                                )}
-                            </Text>
+                            {labelWithHint('min_label')}
                             <FilterQuarterPicker
                                 value={minDateValue}
                                 maxDate={maxDateValue ?? undefined}
@@ -399,11 +424,7 @@ const DateRangeConstraintEditor: FC<Props> = ({
                             />
                         </Stack>
                         <Stack spacing="xxs">
-                            <Text size="xs" fw={500}>
-                                {t(
-                                    'components_dashboard_filter.configuration.date_range.max_label',
-                                )}
-                            </Text>
+                            {labelWithHint('max_label')}
                             <FilterQuarterPicker
                                 disabled={
                                     !!filterRule.enableDynamicMaxAllowedDate
@@ -422,9 +443,7 @@ const DateRangeConstraintEditor: FC<Props> = ({
                     <>
                         <FilterDatePicker
                             clearable
-                            label={t(
-                                'components_dashboard_filter.configuration.date_range.min_label',
-                            )}
+                            label={labelWithHint('min_label')}
                             value={minDateValue}
                             maxDate={maxDateValue ?? undefined}
                             popoverProps={{
@@ -436,9 +455,7 @@ const DateRangeConstraintEditor: FC<Props> = ({
                         />
                         <FilterDatePicker
                             clearable
-                            label={t(
-                                'components_dashboard_filter.configuration.date_range.max_label',
-                            )}
+                            label={labelWithHint('max_label')}
                             value={maxDateValue}
                             minDate={minDateValue ?? undefined}
                             popoverProps={{
