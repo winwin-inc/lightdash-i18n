@@ -578,19 +578,25 @@ export const isBaselineLayoutField = (
  * ECharts overrides for baseline series: bolder line (default width 3, solid),
  * raised z so baselines draw above regular series, and an `isBaseline` marker
  * used by legend/tooltip handling downstream. Symbol config (show symbol /
- * filled circle) is NOT overridden — baselines follow the same toggles as
- * regular series.
+ * filled circle) follows the same toggles as regular series; when symbols
+ * are shown their size scales with the line width so thick baselines don't
+ * pair with the default 4px dots.
  */
 export const getBaselineSeriesOverrides = (
     baselineStyle?: CartesianChart['layout']['baselineStyle'],
-): Pick<EChartSeries, 'lineStyle' | 'z' | 'isBaseline'> => ({
-    lineStyle: {
-        width: baselineStyle?.width ?? BASELINE_SERIES_DEFAULT_LINE_WIDTH,
-        type: baselineStyle?.lineType ?? 'solid',
-    },
-    z: BASELINE_SERIES_Z,
-    isBaseline: true,
-});
+    showSymbol?: boolean,
+): Pick<EChartSeries, 'lineStyle' | 'z' | 'isBaseline' | 'symbolSize'> => {
+    const width = baselineStyle?.width ?? BASELINE_SERIES_DEFAULT_LINE_WIDTH;
+    return {
+        lineStyle: {
+            width,
+            type: baselineStyle?.lineType ?? 'solid',
+        },
+        z: BASELINE_SERIES_Z,
+        isBaseline: true,
+        symbolSize: showSymbol ? Math.max(4, width + 2) : 0,
+    };
+};
 
 export const mergeLegendSettings = <T = Record<any, any>>(
     legendConfig: T | undefined,
@@ -1007,7 +1013,10 @@ export const getPivotSeries = ({
             },
         }),
         ...(isBaseline
-            ? getBaselineSeriesOverrides(cartesianChart.layout.baselineStyle)
+            ? getBaselineSeriesOverrides(
+                  cartesianChart.layout.baselineStyle,
+                  series.showSymbol,
+              )
             : {}),
     };
 };
@@ -1092,7 +1101,10 @@ export const getSimpleSeries = ({
     ...(isBaselineLayoutField(cartesianChart.layout, series.encode.yRef.field) &&
         (series.type === CartesianSeriesType.LINE ||
             series.type === CartesianSeriesType.AREA)
-        ? getBaselineSeriesOverrides(cartesianChart.layout.baselineStyle)
+        ? getBaselineSeriesOverrides(
+              cartesianChart.layout.baselineStyle,
+              series.showSymbol,
+          )
         : {}),
     ...(series.label?.show && {
         label: {
