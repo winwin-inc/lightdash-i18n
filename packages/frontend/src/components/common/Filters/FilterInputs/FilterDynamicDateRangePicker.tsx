@@ -12,7 +12,6 @@ import {
 import {
     Flex,
     NumberInput,
-    Select,
     Stack,
     Text,
     type PopoverProps,
@@ -60,11 +59,6 @@ type Props = {
     isEditMode?: boolean;
     popoverProps?: Omit<PopoverProps, 'children'>;
 };
-
-const unitOfTimeOptions: Array<{ value: UnitOfTime; labelKey: string }> = [
-    { value: UnitOfTime.months, labelKey: 'months' },
-    { value: UnitOfTime.quarters, labelKey: 'quarters' },
-];
 
 const parseValueAsDate = (
     raw: string | null | undefined,
@@ -201,14 +195,8 @@ const FilterDynamicDateRangePicker: FC<Props> = ({
         });
     };
 
-    const unitOptions = unitOfTimeOptions.map((opt) => ({
-        value: opt.value,
-        label: t(
-            `components_common_filters_inputs.date_range.dynamic.unit.${opt.labelKey}`,
-        ),
-    }));
-    const unitDisabled = lockedUnit != null;
-
+    // 单位被粒度锁死（月粒度→月、季粒度→季度），展示为静态后缀文本，
+    // 与单值「取值 [N] 个可用月前」行的格式统一，不再是 disabled 下拉
     const renderBoundRow = (
         bound: 'start' | 'end',
         labelKey: string,
@@ -236,25 +224,11 @@ const FilterDynamicDateRangePicker: FC<Props> = ({
                     });
                 }}
             />
-            <Select
-                size="xs"
-                data={unitOptions}
-                value={setting.unit ?? DYNAMIC_DATE_RANGE_DEFAULT_START.unit}
-                onChange={(value) => {
-                    if (
-                        value === UnitOfTime.months ||
-                        value === UnitOfTime.quarters
-                    ) {
-                        handleBoundChange(bound, { unit: value });
-                    }
-                }}
-                disabled={disabled || unitDisabled}
-                allowDeselect={false}
-                w={88}
-            />
             <Text size="xs" c="dimmed">
                 {t(
-                    'components_common_filters_inputs.date_range.dynamic.direction.ago',
+                    lockedUnit === UnitOfTime.quarters
+                        ? 'components_common_filters_inputs.date_range.dynamic.unit_suffix.quarters'
+                        : 'components_common_filters_inputs.date_range.dynamic.unit_suffix.months',
                 )}
             </Text>
         </Flex>
