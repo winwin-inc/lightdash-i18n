@@ -207,6 +207,16 @@ export type DashboardFilterRule<
      * enableDynamicMaxAllowedDate off).
      */
     rollingMinAllowedMonths?: number;
+    /**
+     * Rule-level override of the day-of-month data cutoff (default 4,
+     * DATA_MONTH_AVAILABLE_FROM_DAY): before this day only the month before
+     * last is considered available. Consumed by the dynamic latest-month
+     * bound (month granularity constraints) and the single-date
+     * `lastAvailableMonth` preset — frontend pickers/clamps/validation and
+     * backend scheduled resolution (the rule carries the value). Different
+     * rules may point at data sources with different availability days.
+     */
+    dataAvailableFromDay?: number;
     readOnly?: boolean;
     /** Hidden filter: not displayed on page, but filter still applies */
     hidden?: boolean;
@@ -290,8 +300,33 @@ export type SingleDateSetting = {
 /**
  * Day-of-month when the previous calendar month's data becomes available.
  * Before this day, only the month-before-last is considered available.
+ * This is the deployment-wide default; rules may override it via
+ * `dataAvailableFromDay` (different data pipelines land on different days).
  */
 export const DATA_MONTH_AVAILABLE_FROM_DAY = 4;
+
+/** Bounds for a valid rule-level `dataAvailableFromDay` override
+ * (1–28 avoids month-length ambiguity). */
+export const DATA_MONTH_AVAILABLE_FROM_DAY_MIN = 1;
+export const DATA_MONTH_AVAILABLE_FROM_DAY_MAX = 28;
+
+/** Whether a rule-level data-availability day is a valid integer in
+ * [1, 28]. Invalid values fall back to DATA_MONTH_AVAILABLE_FROM_DAY. */
+export const isValidDataAvailableFromDay = (
+    value: number | null | undefined,
+): value is number =>
+    value != null &&
+    Number.isInteger(value) &&
+    value >= DATA_MONTH_AVAILABLE_FROM_DAY_MIN &&
+    value <= DATA_MONTH_AVAILABLE_FROM_DAY_MAX;
+
+/** Resolve the effective day-of-month cutoff for a rule (default 4). */
+export const getEffectiveDataAvailableFromDay = (
+    value: number | null | undefined,
+): number =>
+    isValidDataAvailableFromDay(value)
+        ? value
+        : DATA_MONTH_AVAILABLE_FROM_DAY;
 
 /** Lower bound (inclusive) for a valid `rollingMinAllowedMonths` window size. */
 export const ROLLING_MIN_ALLOWED_MONTHS_MIN = 1;
@@ -412,9 +447,11 @@ export const isSingleDateDynamic = (
 export const resolveLastAvailableMonth = (
     now: Date = new Date(),
     timezone?: string,
+    dataAvailableFromDay?: number,
 ): Date => {
     const ref = timezone ? moment(now).tz(timezone) : moment(now);
-    const monthsBack = ref.date() < DATA_MONTH_AVAILABLE_FROM_DAY ? 2 : 1;
+    const cutoff = getEffectiveDataAvailableFromDay(dataAvailableFromDay);
+    const monthsBack = ref.date() < cutoff ? 2 : 1;
     return ref.clone().subtract(monthsBack, 'months').startOf('month').toDate();
 };
 
@@ -423,7 +460,9 @@ export const resolveLastAvailableMonth = (
  * existing `values[0]` for non-dynamic rules or unknown presets.
  */
 export const resolveSingleDateValue = (
-    rule: Pick<FilterRule, 'values' | 'settings'>,
+    rule: Pick<FilterRule, 'values' | 'settings'> & {
+        dataAvailableFromDay?: number;
+    },
     now: Date = new Date(),
     timezone?: string,
 ): string | undefined => {
@@ -437,7 +476,10 @@ export const resolveSingleDateValue = (
     const { preset } = settings.singleDate;
     if (preset === 'lastAvailableMonth') {
         const ref = timezone ? moment(now).tz(timezone) : moment(now);
-        const monthsBack = ref.date() < DATA_MONTH_AVAILABLE_FROM_DAY ? 2 : 1;
+        const cutoff = getEffectiveDataAvailableFromDay(
+            rule.dataAvailableFromDay,
+        );
+        const monthsBack = ref.date() < cutoff ? 2 : 1;
         return ref
             .clone()
             .subtract(monthsBack, 'months')
@@ -808,6 +850,7 @@ const stripUnmatchedOverrideMetadata = <T extends DashboardFilterRule>(
     enableDynamicMaxAllowedDate: undefined,
     dateRangeGranularity: undefined,
     rollingMinAllowedMonths: undefined,
+    dataAvailableFromDay: undefined,
     excludedValues: undefined,
     allowedOperators: undefined,
 });
@@ -909,6 +952,7 @@ export const applyDimensionOverrides = (
                     dimension.enableDynamicMaxAllowedDate,
                 dateRangeGranularity: dimension.dateRangeGranularity,
                 rollingMinAllowedMonths: dimension.rollingMinAllowedMonths,
+                dataAvailableFromDay: dimension.dataAvailableFromDay,
             };
         },
     );

@@ -1706,6 +1706,7 @@ const models: TsoaRoute.Models = {
                         clearable: { dataType: 'boolean' },
                         hidden: { dataType: 'boolean' },
                         readOnly: { dataType: 'boolean' },
+                        dataAvailableFromDay: { dataType: 'double' },
                         rollingMinAllowedMonths: { dataType: 'double' },
                         enableDynamicMaxAllowedDate: { dataType: 'boolean' },
                         maxAllowedDate: { dataType: 'string' },
@@ -19525,6 +19526,7 @@ const models: TsoaRoute.Models = {
                         clearable: { dataType: 'boolean' },
                         hidden: { dataType: 'boolean' },
                         readOnly: { dataType: 'boolean' },
+                        dataAvailableFromDay: { dataType: 'double' },
                         rollingMinAllowedMonths: { dataType: 'double' },
                         enableDynamicMaxAllowedDate: { dataType: 'boolean' },
                         maxAllowedDate: { dataType: 'string' },
@@ -19750,6 +19752,13 @@ const models: TsoaRoute.Models = {
                     ],
                 },
                 rollingMinAllowedMonths: {
+                    dataType: 'union',
+                    subSchemas: [
+                        { dataType: 'double' },
+                        { dataType: 'undefined' },
+                    ],
+                },
+                dataAvailableFromDay: {
                     dataType: 'union',
                     subSchemas: [
                         { dataType: 'double' },

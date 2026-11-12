@@ -47,6 +47,35 @@ describe('getDynamicMaxAllowedDate', () => {
             getDynamicMaxAllowedDate(TimeFrames.DAY, dayjs('2026-03-10')),
         ).toBeUndefined();
     });
+
+    it('honors a custom data-available cutoff day', () => {
+        // cutoff=10：2026-03-04 < 10 → 上上月；2026-03-10 ≥ 10 → 上月
+        expect(
+            getDynamicMaxAllowedDate(
+                TimeFrames.MONTH,
+                dayjs('2026-03-04'),
+                true,
+                10,
+            ),
+        ).toEqual(dayjs('2026-01-31').endOf('day').toDate());
+        expect(
+            getDynamicMaxAllowedDate(
+                TimeFrames.MONTH,
+                dayjs('2026-03-10'),
+                true,
+                10,
+            ),
+        ).toEqual(dayjs('2026-02-28').endOf('day').toDate());
+        // 非法 cutoff 回退默认 4 号
+        expect(
+            getDynamicMaxAllowedDate(
+                TimeFrames.MONTH,
+                dayjs('2026-03-03'),
+                true,
+                99,
+            ),
+        ).toEqual(dayjs('2026-01-31').endOf('day').toDate());
+    });
 });
 
 describe('getDashboardFilterDatePickerBounds', () => {
@@ -457,6 +486,31 @@ describe('resolveRuleBounds', () => {
             dayjs('2025-06-01').startOf('month').toDate(),
         );
         expect(bounds.maxDate).toBeUndefined();
+    });
+
+    it('single-date dynamic threads dataAvailableFromDay into bounds', () => {
+        // cutoff=10：2026-11-11 已过 10 号 → max 2026-10-31（默认口径相同）；
+        // 换 2026-11-05（< 10）→ max 2026-09-30，rolling 6 个月窗口随之左移
+        const rule = {
+            operator: FilterOperator.EQUALS,
+            dateRangeGranularity: TimeFrames.MONTH,
+            enableDynamicMaxAllowedDate: true,
+            rollingMinAllowedMonths: 6,
+            dataAvailableFromDay: 10,
+            settings: {
+                singleDate: {
+                    mode: 'dynamic' as const,
+                    preset: 'lastAvailableMonth' as const,
+                },
+            },
+        };
+        const bounds = resolveRuleBounds(rule, dayjs('2026-11-05'));
+        expect(bounds.maxDate).toEqual(
+            dayjs('2026-09-30').endOf('month').toDate(),
+        );
+        expect(bounds.minDate).toEqual(
+            dayjs('2026-04-01').startOf('month').toDate(),
+        );
     });
 
     it('supports the validation-time availability delay via options', () => {

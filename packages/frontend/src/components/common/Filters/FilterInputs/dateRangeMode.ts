@@ -221,6 +221,8 @@ export const LAST_AVAILABLE_MONTH_SETTING: SingleDateSetting = {
 /** Minimal structural shape consumed by `buildSingleDateModeChangeRule`. */
 export type SingleDateModeRule = {
     values?: (string | null)[] | null;
+    /** 规则级数据可用日（上月预设 cutoff，缺省 4 号） */
+    dataAvailableFromDay?: number;
     // 真实规则的 settings 还携带 dateRange / unitOfTime 等兄弟键，
     // 索引签名保持结构兼容（与 DateFilterSettings 的真实形状一致）
     settings?:
@@ -254,7 +256,11 @@ export const buildSingleDateModeChangeRule = <T extends SingleDateModeRule>(
         singleDate: LAST_AVAILABLE_MONTH_SETTING,
     };
     const resolved = resolveSingleDateValue(
-        { values: rule.values ?? undefined, settings },
+        {
+            values: rule.values ?? undefined,
+            dataAvailableFromDay: rule.dataAvailableFromDay,
+            settings,
+        },
         now,
     );
     return {

@@ -91,6 +91,7 @@ const FILTER_SUMMARY_KEYS = [
     'lockedTabUuids',
     'dateRangeGranularity',
     'rollingMinAllowedMonths',
+    'dataAvailableFromDay',
 ] as const;
 
 const pickFilterSummary = (rule: DashboardFilterRule) => {

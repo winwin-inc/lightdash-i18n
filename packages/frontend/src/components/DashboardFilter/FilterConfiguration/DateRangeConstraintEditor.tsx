@@ -1,4 +1,7 @@
 import {
+    DATA_MONTH_AVAILABLE_FROM_DAY,
+    DATA_MONTH_AVAILABLE_FROM_DAY_MAX,
+    DATA_MONTH_AVAILABLE_FROM_DAY_MIN,
     FilterOperator,
     isRollingMinAllowedMonthsActive,
     isValidRollingMinAllowedMonths,
@@ -171,6 +174,30 @@ const DateRangeConstraintEditor: FC<Props> = ({
         });
     };
 
+    const handleDataAvailableDayChange = (value: string | number) => {
+        if (value === '') {
+            // 清空回退默认（4 号）
+            onChangeFilterRule({
+                ...filterRule,
+                dataAvailableFromDay: undefined,
+            });
+            return;
+        }
+        const n =
+            typeof value === 'number'
+                ? value
+                : Number.parseInt(String(value ?? ''), 10);
+        if (!Number.isFinite(n)) return;
+        const clamped = Math.min(
+            DATA_MONTH_AVAILABLE_FROM_DAY_MAX,
+            Math.max(DATA_MONTH_AVAILABLE_FROM_DAY_MIN, Math.round(n)),
+        );
+        onChangeFilterRule({
+            ...filterRule,
+            dataAvailableFromDay: clamped,
+        });
+    };
+
     const normalizeBoundaryValue = (d: Date | null, isMax: boolean) => {
         if (!d) return undefined;
         const date = dayjs(d);
@@ -247,6 +274,43 @@ const DateRangeConstraintEditor: FC<Props> = ({
 
     return (
         <Stack spacing="xs" mt={4}>
+            {isDynamicMode && granularity === TimeFrames.MONTH && (
+                <Group spacing="xs" noWrap align="center">
+                    <Text size="xs" fw={500}>
+                        {t(
+                            'components_dashboard_filter.configuration.date_range.data_available_day_label',
+                        )}
+                    </Text>
+                    <InfoTooltip
+                        label={t(
+                            'components_dashboard_filter.configuration.date_range.data_available_day_tooltip',
+                            {
+                                defaultValue:
+                                    '上月数据自本月 N 号起可用；N 号前动态最晚/上月预设自动取上上月。缺省 4 号',
+                            },
+                        )}
+                    />
+                    <NumberInput
+                        size="xs"
+                        w={44}
+                        styles={{ input: { height: 26 } }}
+                        min={DATA_MONTH_AVAILABLE_FROM_DAY_MIN}
+                        max={DATA_MONTH_AVAILABLE_FROM_DAY_MAX}
+                        step={1}
+                        hideControls
+                        value={
+                            filterRule.dataAvailableFromDay ??
+                            DATA_MONTH_AVAILABLE_FROM_DAY
+                        }
+                        onChange={handleDataAvailableDayChange}
+                    />
+                    <Text size="xs" c="dimmed">
+                        {t(
+                            'components_dashboard_filter.configuration.date_range.data_available_day_unit',
+                        )}
+                    </Text>
+                </Group>
+            )}
             {showRollingWindowInput && isDynamicMode && (
                 <Stack spacing={4}>
                     <Group spacing="xs" noWrap align="center">

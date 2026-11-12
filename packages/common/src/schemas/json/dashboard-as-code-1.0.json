@@ -105,6 +105,11 @@
                             "description": "查看者是否可以把取值清空（变回空值）。\n缺省 / true：可清空（现状）。\nfalse：可在选项内切换、可重置为作者默认值，但不能清空。\n仅对查看模式生效；编辑模式下作者始终可以清空自己的默认值。",
                             "type": "boolean"
                         },
+                        "dataAvailableFromDay": {
+                            "description": "Rule-level override of the day-of-month data cutoff (default 4,\nDATA_MONTH_AVAILABLE_FROM_DAY): before this day only the month before\nlast is considered available. Consumed by the dynamic latest-month\nbound (month granularity constraints) and the single-date\n`lastAvailableMonth` preset — frontend pickers/clamps/validation and\nbackend scheduled resolution (the rule carries the value). Different\nrules may point at data sources with different availability days.",
+                            "format": "double",
+                            "type": "number"
+                        },
                         "enableDynamicMaxAllowedDate": {
                             "description": "When true and maxAllowedDate is empty, month/quarter pickers use a\nrolling latest date (before the 4th: two months ago; from the 4th:\nlast month; quarters: last complete quarter). Default is off.",
                             "type": "boolean"
@@ -158,7 +163,7 @@
                             "type": "string"
                         },
                         "rollingMinAllowedMonths": {
-                            "description": "Rolling lower bound for month-granularity IN_BETWEEN filters, expressed\nas the number N of complete months in the selectable window:\nmin = start of the month of the resolved latest selectable month,\nminus (N - 1) months. The window rolls forward automatically as the\nlatest selectable month advances (dynamic max) or stays static when\nanchored to a fixed maxAllowedDate.\nundefined = not enabled. Only consumed when operator is IN_BETWEEN and\ndateRangeGranularity is MONTH; other operators/granularities\nshort-circuit it. Save-time validation should reject the combination\n\"rolling without any latest selectable month\" (no maxAllowedDate and\nenableDynamicMaxAllowedDate off).",
+                            "description": "Rolling lower bound for month-granularity filters, expressed\nas the number N of complete months in the selectable window:\nmin = start of the month of the resolved latest selectable month,\nminus (N - 1) months. The window rolls forward automatically as the\nlatest selectable month advances (dynamic max) or stays static when\nanchored to a fixed maxAllowedDate.\nundefined = not enabled. Consumed when operator is IN_BETWEEN with\nMONTH dateRangeGranularity, or single-value EQUALS on a month field\nwith a dynamic singleDate default; other operators/granularities\nshort-circuit it. Save-time validation should reject the combination\n\"rolling without any latest selectable month\" (no maxAllowedDate and\nenableDynamicMaxAllowedDate off).",
                             "format": "double",
                             "type": "number"
                         },
@@ -195,6 +200,11 @@
                             "description": "查看者是否可以把取值清空（变回空值）。\n缺省 / true：可清空（现状）。\nfalse：可在选项内切换、可重置为作者默认值，但不能清空。\n仅对查看模式生效；编辑模式下作者始终可以清空自己的默认值。",
                             "type": "boolean"
                         },
+                        "dataAvailableFromDay": {
+                            "description": "Rule-level override of the day-of-month data cutoff (default 4,\nDATA_MONTH_AVAILABLE_FROM_DAY): before this day only the month before\nlast is considered available. Consumed by the dynamic latest-month\nbound (month granularity constraints) and the single-date\n`lastAvailableMonth` preset — frontend pickers/clamps/validation and\nbackend scheduled resolution (the rule carries the value). Different\nrules may point at data sources with different availability days.",
+                            "format": "double",
+                            "type": "number"
+                        },
                         "enableDynamicMaxAllowedDate": {
                             "description": "When true and maxAllowedDate is empty, month/quarter pickers use a\nrolling latest date (before the 4th: two months ago; from the 4th:\nlast month; quarters: last complete quarter). Default is off.",
                             "type": "boolean"
@@ -248,7 +258,7 @@
                             "type": "string"
                         },
                         "rollingMinAllowedMonths": {
-                            "description": "Rolling lower bound for month-granularity IN_BETWEEN filters, expressed\nas the number N of complete months in the selectable window:\nmin = start of the month of the resolved latest selectable month,\nminus (N - 1) months. The window rolls forward automatically as the\nlatest selectable month advances (dynamic max) or stays static when\nanchored to a fixed maxAllowedDate.\nundefined = not enabled. Only consumed when operator is IN_BETWEEN and\ndateRangeGranularity is MONTH; other operators/granularities\nshort-circuit it. Save-time validation should reject the combination\n\"rolling without any latest selectable month\" (no maxAllowedDate and\nenableDynamicMaxAllowedDate off).",
+                            "description": "Rolling lower bound for month-granularity filters, expressed\nas the number N of complete months in the selectable window:\nmin = start of the month of the resolved latest selectable month,\nminus (N - 1) months. The window rolls forward automatically as the\nlatest selectable month advances (dynamic max) or stays static when\nanchored to a fixed maxAllowedDate.\nundefined = not enabled. Consumed when operator is IN_BETWEEN with\nMONTH dateRangeGranularity, or single-value EQUALS on a month field\nwith a dynamic singleDate default; other operators/granularities\nshort-circuit it. Save-time validation should reject the combination\n\"rolling without any latest selectable month\" (no maxAllowedDate and\nenableDynamicMaxAllowedDate off).",
                             "format": "double",
                             "type": "number"
                         },
@@ -668,6 +678,11 @@
                     "description": "查看者是否可以把取值清空（变回空值）。\n缺省 / true：可清空（现状）。\nfalse：可在选项内切换、可重置为作者默认值，但不能清空。\n仅对查看模式生效；编辑模式下作者始终可以清空自己的默认值。",
                     "type": "boolean"
                 },
+                "dataAvailableFromDay": {
+                    "description": "Rule-level override of the day-of-month data cutoff (default 4,\nDATA_MONTH_AVAILABLE_FROM_DAY): before this day only the month before\nlast is considered available. Consumed by the dynamic latest-month\nbound (month granularity constraints) and the single-date\n`lastAvailableMonth` preset — frontend pickers/clamps/validation and\nbackend scheduled resolution (the rule carries the value). Different\nrules may point at data sources with different availability days.",
+                    "format": "double",
+                    "type": "number"
+                },
                 "dateRangeGranularity": {
                     "$ref": "#/$defs/TimeFrames",
                     "description": "Granularity for the \"in between\" date-range picker. Overrides the\ndimension's `timeInterval` so users can pick e.g. a month-range filter\neven when the field is a day-typed dimension. Stored as the chosen\nperiod (DAY / MONTH / QUARTER / YEAR)."
@@ -734,7 +749,7 @@
                     "type": "string"
                 },
                 "rollingMinAllowedMonths": {
-                    "description": "Rolling lower bound for month-granularity IN_BETWEEN filters, expressed\nas the number N of complete months in the selectable window:\nmin = start of the month of the resolved latest selectable month,\nminus (N - 1) months. The window rolls forward automatically as the\nlatest selectable month advances (dynamic max) or stays static when\nanchored to a fixed maxAllowedDate.\nundefined = not enabled. Only consumed when operator is IN_BETWEEN and\ndateRangeGranularity is MONTH; other operators/granularities\nshort-circuit it. Save-time validation should reject the combination\n\"rolling without any latest selectable month\" (no maxAllowedDate and\nenableDynamicMaxAllowedDate off).",
+                    "description": "Rolling lower bound for month-granularity filters, expressed\nas the number N of complete months in the selectable window:\nmin = start of the month of the resolved latest selectable month,\nminus (N - 1) months. The window rolls forward automatically as the\nlatest selectable month advances (dynamic max) or stays static when\nanchored to a fixed maxAllowedDate.\nundefined = not enabled. Consumed when operator is IN_BETWEEN with\nMONTH dateRangeGranularity, or single-value EQUALS on a month field\nwith a dynamic singleDate default; other operators/granularities\nshort-circuit it. Save-time validation should reject the combination\n\"rolling without any latest selectable month\" (no maxAllowedDate and\nenableDynamicMaxAllowedDate off).",
                     "format": "double",
                     "type": "number"
                 },

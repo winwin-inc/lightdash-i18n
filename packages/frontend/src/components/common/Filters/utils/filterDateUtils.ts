@@ -1,6 +1,7 @@
 import {
     DATA_MONTH_AVAILABLE_FROM_DAY,
     FilterOperator,
+    getEffectiveDataAvailableFromDay,
     isRollingMinAllowedMonthsActive,
     isValidRollingMinAllowedMonths,
     TimeFrames,
@@ -135,7 +136,8 @@ const hasTimePart = (value: string | null | undefined): boolean =>
 
 /**
  * 未配置固定最晚日期时，按月/季粒度计算动态上限（对齐周期末）。
- * - 月：默认 4 号前 → 上上月末，4 号及以后 → 上月末
+ * - 月：默认 cutoff 号前 → 上上月末，cutoff 号及以后 → 上月末
+ *   （cutoff = 规则的 dataAvailableFromDay，缺省 DATA_MONTH_AVAILABLE_FROM_DAY）
  * - 季：最近一个完整季度末
  * applyDataAvailabilityDelay=false 时月份始终取上月末，供配置校验使用。
  */
@@ -143,15 +145,14 @@ export const getDynamicMaxAllowedDate = (
     timeInterval?: string,
     referenceDate: Date | dayjs.Dayjs = dayjs(),
     applyDataAvailabilityDelay = true,
+    dataAvailableFromDay?: number,
 ): Date | undefined => {
     const ref = toDayjs(referenceDate);
     const upper = timeInterval?.toUpperCase();
     if (upper === TimeFrames.MONTH) {
+        const cutoff = getEffectiveDataAvailableFromDay(dataAvailableFromDay);
         const monthsBack =
-            applyDataAvailabilityDelay &&
-            ref.date() < DATA_MONTH_AVAILABLE_FROM_DAY
-                ? 2
-                : 1;
+            applyDataAvailabilityDelay && ref.date() < cutoff ? 2 : 1;
         return ref.subtract(monthsBack, 'month').endOf('month').toDate();
     }
     if (upper === TimeFrames.QUARTER) {
@@ -161,13 +162,19 @@ export const getDynamicMaxAllowedDate = (
 };
 
 /**
- * 按 4 号数据可用规则解析「上月（4号显示）」对应的月初日期。
- * 4 号前 → 上上月初；4 号及以后 → 上月初。
+ * 按数据可用日规则解析「上月（cutoff 号显示）」对应的月初日期。
+ * cutoff 号前 → 上上月初；cutoff 号及以后 → 上月初（缺省 4 号）。
  */
 export const getLastAvailableMonth = (
     referenceDate: Date | dayjs.Dayjs = dayjs(),
+    dataAvailableFromDay?: number,
 ): Date => {
-    const max = getDynamicMaxAllowedDate(TimeFrames.MONTH, referenceDate, true);
+    const max = getDynamicMaxAllowedDate(
+        TimeFrames.MONTH,
+        referenceDate,
+        true,
+        dataAvailableFromDay,
+    );
     return toDayjs(max ?? referenceDate)
         .startOf('month')
         .toDate();
@@ -286,6 +293,7 @@ export const getDashboardFilterDatePickerBounds = (
     applyDataAvailabilityDelay = true,
     enableDynamicMax = false,
     rollingMinAllowedMonths?: number,
+    dataAvailableFromDay?: number,
 ): { minDate?: Date; maxDate?: Date } => {
     const ref = toDayjs(referenceDate);
     const parseMin = (raw: string | undefined): Date | undefined => {
@@ -331,6 +339,7 @@ export const getDashboardFilterDatePickerBounds = (
                   timeInterval,
                   ref,
                   applyDataAvailabilityDelay,
+                  dataAvailableFromDay,
               )
             : undefined;
     const resolvedMax = fixedMax ?? dynamicMax;
@@ -354,6 +363,8 @@ export type RuleDateBoundsInput = {
     dateRangeGranularity?: TimeFrames;
     enableDynamicMaxAllowedDate?: boolean;
     rollingMinAllowedMonths?: number;
+    /** 数据可用日（月粒度动态上限/上月预设的 cutoff，缺省 4 号） */
+    dataAvailableFromDay?: number;
     /** 默认值模式（dynamic/fixed）——决定约束字段的归属，防止跨模式混用；
      *  区间算子看 dateRange，单值算子（月份「是」）看 singleDate */
     settings?:
@@ -403,5 +414,6 @@ export const resolveRuleBounds = (
         options.applyDataAvailabilityDelay ?? true,
         isDynamicMode && !!rule.enableDynamicMaxAllowedDate,
         rollingMinAllowedMonths,
+        rule.dataAvailableFromDay,
     );
 };

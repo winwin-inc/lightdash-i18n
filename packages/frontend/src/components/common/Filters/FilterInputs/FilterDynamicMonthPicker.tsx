@@ -30,6 +30,8 @@ import {
 
 type MonthEqualsRule = BaseFilterRule & {
     values?: (string | null)[];
+    /** 规则级数据可用日（上月预设 cutoff，缺省 4 号） */
+    dataAvailableFromDay?: number;
     settings?: FilterRule['settings'] & {
         singleDate?: SingleDateSetting;
     };
@@ -152,7 +154,9 @@ const FilterDynamicMonthPicker: FC<Props> = ({
                         label={t(
                             'components_common_filters_inputs.single_date.preset.last_available_month_tooltip',
                             {
-                                day: DATA_MONTH_AVAILABLE_FROM_DAY,
+                                day:
+                                    rule.dataAvailableFromDay ??
+                                    DATA_MONTH_AVAILABLE_FROM_DAY,
                                 value: dynamicPreview ?? '—',
                             },
                         )}
