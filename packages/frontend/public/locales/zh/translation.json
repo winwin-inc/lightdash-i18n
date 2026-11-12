@@ -2849,6 +2849,7 @@
         "option_limits": "选项约束",
         "linkage": "维度联动",
         "date_range_default": "默认区间",
+      "date_range_default_single": "默认值",
         "date_range_constraints": "可选范围"
       }
     },

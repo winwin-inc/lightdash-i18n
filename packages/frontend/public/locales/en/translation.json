@@ -2849,6 +2849,7 @@
         "option_limits": "Option limits",
         "linkage": "Field linkage",
         "date_range_default": "Default range",
+      "date_range_default_single": "Default value",
         "date_range_constraints": "Selectable range"
       }
     },

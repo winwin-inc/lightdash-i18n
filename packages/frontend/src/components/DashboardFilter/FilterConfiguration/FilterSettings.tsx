@@ -674,11 +674,15 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                 )}
 
                 {isEditMode &&
-                    isDateRangeOperator &&
+                    (isDateRangeOperator || isSingleDateMonthEquals) &&
                     (showValueInput || filterRule.required) && (
                         <Divider
                             label={t(
-                                'components_dashboard_filter.configuration.section.date_range_default',
+                                // 区间与单值各自有分节标题，避免模式
+                                // Radio 悬空、与「可选范围」混淆
+                                isDateRangeOperator
+                                    ? 'components_dashboard_filter.configuration.section.date_range_default'
+                                    : 'components_dashboard_filter.configuration.section.date_range_default_single',
                             )}
                             labelPosition="left"
                             my={2}
