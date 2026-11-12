@@ -164,6 +164,7 @@ pnpm -F backend rollback-last
 -   frontend vitest 冷启动极慢（重插件 transform 40min+、默认堆会 OOM），必须按 focused-testing 技能中的方式探路；所有验证命令必须带 `timeout`
 -   环境性失败同类最多重试 2 次，之后必须上报，禁止蛮试
 -   多 agent 派发/验收/生成物同步流程见 `.agents/rules/multi-agent.md`；给既有组件新增 context 依赖时必须同步检查其既有测试的 Provider mock
+-   提交信息：标题 `type(scope): 摘要` ≤ 50 字符（硬上限 72），细节、原因、影响写正文（每行 ≤ 72 字符）；详见 `.agents/rules/commits.md`
 
 ## 本地数据库调试
 

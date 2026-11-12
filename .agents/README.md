@@ -7,6 +7,7 @@
 - `testing-discipline.md` — 测试纪律：聚焦测试、命令保险、空转禁止、已知热点（frontend vitest 冷启动极慢）。
 - `multi-agent.md` — 多 agent 协作：owns/依赖/验收流程、统一收口清单、公共类型与生成物同步。
 - `branching.md` — 分支模型：fix/bugs 只承接 bug 修复；功能走 feat/xx → dev（或 pre/main）；功能分支不合入 release。
+- `commits.md` — 提交信息规范：标题 `type(scope): 摘要` ≤ 50 字符（硬上限 72），细节写正文；禁止把细节塞进标题。
 
 ## skills/（操作技能）
 
