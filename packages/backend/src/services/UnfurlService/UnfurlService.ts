@@ -248,10 +248,20 @@ export class UnfurlService extends BaseService {
 
         // This is needed because tables are lazy loaded so we have no way of knowing when the chart is displayed
         async function waitForAllLoaded() {
-            // Wait for all the loading overlays to be in the DOM
-            await page.waitForSelector('.loading_chart_overlay', {
-                state: 'attached',
-            });
+            // Wait for all the loading overlays to be in the DOM.
+            // When every chart is hidden by a filter with no values
+            // (hideTilesWhenEmpty), no loading overlay is ever attached,
+            // so tolerate the timeout/not-found here instead of failing the export.
+            // Keep Playwright's default 30s window: a slow dashboard should not
+            // be screenshotted before its charts mount.
+            try {
+                await page.waitForSelector('.loading_chart_overlay', {
+                    state: 'attached',
+                    timeout: 30_000,
+                });
+            } catch {
+                // No overlay appeared (e.g. all charts hidden): continue.
+            }
 
             // Wait for the loading overlay to be hidden (loading is complete)
             await page.waitForSelector('.loading_chart_overlay', {

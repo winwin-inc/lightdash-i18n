@@ -11,12 +11,14 @@ import {
     ScrollArea,
     Stack,
     Tabs,
+    Text,
     useMantineTheme,
 } from '@mantine/core';
 import { IconPlus } from '@tabler/icons-react';
 import cloneDeep from 'lodash/cloneDeep';
 import { memo, useCallback, useMemo, useRef, useState, type FC } from 'react';
 import { Responsive, WidthProvider, type Layout } from 'react-grid-layout';
+import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router';
 import { v4 as uuid4 } from 'uuid';
 import ErrorBoundary from '../../features/errorBoundary/ErrorBoundary';
@@ -59,6 +61,7 @@ type TabGridPanelProps = {
     locked: boolean;
     gridProps: ReturnType<typeof getResponsiveGridLayoutProps>;
     dashboardTabs: DashboardTab[];
+    hiddenTileUuids: Set<string>;
     onDragStop: (layout: Layout[]) => void;
     onWidthChange: (width: number) => void;
     onDeleteTile: (tile: IDashboard['tiles'][number]) => Promise<void>;
@@ -76,6 +79,7 @@ const TabGridPanel = memo<TabGridPanelProps>(
         locked,
         gridProps,
         dashboardTabs,
+        hiddenTileUuids,
         onDragStop,
         onWidthChange,
         onDeleteTile,
@@ -118,6 +122,9 @@ const TabGridPanel = memo<TabGridPanelProps>(
                                     onEdit={onEditTile}
                                     tabs={dashboardTabs}
                                     onAddTiles={onAddTiles}
+                                    wouldHideWhenEmpty={hiddenTileUuids.has(
+                                        tile.uuid,
+                                    )}
                                 />
                             </TrackSection>
                         </div>
@@ -130,6 +137,8 @@ const TabGridPanel = memo<TabGridPanelProps>(
         if (prevProps.isActive !== nextProps.isActive) return false;
         if (prevProps.isEditMode !== nextProps.isEditMode) return false;
         if (prevProps.locked !== nextProps.locked) return false;
+        if (prevProps.hiddenTileUuids !== nextProps.hiddenTileUuids)
+            return false;
         if (prevProps.tiles.length !== nextProps.tiles.length) return false;
         for (let i = 0; i < prevProps.tiles.length; i++) {
             if (prevProps.tiles[i].uuid !== nextProps.tiles[i].uuid)
@@ -188,6 +197,8 @@ const DashboardTabs: FC<DashboardTabsProps> = ({
     const setHaveTabsChanged = useDashboardContext((c) => c.setHaveTabsChanged);
     const dashboardTabs = useDashboardContext((c) => c.dashboardTabs);
     const setDashboardTabs = useDashboardContext((c) => c.setDashboardTabs);
+    const hiddenTileUuids = useDashboardContext((c) => c.hiddenTileUuids);
+    const { t: translate } = useTranslation();
 
     // tabs state
     const [isEditingTab, setEditingTab] = useState<boolean>(false);
@@ -225,6 +236,8 @@ const DashboardTabs: FC<DashboardTabsProps> = ({
         const defaultTabUuid = defaultTab?.uuid;
 
         for (const tile of dashboardTiles) {
+            // 查看模式下，筛选器无值隐藏的图表不参与布局/渲染
+            if (!isEditMode && hiddenTileUuids.has(tile.uuid)) continue;
             const effectiveTab =
                 tile.tabUuid && tabUuids.has(tile.tabUuid)
                     ? tile.tabUuid
@@ -235,7 +248,14 @@ const DashboardTabs: FC<DashboardTabsProps> = ({
             else map.set(effectiveTab, [tile]);
         }
         return map;
-    }, [dashboardTiles, dashboardTabs, defaultTab?.uuid, tabsEnabled]);
+    }, [
+        dashboardTiles,
+        dashboardTabs,
+        defaultTab?.uuid,
+        tabsEnabled,
+        isEditMode,
+        hiddenTileUuids,
+    ]);
 
     const layoutsByTab = useMemo(() => {
         const map = new Map<
@@ -276,11 +296,14 @@ const DashboardTabs: FC<DashboardTabsProps> = ({
         const hiddenTabUuids = new Set(
             dashboardTabs.filter((t) => t.hidden).map((t) => t.uuid),
         );
-        if (hiddenTabUuids.size === 0) return dashboardTiles;
+        if (hiddenTabUuids.size === 0 && hiddenTileUuids.size === 0)
+            return dashboardTiles;
         return dashboardTiles.filter(
-            (t) => !t.tabUuid || !hiddenTabUuids.has(t.tabUuid),
+            (t) =>
+                (!t.tabUuid || !hiddenTabUuids.has(t.tabUuid)) &&
+                !hiddenTileUuids.has(t.uuid),
         );
-    }, [dashboardTiles, dashboardTabs, isEditMode]);
+    }, [dashboardTiles, dashboardTabs, isEditMode, hiddenTileUuids]);
 
     const allTilesLayouts = useMemo(
         () => ({
@@ -338,6 +361,15 @@ const DashboardTabs: FC<DashboardTabsProps> = ({
     const currentTabHasTiles = !!sortedTiles?.some((tile) =>
         isActiveTile(tile),
     );
+
+    // 当前 Tab 里被「筛选器无值」隐藏的图表数（编辑模式不应用）
+    const hiddenTilesInActiveTab =
+        !isEditMode && hiddenTileUuids.size > 0
+            ? (dashboardTiles ?? []).filter(
+                  (tile) =>
+                      hiddenTileUuids.has(tile.uuid) && isActiveTile(tile),
+              ).length
+            : 0;
 
     const { setDashboardActiveTabUuid } = useDashboardStorage();
 
@@ -714,6 +746,9 @@ const DashboardTabs: FC<DashboardTabsProps> = ({
                                                           dashboardTabs={
                                                               dashboardTabs
                                                           }
+                                                          hiddenTileUuids={
+                                                              hiddenTileUuids
+                                                          }
                                                           onDragStop={
                                                               handleGridUpdate
                                                           }
@@ -787,6 +822,9 @@ const DashboardTabs: FC<DashboardTabsProps> = ({
                                                                               tabs={
                                                                                   dashboardTabs
                                                                               }
+                                                                              wouldHideWhenEmpty={hiddenTileUuids.has(
+                                                                                  tile.uuid,
+                                                                              )}
                                                                               onAddTiles={
                                                                                   handleAddTiles
                                                                               }
@@ -806,22 +844,37 @@ const DashboardTabs: FC<DashboardTabsProps> = ({
                                         !!hasDashboardTiles
                                     }
                                 />
-                                {(!hasDashboardTiles ||
-                                    !currentTabHasTiles) && (
-                                    <EmptyStateNoTiles
-                                        onAddTiles={handleAddTiles}
-                                        emptyContainerType={
-                                            dashboardTabs &&
-                                            dashboardTabs.length
-                                                ? 'tab'
-                                                : 'dashboard'
-                                        }
-                                        isEditMode={isEditMode}
-                                        setAddingTab={setAddingTab}
-                                        activeTabUuid={activeTab?.uuid}
-                                        dashboardTabs={dashboardTabs}
-                                    />
-                                )}
+                                {(!hasDashboardTiles || !currentTabHasTiles) &&
+                                    (hiddenTilesInActiveTab > 0 &&
+                                    !isEditMode ? (
+                                        <Text
+                                            c="dimmed"
+                                            size="sm"
+                                            ta="center"
+                                            py="xl"
+                                        >
+                                            {translate(
+                                                'components_dashboard_tabs.hidden_tiles_hint',
+                                                {
+                                                    count: hiddenTilesInActiveTab,
+                                                },
+                                            )}
+                                        </Text>
+                                    ) : (
+                                        <EmptyStateNoTiles
+                                            onAddTiles={handleAddTiles}
+                                            emptyContainerType={
+                                                dashboardTabs &&
+                                                dashboardTabs.length
+                                                    ? 'tab'
+                                                    : 'dashboard'
+                                            }
+                                            isEditMode={isEditMode}
+                                            setAddingTab={setAddingTab}
+                                            activeTabUuid={activeTab?.uuid}
+                                            dashboardTabs={dashboardTabs}
+                                        />
+                                    ))}
                                 <TabAddModal
                                     onClose={() => setAddingTab(false)}
                                     opened={addingTab}

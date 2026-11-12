@@ -18,6 +18,7 @@ import {
     type DashboardFilters,
     type DashboardFiltersFromSearchParam,
     type DashboardParameters,
+    type DashboardTile,
     type ParameterDefinitions,
     type ParametersValuesMap,
     type ParameterValue,
@@ -95,6 +96,16 @@ import {
     type CategoryRequestSession,
     type CategoryResolutionIssue,
 } from '../../utils/categoryFilters';
+import {
+    mergeCandidateAvailability,
+    needsCandidateProbe,
+    type CandidateAvailabilityMap,
+    type CandidateAvailabilityStatus,
+} from '../../utils/filterCandidateAvailability';
+import {
+    EMPTY_TILE_VISIBILITY_SET,
+    getTileUuidsHiddenByEmptyFilters,
+} from '../../utils/tileVisibility';
 import {
     applySelectionToTabFilters,
     restoreAuthorDefaults,
@@ -521,6 +532,53 @@ const DashboardProvider: React.FC<
     ] = useState(false);
     const [pendingTabCategoryResolutions, setPendingTabCategoryResolutions] =
         useState<Record<string, boolean>>({});
+
+    /**
+     * 「任何值」(disabled) 开启 hideTilesWhenEmpty 时的候选可用性。
+     * 缺省 = 未知（未知不隐藏，避免接口失败误藏图表）。
+     * key = scope（'global' / tab uuid），value = { filterId: 'has' | 'none' }
+     */
+    const [globalCandidateAvailability, setGlobalCandidateAvailability] =
+        useState<CandidateAvailabilityMap>({});
+    const [tabCandidateAvailability, setTabCandidateAvailability] = useState<
+        Record<string, CandidateAvailabilityMap>
+    >({});
+
+    const applyCandidateAvailability = useCallback(
+        (
+            scope: string | null,
+            info: {
+                filterId: string;
+                status: CandidateAvailabilityStatus;
+                tabUuid?: string;
+            },
+        ) => {
+            const targetScope = info.tabUuid ?? scope;
+            const update = (
+                current: CandidateAvailabilityMap,
+            ): CandidateAvailabilityMap => {
+                if (info.status === 'unknown') {
+                    if (!(info.filterId in current)) return current;
+                    const next = { ...current };
+                    delete next[info.filterId];
+                    return next;
+                }
+                if (current[info.filterId] === info.status) return current;
+                return { ...current, [info.filterId]: info.status };
+            };
+            if (targetScope === null) {
+                setGlobalCandidateAvailability(update);
+                return;
+            }
+            setTabCandidateAvailability((prev) => {
+                const current = prev[targetScope] ?? {};
+                const next = update(current);
+                if (next === current) return prev;
+                return { ...prev, [targetScope]: next };
+            });
+        },
+        [],
+    );
     /**
      * 类目解析的兜底超时：**每个作用域各一个**（`global` 或 tabUuid）。
      *
@@ -761,6 +819,8 @@ const DashboardProvider: React.FC<
                     onResolutionIssue: handleCategoryResolutionIssue,
                     onValuesAutoAdjusted: (info) =>
                         recordAutoAdjusted('global', info),
+                    onCandidateAvailability: (info) =>
+                        applyCandidateAvailability(null, info),
                 },
             )
                 .then((refined) => {
@@ -838,6 +898,7 @@ const DashboardProvider: React.FC<
             handleCategoryResolutionIssue,
             recordAutoAdjusted,
             recordAutoAdjustedMany,
+            applyCandidateAvailability,
         ],
     );
 
@@ -882,6 +943,8 @@ const DashboardProvider: React.FC<
                     onResolutionIssue: handleCategoryResolutionIssue,
                     onValuesAutoAdjusted: (info) =>
                         recordAutoAdjusted(targetTabUuid, info),
+                    onCandidateAvailability: (info) =>
+                        applyCandidateAvailability(targetTabUuid, info),
                 },
             );
             // 用户刚刚手动选中的值优先：后续的自动解析必须跳过这一级，
@@ -912,6 +975,8 @@ const DashboardProvider: React.FC<
                     },
                     session,
                     onResolutionIssue: handleCategoryResolutionIssue,
+                    onCandidateAvailability: (info) =>
+                        applyCandidateAvailability(targetTabUuid, info),
                 },
             );
         },
@@ -923,6 +988,7 @@ const DashboardProvider: React.FC<
             dashboardFilters,
             handleCategoryResolutionIssue,
             recordAutoAdjusted,
+            applyCandidateAvailability,
         ],
     );
 
@@ -944,6 +1010,13 @@ const DashboardProvider: React.FC<
     // (定义在选择层之后：重置时需要一并清除用户选择与本地记忆)
 
     // dashboard tab filter
+    // 稳定的 isFilterEnabled 引用：getMergedFiltersForTab 的 useCallback
+    // 依赖它；内联箭头会让该函数每次 render 换引用，导致隐藏集合等下游 memo 重算。
+    const isTabFilterEnabledCb = useCallback(
+        (uuid: string) => isTabFilterEnabled[uuid] ?? true,
+        [isTabFilterEnabled],
+    );
+
     const {
         tabFilters,
         setTabFilters,
@@ -965,7 +1038,7 @@ const DashboardProvider: React.FC<
         dashboardFilters,
         dashboardTemporaryFilters,
         isGlobalFilterEnabled,
-        isFilterEnabled: (uuid: string) => isTabFilterEnabled[uuid] ?? true,
+        isFilterEnabled: isTabFilterEnabledCb,
     });
 
     /* ------------------------------------------------------------------ */
@@ -1144,6 +1217,8 @@ const DashboardProvider: React.FC<
                     onResolutionIssue: handleCategoryResolutionIssue,
                     onValuesAutoAdjusted: (info) =>
                         recordAutoAdjusted('global', info),
+                    onCandidateAvailability: (info) =>
+                        applyCandidateAvailability(null, info),
                     // 只级联当前 Tab：其它 Tab 切过去时由各自的懒初始化重算，
                     // 避免一次全局类目变更触发 N 个 Tab × M 个子孙的请求。
                     activeTabUuid: activeTab?.uuid ?? null,
@@ -1165,6 +1240,8 @@ const DashboardProvider: React.FC<
                     recoverableFilterIds: recoverableCategoryFilterIds,
                     session,
                     onResolutionIssue: handleCategoryResolutionIssue,
+                    onCandidateAvailability: (info) =>
+                        applyCandidateAvailability(null, info),
                 },
             );
             return {
@@ -1181,6 +1258,7 @@ const DashboardProvider: React.FC<
             activeTab?.uuid,
             handleCategoryResolutionIssue,
             recordAutoAdjusted,
+            applyCandidateAvailability,
         ],
     );
 
@@ -1611,6 +1689,8 @@ const DashboardProvider: React.FC<
                     },
                     session,
                     onResolutionIssue: handleCategoryResolutionIssue,
+                    onCandidateAvailability: (info) =>
+                        applyCandidateAvailability(targetTabUuid, info),
                 },
             )
                 .then((refined) => {
@@ -1656,10 +1736,7 @@ const DashboardProvider: React.FC<
 
                         if (nextFilters === currentFilters) return prev;
 
-                        adjustments = collectAutoAdjusted(
-                            filters,
-                            nextFilters,
-                        );
+                        adjustments = collectAutoAdjusted(filters, nextFilters);
                         return { ...prev, [targetTabUuid]: nextFilters };
                     });
 
@@ -1702,6 +1779,7 @@ const DashboardProvider: React.FC<
             startTabCategoryInitSession,
             handleCategoryResolutionIssue,
             recordAutoAdjustedMany,
+            applyCandidateAvailability,
         ],
     );
 
@@ -1846,6 +1924,8 @@ const DashboardProvider: React.FC<
                         },
                         session,
                         onResolutionIssue: handleCategoryResolutionIssue,
+                        onCandidateAvailability: (info) =>
+                            applyCandidateAvailability(uuid, info),
                     },
                 )
                     .then((refined) => {
@@ -2085,6 +2165,7 @@ const DashboardProvider: React.FC<
             invalidateTabCategoryState,
             armCategoryResolutionTimeout,
             clearAutoAdjusted,
+            applyCandidateAvailability,
         ],
     );
 
@@ -2567,27 +2648,6 @@ const DashboardProvider: React.FC<
     }, [projectParameters, addParameterDefinitions]);
 
     // Determine if all chart tiles have loaded their parameter references
-    const areAllChartsLoaded = useMemo(() => {
-        if (!dashboardTiles) return false;
-
-        // If tabs exist, but no active tab is specified, tiles are not loaded
-        if (dashboardTabs && dashboardTabs.length > 0 && !activeTab)
-            return false;
-
-        const chartTileUuids = dashboardTiles
-            .filter(isDashboardChartTileType)
-            .filter((tile) => {
-                // If no active tab specified, include all tiles (backwards compatibility)
-                if (!activeTab) return true;
-
-                // If tabs exist, only include tiles from the active tab or no tabUuid
-                return !tile.tabUuid || tile.tabUuid === activeTab.uuid;
-            })
-            .map((tile) => tile.uuid);
-
-        return chartTileUuids.every((tileUuid) => loadedTiles.has(tileUuid));
-    }, [dashboardTiles, loadedTiles, activeTab, dashboardTabs]);
-
     const missingRequiredParameters = useMemo(() => {
         // If no parameter references, return empty array
         if (!dashboardParameterReferences.size) return [];
@@ -3218,6 +3278,224 @@ const DashboardProvider: React.FC<
         embedToken,
     ]);
 
+    /**
+     * 查看模式下因筛选器「无值」需要隐藏的 tile。
+     * Provider 集中计算一次：DashboardTabs 与 areAllChartsLoaded 共用，
+     * 避免每张 tile 单独订阅/重复计算。
+     * 编辑模式仍计算（用于配置角标），由使用方决定是否应用。
+     */
+    const hiddenTileUuidsRef = useRef<Set<string>>(EMPTY_TILE_VISIBILITY_SET);
+    const isCategoryResolutionPendingForActiveTab =
+        isGlobalCategoryResolutionPending ||
+        (!!activeTabUuid &&
+            pendingTabCategoryResolutions[activeTabUuid] === true);
+
+    // 绝大多数看板没有开启该开关：先做一次 O(filters) 的早退，
+    // 避免对现有看板引入多余的 tiles 分组 / getMergedFiltersForTab 计算。
+    const hasAnyHideTilesFlag = useMemo(() => {
+        const hasFlag = (filters: DashboardFilters): boolean =>
+            filters.dimensions.some((f) => f.hideTilesWhenEmpty === true) ||
+            filters.metrics.some((f) => f.hideTilesWhenEmpty === true) ||
+            filters.tableCalculations.some(
+                (f) => f.hideTilesWhenEmpty === true,
+            );
+
+        return (
+            hasFlag(dashboardFilters) ||
+            hasFlag(dashboardTemporaryFilters) ||
+            Object.values(tabFilters).some(hasFlag) ||
+            Object.values(tabTemporaryFilters).some(hasFlag)
+        );
+    }, [
+        dashboardFilters,
+        dashboardTemporaryFilters,
+        tabFilters,
+        tabTemporaryFilters,
+    ]);
+
+    /**
+     * 清理不再需要探测的筛选器条目：筛选器从「任何值」改为有值（或被删除）后，
+     * 旧探测结果（none）不能残留，否则下次回到「任何值」时会在新探测返回前
+     * 短暂误藏图表。仅在开关开启的看板上做 O(filters) 扫描。
+     */
+    useEffect(() => {
+        if (!hasAnyHideTilesFlag) {
+            setGlobalCandidateAvailability({});
+            setTabCandidateAvailability({});
+            return;
+        }
+
+        const collectProbeIds = (filters: DashboardFilters): Set<string> => {
+            const ids = new Set<string>();
+            filters.dimensions.forEach((f) => {
+                if (needsCandidateProbe(f)) ids.add(f.id);
+            });
+            return ids;
+        };
+
+        const globalIds = collectProbeIds(dashboardFilters);
+        setGlobalCandidateAvailability((current) => {
+            const stale = Object.keys(current).filter(
+                (filterId) => !globalIds.has(filterId),
+            );
+            if (stale.length === 0) return current;
+            const next: CandidateAvailabilityMap = {};
+            Object.entries(current).forEach(([filterId, status]) => {
+                if (globalIds.has(filterId)) next[filterId] = status;
+            });
+            return next;
+        });
+
+        setTabCandidateAvailability((current) => {
+            let changed = false;
+            const next: Record<string, CandidateAvailabilityMap> = {};
+            Object.entries(current).forEach(([scopeKey, availability]) => {
+                const ids = collectProbeIds(
+                    tabFilters[scopeKey] ?? emptyFilters,
+                );
+                const kept: CandidateAvailabilityMap = {};
+                Object.entries(availability).forEach(([filterId, status]) => {
+                    if (ids.has(filterId)) kept[filterId] = status;
+                    else changed = true;
+                });
+                if (
+                    Object.keys(kept).length > 0 ||
+                    Object.keys(availability).length > 0
+                ) {
+                    next[scopeKey] = kept;
+                }
+                if (
+                    Object.keys(kept).length !== Object.keys(availability).length
+                ) {
+                    changed = true;
+                }
+            });
+            return changed ? next : current;
+        });
+    }, [hasAnyHideTilesFlag, dashboardFilters, tabFilters]);
+
+    const hiddenTileUuids = useMemo(() => {
+        if (!hasAnyHideTilesFlag) {
+            hiddenTileUuidsRef.current = EMPTY_TILE_VISIBILITY_SET;
+            return EMPTY_TILE_VISIBILITY_SET;
+        }
+
+        // 解析期间保持上一次结果，避免图表在「清空→补值」之间闪烁/重复查询
+        if (isCategoryResolutionPendingForActiveTab) {
+            return hiddenTileUuidsRef.current;
+        }
+
+        const tilesByTab = new Map<string, DashboardTile[]>();
+        if (dashboardTiles) {
+            if (dashboardTabs && dashboardTabs.length > 0) {
+                const tabUuids = new Set(dashboardTabs.map((tab) => tab.uuid));
+                const defaultTabUuid = dashboardTabs[0]?.uuid;
+                // 只计算会被渲染的 Tab（访问过 + 当前），避免多 Tab 看板在
+                // 每次筛选器变化时为所有 Tab 合并筛选器（未访问 Tab 的图本来就不挂载）。
+                const tabsToCompute = new Set(visitedTabUuids);
+                if (activeTabUuid) tabsToCompute.add(activeTabUuid);
+                dashboardTiles.forEach((tile) => {
+                    const tileTabUuid =
+                        tile.tabUuid && tabUuids.has(tile.tabUuid)
+                            ? tile.tabUuid
+                            : defaultTabUuid;
+                    if (!tileTabUuid || !tabsToCompute.has(tileTabUuid)) return;
+                    const bucket = tilesByTab.get(tileTabUuid);
+                    if (bucket) bucket.push(tile);
+                    else tilesByTab.set(tileTabUuid, [tile]);
+                });
+            } else {
+                tilesByTab.set('', dashboardTiles);
+            }
+        }
+
+        const next = new Set<string>();
+        tilesByTab.forEach((tiles, bucketTabUuid) => {
+            const tabSpecificAvailability =
+                bucketTabUuid === ''
+                    ? undefined
+                    : tabCandidateAvailability[bucketTabUuid];
+            const hidden = getTileUuidsHiddenByEmptyFilters({
+                tiles,
+                filters: getMergedFiltersForTab(bucketTabUuid),
+                filterableFieldsByTileUuid,
+                candidateAvailability: mergeCandidateAvailability(
+                    globalCandidateAvailability,
+                    tabSpecificAvailability,
+                ),
+            });
+            hidden.forEach((uuid) => next.add(uuid));
+        });
+
+        const isSameSize =
+            next.size === hiddenTileUuidsRef.current.size &&
+            Array.from(next).every((uuid) =>
+                hiddenTileUuidsRef.current.has(uuid),
+            );
+        if (isSameSize) {
+            return hiddenTileUuidsRef.current;
+        }
+
+        hiddenTileUuidsRef.current =
+            next.size === 0 ? EMPTY_TILE_VISIBILITY_SET : next;
+        return hiddenTileUuidsRef.current;
+        // getMergedFiltersForTab 内部读取这些筛选器状态，但函数引用稳定；
+        // 必须显式保留依赖，否则筛选器变化时隐藏集合不会重算。
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [
+        dashboardTiles,
+        dashboardTabs,
+        dashboardFilters,
+        dashboardTemporaryFilters,
+        tabFilters,
+        tabTemporaryFilters,
+        isGlobalFilterEnabled,
+        isTabFilterEnabled,
+        getMergedFiltersForTab,
+        filterableFieldsByTileUuid,
+        globalCandidateAvailability,
+        tabCandidateAvailability,
+        activeTabUuid,
+        visitedTabUuids,
+        isGlobalCategoryResolutionPending,
+        pendingTabCategoryResolutions,
+        isCategoryResolutionPendingForActiveTab,
+        hasAnyHideTilesFlag,
+    ]);
+
+    const areAllChartsLoaded = useMemo(() => {
+        if (!dashboardTiles) return false;
+
+        // If tabs exist, but no active tab is specified, tiles are not loaded
+        if (dashboardTabs && dashboardTabs.length > 0 && !activeTab)
+            return false;
+
+        const chartTileUuids = dashboardTiles
+            .filter(isDashboardChartTileType)
+            .filter((tile) => {
+                // If no active tab specified, include all tiles (backwards compatibility)
+                if (!activeTab) return true;
+
+                // If tabs exist, only include tiles from the active tab or no tabUuid
+                return !tile.tabUuid || tile.tabUuid === activeTab.uuid;
+            })
+            .map((tile) => tile.uuid);
+
+        return chartTileUuids.every(
+            (tileUuid) =>
+                loadedTiles.has(tileUuid) ||
+                // 被「无值隐藏」的图表不会发起查询/上报 loaded，不能参与等待
+                (!isEditMode && hiddenTileUuids.has(tileUuid)),
+        );
+    }, [
+        dashboardTiles,
+        loadedTiles,
+        activeTab,
+        dashboardTabs,
+        hiddenTileUuids,
+        isEditMode,
+    ]);
+
     const allFilterableFieldsMap = useMemo(() => {
         const fields = dashboardAvailableFiltersData?.allFilterableFields;
         if (!fields || fields.length === 0) return {};
@@ -3432,6 +3710,7 @@ const DashboardProvider: React.FC<
         isLoadingDashboardFilters,
         isFetchingDashboardFilters,
         filterableFieldsByTileUuid,
+        hiddenTileUuids,
         allFilters,
         hasTilesThatSupportFilters,
         chartSort,

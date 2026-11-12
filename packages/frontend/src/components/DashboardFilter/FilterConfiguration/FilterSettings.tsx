@@ -913,6 +913,46 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                                 }}
                             />
                         </Group>
+
+                        {/* 无值隐藏关联图表：仅非类目筛选器可配（类目链的显隐由类目逻辑控制）。
+                            开关单独一行，避免三个开关挤在一行里被截断。 */}
+                        {filterRule.categoryLevel === undefined && (
+                            <Group spacing="lg" mt={2}>
+                                <Switch
+                                    label={
+                                        <Group spacing={4}>
+                                            <Text size="xs" fw={500}>
+                                                {t(
+                                                    'components_dashboard_filter.configuration.hide_tiles_when_empty.label',
+                                                )}
+                                            </Text>
+                                            <Tooltip
+                                                withinPortal
+                                                variant="xs"
+                                                label={t(
+                                                    'components_dashboard_filter.configuration.hide_tiles_when_empty.tooltip',
+                                                )}
+                                            >
+                                                <MantineIcon
+                                                    size="sm"
+                                                    icon={IconHelpCircle}
+                                                />
+                                            </Tooltip>
+                                        </Group>
+                                    }
+                                    labelPosition="right"
+                                    checked={!!filterRule.hideTilesWhenEmpty}
+                                    onChange={(e) => {
+                                        onChangeFilterRule({
+                                            ...filterRule,
+                                            hideTilesWhenEmpty:
+                                                e.currentTarget.checked ||
+                                                undefined,
+                                        });
+                                    }}
+                                />
+                            </Group>
+                        )}
                     </>
                 )}
 

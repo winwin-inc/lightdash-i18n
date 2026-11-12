@@ -80,6 +80,11 @@ const baseFilterSummary = (rule: DashboardFilterRule) => ({
         .parentScope,
     parentTabUuid: (rule as DashboardFilterRule & { parentTabUuid?: unknown })
         .parentTabUuid,
+    hideTilesWhenEmpty: (
+        rule as DashboardFilterRule & {
+            hideTilesWhenEmpty?: unknown;
+        }
+    ).hideTilesWhenEmpty,
     settings: rule.settings,
     minAllowedDate: (rule as DashboardFilterRule & { minAllowedDate?: unknown })
         .minAllowedDate,

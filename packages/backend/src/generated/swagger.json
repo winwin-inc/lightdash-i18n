@@ -1855,6 +1855,10 @@
                                 "type": "string",
                                 "description": "父级筛选器的字段 id（跨作用域绑定时仍指向父级字段）"
                             },
+                            "hideTilesWhenEmpty": {
+                                "type": "boolean",
+                                "description": "查看模式下，该筛选器无确定值时隐藏它作用到的图表。\n作用范围 = 该筛选器「应用图表」(tileTargets) 中勾选的图表。\n「任何值」(disabled) 按当前链下是否有候选值判定：有候选不隐藏，无候选隐藏；\n候选探测未完成 / 失败时视为未知，不隐藏。\n默认关闭。"
+                            },
                             "categoryLevel": {
                                 "type": "number",
                                 "enum": [1, 2, 3, 4]
@@ -20678,6 +20682,10 @@
                                 "type": "string",
                                 "description": "父级筛选器的字段 id（跨作用域绑定时仍指向父级字段）"
                             },
+                            "hideTilesWhenEmpty": {
+                                "type": "boolean",
+                                "description": "查看模式下，该筛选器无确定值时隐藏它作用到的图表。\n作用范围 = 该筛选器「应用图表」(tileTargets) 中勾选的图表。\n「任何值」(disabled) 按当前链下是否有候选值判定：有候选不隐藏，无候选隐藏；\n候选探测未完成 / 失败时视为未知，不隐藏。\n默认关闭。"
+                            },
                             "categoryLevel": {
                                 "type": "number",
                                 "enum": [1, 2, 3, 4]
@@ -20758,6 +20766,10 @@
                     "categoryLevel": {
                         "type": "number",
                         "enum": [1, 2, 3, 4]
+                    },
+                    "hideTilesWhenEmpty": {
+                        "type": "boolean",
+                        "description": "查看模式下，该筛选器无确定值时隐藏它作用到的图表。\n作用范围 = 该筛选器「应用图表」(tileTargets) 中勾选的图表。\n「任何值」(disabled) 按当前链下是否有候选值判定：有候选不隐藏，无候选隐藏；\n候选探测未完成 / 失败时视为未知，不隐藏。\n默认关闭。"
                     },
                     "parentFieldId": {
                         "type": "string",

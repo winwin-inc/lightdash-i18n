@@ -87,6 +87,7 @@ const FILTER_SUMMARY_KEYS = [
     'readOnly',
     'hidden',
     'clearable',
+    'hideTilesWhenEmpty',
     'requiredGroupId',
     'lockedTabUuids',
     'dateRangeGranularity',

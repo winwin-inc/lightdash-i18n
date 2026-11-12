@@ -2799,6 +2799,10 @@
       "filter_read_only": "Filter read-only",
       "filter_hidden": "Filter hidden",
       "filter_no_clear": "Cannot be cleared",
+      "hide_tiles_when_empty": {
+        "label": "Hide linked charts when this filter has no value",
+        "tooltip": "Automatically hide the charts checked under \"Apply to charts\" when this filter has no value. For \"Any value\", charts are hidden only when the current filter chain has no candidate values."
+      },
       "date_range": {
         "min_label": "Earliest selectable date",
         "min_tooltip": "Leave empty for no limit; this value stays fixed. Disabled while \"Limit earliest by data updates\" is on — the viewer-pickable range = last N whole months (rolling with data).",
@@ -2969,6 +2973,7 @@
     }
   },
   "components_dashboard_tabs": {
+    "hidden_tiles_hint": "Hidden {{count}} chart(s) because the filter has no value",
     "add_tab_modal": {
       "title": "Add new tab",
       "form": {
@@ -3256,6 +3261,10 @@
     "is_empty": "Dashboard is empty.",
     "title": "You haven’t saved any charts yet.",
     "run_a_query": "Run a query"
+  },
+  "components_dashboard_tiles": {
+    "tile_hidden_when_empty": "Hidden when empty",
+    "tile_hidden_when_empty_tooltip": "This chart is hidden in view mode when the filter has no value"
   },
   "components_dashboard_tiles_base": {
     "duplicate": "Duplicate",

@@ -94,6 +94,11 @@ export type DashboardContextType = {
     filterableFieldsByTileUuid:
         | Record<string, DashboardFilterableField[]>
         | undefined;
+    /**
+     * 查看模式下因为筛选器「无值」而需要隐藏的 tile uuid。
+     * 只在非编辑模式生效；编辑模式仍计算（用于配置角标）。
+     */
+    hiddenTileUuids: Set<string>;
     hasTilesThatSupportFilters: boolean;
     chartSort: Record<string, SortField[]>;
     setChartSort: (sort: Record<string, SortField[]>) => void;

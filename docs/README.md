@@ -53,6 +53,7 @@
 | [类目筛选器跨作用域级联（全局 ⇄ Tab）](./dashboard/category-filter-cross-scope-binding.md) | `parentScope` / `parentTabUuid` 模型 |
 | [类目「父级有值、子级不联动」排查与计划](./dashboard/category-filter-not-cascading-diagnosis-plan.md) | 线上问题定位结论 + 分阶段实施（Stage 2 未实施） |
 | [非类目字段绑定父级类目并自动解析候选值](./dashboard/dashboard-filter-bound-values-cascade.md) | 集团/品牌/商品等维度跟随类目重解析 |
+| [筛选器无值时隐藏关联图表](./dashboard/dashboard-tile-visibility-empty-filter.md) | `hideTilesWhenEmpty` 开关、任何值候选探测、tile 隐藏派生与导出兼容（**已实施**） |
 | [筛选 / 首屏性能排查](./dashboard/dashboard-filter-performance-investigation.md) | 慢在数仓往返还是前端渲染，逐条结论 |
 | [看板筛选「自定义 SQL 维度」可行性](./dashboard/dashboard-custom-sql-dimension-filters-feasibility.md) | 评估 + 已落地范围（自定义分箱仍不含） |
 | [看板复制深克隆图表资源](./dashboard/dashboard-duplicate-deep-copy-plan.md) | 复制后 tile/tab 引用重映射与资源隔离 |

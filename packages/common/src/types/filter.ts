@@ -163,6 +163,14 @@ export type DashboardFilterRule<
     singleValue?: boolean;
     categoryLevel?: 1 | 2 | 3 | 4;
     /**
+     * 查看模式下，该筛选器无确定值时隐藏它作用到的图表。
+     * 作用范围 = 该筛选器「应用图表」(tileTargets) 中勾选的图表。
+     * 「任何值」(disabled) 按当前链下是否有候选值判定：有候选不隐藏，无候选隐藏；
+     * 候选探测未完成 / 失败时视为未知，不隐藏。
+     * 默认关闭。
+     */
+    hideTilesWhenEmpty?: boolean;
+    /**
      * 父级筛选器的字段 id（跨作用域绑定时仍指向父级字段）
      */
     parentFieldId?: string;
@@ -343,9 +351,7 @@ export const isValidDataAvailableFromDay = (
 export const getEffectiveDataAvailableFromDay = (
     value: number | null | undefined,
 ): number =>
-    isValidDataAvailableFromDay(value)
-        ? value
-        : DATA_MONTH_AVAILABLE_FROM_DAY;
+    isValidDataAvailableFromDay(value) ? value : DATA_MONTH_AVAILABLE_FROM_DAY;
 
 /** Lower bound (inclusive) for a valid `rollingMinAllowedMonths` window size. */
 export const ROLLING_MIN_ALLOWED_MONTHS_MIN = 1;
