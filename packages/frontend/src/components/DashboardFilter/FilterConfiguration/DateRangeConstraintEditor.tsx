@@ -267,6 +267,12 @@ const DateRangeConstraintEditor: FC<Props> = ({
                 <InfoTooltip
                     label={t(
                         `components_dashboard_filter.configuration.date_range.${hintKey}`,
+                        // 文案里的 {{day}} 跟随数据可用日输入值联动
+                        {
+                            day:
+                                filterRule.dataAvailableFromDay ??
+                                DATA_MONTH_AVAILABLE_FROM_DAY,
+                        },
                     )}
                 />
             </Group>
@@ -396,6 +402,11 @@ const DateRangeConstraintEditor: FC<Props> = ({
                             <InfoTooltip
                                 label={t(
                                     'components_dashboard_filter.configuration.date_range.dynamic_max_tooltip',
+                                    {
+                                        day:
+                                            filterRule.dataAvailableFromDay ??
+                                            DATA_MONTH_AVAILABLE_FROM_DAY,
+                                    },
                                 )}
                             >
                                 <Text size="xs" fw={500}>
@@ -409,6 +420,11 @@ const DateRangeConstraintEditor: FC<Props> = ({
                     <InfoTooltip
                         label={t(
                             'components_dashboard_filter.configuration.date_range.dynamic_max_tooltip',
+                            {
+                                day:
+                                    filterRule.dataAvailableFromDay ??
+                                    DATA_MONTH_AVAILABLE_FROM_DAY,
+                            },
                         )}
                     />
                 </Group>
