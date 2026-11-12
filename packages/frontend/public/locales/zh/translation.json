@@ -2626,7 +2626,8 @@
     },
     "single_date": {
       "preset": {
-        "last_available_month": "上月（4号显示）"
+        "last_available_month_short": "上月",
+        "last_available_month_tooltip": "上月数据自本月 {{day}} 号起可用；{{day}} 号前自动取上上月。当前解析：{{value}}"
       }
     },
     "to_latest_month_hint": "开始月",
@@ -2825,7 +2826,7 @@
           "dynamic": "动态日期",
           "fixed": "固定日期"
         },
-        "mode_tooltip": "默认区间形态：「动态日期」按「距今 N 个月」逐月自动滚动；「固定日期」使用固定日期。仅「在之间」类筛选器使用此开关；单值筛选器的动态默认在取值控件内设置。",
+        "mode_tooltip": "默认取值形态：「动态日期」逐月自动滚动（区间按「距今 N 个月」，单值按数据可用规则取上月）；「固定日期」使用固定取值。适用于「在之间」与月份「是」筛选器。",
         "default_out_of_range": "默认值日期超出了限制范围",
         "default_after_max_bounds": "实际最晚可选：{{max}}",
         "default_before_min_bounds": "实际最早可选：{{min}}",

@@ -2626,7 +2626,8 @@
     },
     "single_date": {
       "preset": {
-        "last_available_month": "Last month (available from the 4th)"
+        "last_available_month_short": "Last month",
+        "last_available_month_tooltip": "Last month's data is available from day {{day}} of the current month; before that, the month before last is used. Currently resolves to {{value}}"
       }
     },
     "to_latest_month_hint": "Start month",
@@ -2825,7 +2826,7 @@
           "dynamic": "Dynamic dates",
           "fixed": "Fixed dates"
         },
-        "mode_tooltip": "Shape of the default range: \"Dynamic dates\" rolls forward month by month relative to now; \"Fixed dates\" uses literal dates. Only \"is between\" filters use this switch; single-value filters set their dynamic default inside the value control.",
+        "mode_tooltip": "Shape of the default value: \"Dynamic dates\" rolls forward automatically (ranges relative to now; single month follows data availability); \"Fixed dates\" uses literal values. Applies to \"is between\" filters and month \"is\" filters.",
         "default_out_of_range": "The default date is outside the allowed range",
         "default_after_max_bounds": "Latest selectable: {{max}}",
         "default_before_min_bounds": "Earliest selectable: {{min}}",

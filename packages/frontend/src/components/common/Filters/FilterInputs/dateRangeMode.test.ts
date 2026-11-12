@@ -4,7 +4,9 @@ import { describe, expect, it } from 'vitest';
 import {
     DYNAMIC_DATE_RANGE_DEFAULT_END,
     DYNAMIC_DATE_RANGE_DEFAULT_START,
+    LAST_AVAILABLE_MONTH_SETTING,
     buildDateRangeModeChangeRule,
+    buildSingleDateModeChangeRule,
     getLockedDynamicUnit,
     isDateRangeMode,
     isDynamicDateRangeAllowed,
@@ -13,6 +15,7 @@ import {
     resolveDateRangeMode,
     resolveDynamicDateRangeValues,
     type DateRangeModeRule,
+    type SingleDateModeRule,
 } from './dateRangeMode';
 
 // stripDisallowedDynamicDateRange 的用例见 ../components 侧
@@ -219,6 +222,67 @@ describe('dateRangeMode', () => {
             });
             // 固定模式的既有取值原样保留，驱动固定 picker
             expect(next.values).toEqual(['2026-01-01', '2026-06-30']);
+        });
+    });
+
+    describe('buildSingleDateModeChangeRule', () => {
+        it('seeds the lastAvailableMonth preset and resolves values from the 4th (day >= 4 → last month)', () => {
+            const next = buildSingleDateModeChangeRule<SingleDateModeRule>(
+                { values: ['2026-01-01'] },
+                'dynamic',
+                new Date('2026-11-12T08:00:00'),
+            );
+            expect(next.settings?.singleDate).toEqual(
+                LAST_AVAILABLE_MONTH_SETTING,
+            );
+            // 4 号已过 → 上月（2026-10）
+            expect(next.values).toEqual(['2026-10']);
+        });
+
+        it('resolves to the month before last before the 4th', () => {
+            const next = buildSingleDateModeChangeRule<SingleDateModeRule>(
+                { values: [] },
+                'dynamic',
+                new Date('2026-11-02T08:00:00'),
+            );
+            // 4 号前 → 上上月（2026-09）
+            expect(next.values).toEqual(['2026-09']);
+        });
+
+        it('preserves other settings keys when switching to dynamic', () => {
+            const rule = {
+                values: [] as (string | null)[],
+                settings: {
+                    unitOfTime: 'months',
+                },
+            };
+            const next = buildSingleDateModeChangeRule<SingleDateModeRule>(
+                rule,
+                'dynamic',
+                new Date('2026-11-12T08:00:00'),
+            );
+            expect(next.settings?.singleDate).toEqual(
+                LAST_AVAILABLE_MONTH_SETTING,
+            );
+            // dateRange / unitOfTime 等其它 settings 不受单日期模式切换影响
+        });
+
+        it('drops only singleDate when switching to fixed, preserving values and other settings', () => {
+            const rule = {
+                values: ['2026-10'],
+                settings: {
+                    singleDate: LAST_AVAILABLE_MONTH_SETTING,
+                    dateRange: { mode: 'dynamic' },
+                },
+            };
+            const next = buildSingleDateModeChangeRule<SingleDateModeRule>(
+                rule,
+                'fixed',
+            );
+            expect(next.settings?.singleDate).toBeUndefined();
+            expect(next.settings?.dateRange).toEqual({ mode: 'dynamic' });
+            // 固定模式的既有取值原样保留，驱动固定月份 picker
+            expect(next.values).toEqual(['2026-10']);
         });
     });
 });

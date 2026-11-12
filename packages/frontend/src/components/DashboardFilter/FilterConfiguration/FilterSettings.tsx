@@ -3,10 +3,13 @@ import {
     FilterType,
     getFilterRuleWithDefaultValue,
     getItemLabel,
+    isDimension,
+    isSingleDateDynamic,
     isTableCalculation,
     supportsSingleValue,
     TimeFrames,
     type DashboardFilterRule,
+    type DateRangeMode,
     type FilterableItem,
     type FilterRule,
 } from '@lightdash/common';
@@ -39,6 +42,7 @@ import { FILTER_SELECT_LIMIT } from '../../common/Filters/constants';
 import FilterInputComponent from '../../common/Filters/FilterInputs';
 import {
     buildDateRangeModeChangeRule,
+    buildSingleDateModeChangeRule,
     isDateRangeMode,
     isDynamicDateRangeAllowed,
     resolveDateRangeMode,
@@ -271,17 +275,30 @@ const FilterSettings: FC<FilterSettingsProps> = ({
         filterRule.settings?.dateRange,
         dateRangeGranularity,
     );
-    // Card-level fixed/dynamic Radio: edit mode + DATE + IN_BETWEEN +
-    // month/quarter granularity, gated by the same showValueInput gate as
-    // the default-range value input (disabled filters cannot change the
-    // default's shape). NOT_IN_BETWEEN / single-value EQUALS keep their
-    // existing controls (single-value month EQUALS has its own in-control
-    // switch — wording stays distinct, see mode_tooltip).
+    // 单值月份「是」：动态默认（上月·按数据可用日）同样用卡片层模式 Radio，
+    // 与「在之间」布局对齐（取值控件内不再有自己的 Radio）；粒度来自字段
+    // 的 timeInterval（月粒度），而非规则级 dateRangeGranularity
+    const isSingleDateMonthEquals =
+        filterType === FilterType.DATE &&
+        filterRule.operator === FilterOperator.EQUALS &&
+        isDimension(field) &&
+        field.timeInterval?.toUpperCase() === TimeFrames.MONTH;
+    const effectiveDateRangeMode: DateRangeMode = isSingleDateMonthEquals
+        ? isSingleDateDynamic(filterRule)
+            ? 'dynamic'
+            : 'fixed'
+        : dateRangeMode;
+    // Card-level fixed/dynamic Radio: edit mode + DATE + (IN_BETWEEN with
+    // month/quarter granularity OR single-value month EQUALS), gated by the
+    // same showValueInput gate as the default value input (disabled filters
+    // cannot change the default's shape). NOT_IN_BETWEEN / other operators
+    // keep fixed-only controls.
     const showDateRangeModeRadio =
         isEditMode &&
         filterType === FilterType.DATE &&
-        filterRule.operator === FilterOperator.IN_BETWEEN &&
-        isDynamicDateRangeAllowed(dateRangeGranularity) &&
+        (isSingleDateMonthEquals ||
+            (filterRule.operator === FilterOperator.IN_BETWEEN &&
+                isDynamicDateRangeAllowed(dateRangeGranularity))) &&
         showValueInput;
 
     /**
@@ -618,15 +635,20 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                 {showDateRangeModeRadio && (
                     <Group spacing="xs" noWrap align="center" mt={2}>
                         <Radio.Group
-                            value={dateRangeMode}
+                            value={effectiveDateRangeMode}
                             onChange={(value) => {
                                 if (isDateRangeMode(value)) {
                                     onChangeFilterRule(
-                                        buildDateRangeModeChangeRule(
-                                            filterRule,
-                                            value,
-                                            dateRangeGranularity,
-                                        ),
+                                        isSingleDateMonthEquals
+                                            ? buildSingleDateModeChangeRule(
+                                                  filterRule,
+                                                  value,
+                                              )
+                                            : buildDateRangeModeChangeRule(
+                                                  filterRule,
+                                                  value,
+                                                  dateRangeGranularity,
+                                              ),
                                     );
                                 }
                             }}

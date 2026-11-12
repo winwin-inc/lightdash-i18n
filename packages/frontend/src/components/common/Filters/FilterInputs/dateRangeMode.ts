@@ -1,10 +1,12 @@
 import {
     resolveDateRangeValues,
+    resolveSingleDateValue,
     TimeFrames,
     UnitOfTime,
     type DateRangeBoundSetting,
     type DateRangeMode,
     type DateRangeSetting,
+    type SingleDateSetting,
 } from '@lightdash/common';
 
 /**
@@ -196,6 +198,62 @@ export const buildDateRangeModeChangeRule = <T extends DateRangeModeRule>(
         ...rule,
         values: resolveDynamicDateRangeValues(nextDateRange, granularity),
         settings: { ...rule.settings, dateRange: nextDateRange },
+    } as T;
+};
+
+/**
+ * Preset seeded when switching a single-value month `EQUALS` filter to
+ * dynamic mode (the only single-date preset today): last available month
+ * with the day-of-month data cutoff (before the 4th → month before last).
+ */
+export const LAST_AVAILABLE_MONTH_SETTING: SingleDateSetting = {
+    mode: 'dynamic',
+    preset: 'lastAvailableMonth',
+};
+
+/** Minimal structural shape consumed by `buildSingleDateModeChangeRule`. */
+export type SingleDateModeRule = {
+    values?: (string | null)[] | null;
+    // 真实规则的 settings 还携带 dateRange / unitOfTime 等兄弟键，
+    // 索引签名保持结构兼容（与 DateFilterSettings 的真实形状一致）
+    settings?:
+        | ({ singleDate?: SingleDateSetting } & Record<string, unknown>)
+        | null;
+};
+
+/**
+ * Build the next rule for a fixed ↔ dynamic single-date (month `EQUALS`)
+ * mode switch. Mirrors `buildDateRangeModeChangeRule`:
+ *
+ * - `dynamic`: seed `settings.singleDate` with the last-available-month
+ *   preset and resolve `values` immediately (keeps `hasFilterValueSet` /
+ *   chip preview consistent, matching how the mode Radio card works for
+ *   date ranges).
+ * - `fixed`: drop only `settings.singleDate` (other settings such as
+ *   `dateRange` / `unitOfTime` are preserved); existing `values` continue
+ *   to drive the fixed month picker.
+ */
+export const buildSingleDateModeChangeRule = <T extends SingleDateModeRule>(
+    rule: T,
+    nextMode: DateRangeMode,
+    now: Date = new Date(),
+): T => {
+    if (nextMode !== 'dynamic') {
+        const { singleDate: _dropped, ...restSettings } = rule.settings ?? {};
+        return { ...rule, settings: restSettings } as T;
+    }
+    const settings = {
+        ...rule.settings,
+        singleDate: LAST_AVAILABLE_MONTH_SETTING,
+    };
+    const resolved = resolveSingleDateValue(
+        { values: rule.values ?? undefined, settings },
+        now,
+    );
+    return {
+        ...rule,
+        values: resolved != null ? [resolved] : rule.values,
+        settings,
     } as T;
 };
 
