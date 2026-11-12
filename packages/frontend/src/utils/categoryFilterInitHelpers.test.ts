@@ -404,3 +404,91 @@ describe('optimistic category display helpers', () => {
         expect(withTime.filters.dimensions[1].values).toEqual(['饮料']);
     });
 });
+
+describe('候选探测（needsCandidateProbe）筛选器的门禁与签名', () => {
+    /** 「任何值」+ 开启「无值隐藏关联图表」的普通维度（无父级绑定） */
+    const probeFilter = (): DashboardFilterRule => ({
+        id: 'probe',
+        target: { fieldId: 'insight_list_group', tableName: 'insight_list' },
+        operator: FilterOperator.EQUALS,
+        values: undefined,
+        label: undefined,
+        hideTilesWhenEmpty: true,
+        disabled: true,
+    });
+
+    const timeFilter = (values: string[]): DashboardFilterRule => ({
+        id: 'time',
+        target: { fieldId: 'orders_order_date', tableName: 'orders' },
+        operator: FilterOperator.EQUALS,
+        values,
+        label: undefined,
+    });
+
+    const probeFiltersOf = (
+        dimensions: DashboardFilterRule[],
+    ): DashboardFilters => ({
+        dimensions,
+        metrics: [],
+        tableCalculations: [],
+    });
+
+    it('只有 needsCandidateProbe 筛选器时 decideCategoryInit 返回 start', () => {
+        const filters = probeFiltersOf([probeFilter()]);
+
+        expect(
+            decideCategoryInit({
+                canApplyCategoryFilters: true,
+                filters,
+                projectUuid,
+                dashboardContext,
+                processedSignature: null,
+            }),
+        ).toEqual({
+            action: 'start',
+            signature: getCategoryFiltersSignature(
+                filters,
+                projectUuid,
+                dashboardContext,
+            ),
+        });
+    });
+
+    it('签名包含探测规则与其左侧链：左链（时间）值变化会改变签名', () => {
+        const withTime = (values: string[]) =>
+            probeFiltersOf([timeFilter(values), probeFilter()]);
+
+        expect(
+            getCategoryFiltersSignature(
+                withTime(['近3个月']),
+                projectUuid,
+                dashboardContext,
+            ),
+        ).not.toEqual(
+            getCategoryFiltersSignature(
+                withTime(['YTD2609']),
+                projectUuid,
+                dashboardContext,
+            ),
+        );
+    });
+
+    it('没有探测规则时普通左链筛选仍不进签名（既有语义不变）', () => {
+        const withTime = (values: string[]) =>
+            probeFiltersOf([timeFilter(values)]);
+
+        expect(
+            getCategoryFiltersSignature(
+                withTime(['近3个月']),
+                projectUuid,
+                dashboardContext,
+            ),
+        ).toEqual(
+            getCategoryFiltersSignature(
+                withTime(['YTD2609']),
+                projectUuid,
+                dashboardContext,
+            ),
+        );
+    });
+});

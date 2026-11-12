@@ -400,6 +400,7 @@ export const getFilterRuleRevertableObject = (
         readOnly: filterRule.readOnly,
         hidden: filterRule.hidden,
         clearable: filterRule.clearable,
+        hideTilesWhenEmpty: filterRule.hideTilesWhenEmpty,
     };
 };
 

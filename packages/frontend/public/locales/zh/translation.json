@@ -2799,6 +2799,10 @@
       "filter_read_only": "筛选器只读",
       "filter_hidden": "筛选器隐藏",
       "filter_no_clear": "不可清空",
+      "hide_tiles_when_empty": {
+        "label": "无值时隐藏关联图表",
+        "tooltip": "无值时自动隐藏下方『应用图表』中勾选的图表。「任何值」时按当前筛选条件下是否存在候选值判断：有候选值显示，无候选值隐藏。"
+      },
       "date_range": {
         "min_label": "可选最早日期",
         "min_tooltip": "留空＝不限制；此处为固定值，不会随时间变化。开启「按数据更新限制最早」后此处停用——查看者可选范围＝最近 N 个整月（随数据滚动）。",
@@ -2969,6 +2973,7 @@
     }
   },
   "components_dashboard_tabs": {
+    "hidden_tiles_hint": "当前筛选无值，已隐藏 {{count}} 张图表",
     "add_tab_modal": {
       "title": "添加新标签页",
       "form": {
@@ -3280,6 +3285,10 @@
     "is_empty": "看板为空。",
     "title": "您还没有保存任何图表。",
     "run_a_query": "运行查询"
+  },
+  "components_dashboard_tiles": {
+    "tile_hidden_when_empty": "无值隐藏",
+    "tile_hidden_when_empty_tooltip": "查看模式下，该筛选器无值时会隐藏此图表"
   },
   "components_dashboard_tiles_base": {
     "duplicate": "复制图块",

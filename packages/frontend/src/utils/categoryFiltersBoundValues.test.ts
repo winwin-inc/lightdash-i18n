@@ -80,6 +80,7 @@ const boundRule = (
     parentScope: overrides.parentScope ?? 'tab',
     parentTabUuid: overrides.parentTabUuid ?? TAB_UUID,
     disabled: overrides.disabled,
+    hideTilesWhenEmpty: overrides.hideTilesWhenEmpty,
 });
 
 const asFilters = (dimensions: DashboardFilterRule[]): DashboardFilters => ({
@@ -595,7 +596,9 @@ describe('多级绑定：普通维度可以挂在普通维度下面', () => {
             const chain = buildCategoryChain(
                 {
                     globalFilters: asFilters([]),
-                    tabFilters: { [TAB_UUID]: asFilters([groupRule, brandRule]) },
+                    tabFilters: {
+                        [TAB_UUID]: asFilters([groupRule, brandRule]),
+                    },
                 },
                 TAB_UUID,
             );
@@ -731,12 +734,7 @@ describe('多级绑定的联动（父级变化后的收敛 / 清空）', () => {
     });
 
     const runCascade = (newValue: string | null) => {
-        const filters = asFilters([
-            categoryL4,
-            groupRule,
-            brandRule,
-            skuRule,
-        ]);
+        const filters = asFilters([categoryL4, groupRule, brandRule, skuRule]);
         return updateCategoryFilterCascadeAsync(
             filters,
             { ...groupRule, values: newValue === null ? [] : [newValue] },
@@ -826,5 +824,243 @@ describe('多级绑定的联动（父级变化后的收敛 / 清空）', () => {
                 canApplyCategoryFilters: true,
             }),
         ).toBe(false);
+    });
+});
+
+describe('hideTilesWhenEmpty：绑定字段无值时清空（级联侧）', () => {
+    beforeEach(() => {
+        api.mockReset();
+        clearFieldSearchCacheForTests();
+        vi.spyOn(console, 'log').mockImplementation(() => {});
+        vi.spyOn(console, 'debug').mockImplementation(() => {});
+        vi.spyOn(console, 'warn').mockImplementation(() => {});
+    });
+
+    afterEach(() => {
+        vi.restoreAllMocks();
+        clearFieldSearchCacheForTests();
+    });
+
+    it('开开关 + 候选为空 → values 清空', async () => {
+        mockSearchResults([]);
+        const filters = asFilters([
+            boundRule({
+                id: 'group',
+                fieldId: 'group',
+                values: ['海天'],
+                hideTilesWhenEmpty: true,
+            }),
+        ]);
+        const onValuesAutoAdjusted = vi.fn();
+
+        const refined = await initTab(filters, { onValuesAutoAdjusted });
+
+        expect(refined.dimensions[1].values).toEqual([]);
+        expect(refined.dimensions[1].disabled).toBe(false);
+        expect(onValuesAutoAdjusted).toHaveBeenCalledWith({
+            filterId: 'group',
+            fieldId: 'group',
+            previousValues: ['海天'],
+            nextValues: [],
+        });
+    });
+
+    it('开开关 + 父链断裂（父级无值）→ values 清空，不发请求', async () => {
+        const bound = boundRule({
+            id: 'group',
+            fieldId: 'group',
+            values: ['海天'],
+            hideTilesWhenEmpty: true,
+        });
+        // 父级类目没有任何值 → collect 返回 undefined（链路断裂）
+        const filters = asFilters([
+            categoryRule({
+                id: 'l4',
+                fieldId: 'group_cls4_insight_list_cls_4',
+                categoryLevel: 4,
+                values: [],
+            }),
+            bound,
+        ]);
+        const chain = chainFor(
+            [],
+            [
+                boundRule({
+                    id: 'group',
+                    fieldId: 'group',
+                    values: ['海天'],
+                    hideTilesWhenEmpty: true,
+                }),
+            ],
+        );
+
+        const refined = await initializeCategoryFiltersAsync(
+            filters,
+            projectUuid,
+            dashboardContext,
+            {
+                scope: {
+                    location: { scope: 'tab', tabUuid: TAB_UUID },
+                    chain,
+                },
+                skipFilterIds: ['l4'],
+            },
+        );
+
+        expect(refined.dimensions[1].values).toEqual([]);
+        expect(api).not.toHaveBeenCalled();
+    });
+
+    it('未开开关 + 候选为空 → 保留原值', async () => {
+        mockSearchResults([]);
+        const filters = asFilters([
+            boundRule({
+                id: 'group',
+                fieldId: 'group',
+                values: ['海天'],
+                hideTilesWhenEmpty: false,
+            }),
+        ]);
+
+        const refined = await initTab(filters);
+
+        expect(refined.dimensions[1]).toEqual(filters.dimensions[0]);
+    });
+
+    it('未开开关 + 父链断裂 → 保留原值（既有语义）', async () => {
+        const bound = boundRule({
+            id: 'group',
+            fieldId: 'group',
+            values: ['海天'],
+            hideTilesWhenEmpty: false,
+        });
+        const filters = asFilters([
+            categoryRule({
+                id: 'l4',
+                fieldId: 'group_cls4_insight_list_cls_4',
+                categoryLevel: 4,
+                values: [],
+            }),
+            bound,
+        ]);
+        const chain = chainFor(
+            [],
+            [
+                boundRule({
+                    id: 'group',
+                    fieldId: 'group',
+                    values: ['海天'],
+                    hideTilesWhenEmpty: false,
+                }),
+            ],
+        );
+
+        const refined = await initializeCategoryFiltersAsync(
+            filters,
+            projectUuid,
+            dashboardContext,
+            {
+                scope: {
+                    location: { scope: 'tab', tabUuid: TAB_UUID },
+                    chain,
+                },
+                skipFilterIds: ['l4'],
+            },
+        );
+
+        expect(refined.dimensions[1]).toEqual(bound);
+    });
+
+    it('disabled（任何值）→ 不改值、不发请求', async () => {
+        const filters = asFilters([
+            boundRule({
+                id: 'group',
+                fieldId: 'group',
+                values: ['海天'],
+                disabled: true,
+                hideTilesWhenEmpty: true,
+            }),
+        ]);
+
+        const refined = await initTab(filters);
+
+        expect(refined.dimensions[1]).toEqual(filters.dimensions[0]);
+        expect(api).not.toHaveBeenCalled();
+    });
+
+    it('已为空 → 不重复写入', async () => {
+        mockSearchResults([]);
+        const onValuesAutoAdjusted = vi.fn();
+        const filters = asFilters([
+            boundRule({
+                id: 'group',
+                fieldId: 'group',
+                values: [],
+                hideTilesWhenEmpty: true,
+            }),
+        ]);
+
+        const refined = await initTab(filters, { onValuesAutoAdjusted });
+
+        expect(refined.dimensions[1]).toEqual(filters.dimensions[0]);
+        expect(onValuesAutoAdjusted).not.toHaveBeenCalled();
+    });
+
+    it('请求失败 → 保持原值（即使开了开关）', async () => {
+        api.mockRejectedValueOnce(new Error('warehouse down'));
+        const filters = asFilters([
+            boundRule({
+                id: 'group',
+                fieldId: 'group',
+                values: ['海天'],
+                hideTilesWhenEmpty: true,
+            }),
+        ]);
+
+        const refined = await initTab(filters);
+
+        expect(refined.dimensions[1]).toEqual(filters.dimensions[0]);
+    });
+
+    it('cascade：开开关 + 候选为空 → 清空下级绑定字段', async () => {
+        mockSearchResults([]);
+        const category = categoryRule({
+            id: 'l4',
+            fieldId: 'insight_list_cls_4',
+            categoryLevel: 4,
+            values: ['醋'],
+        });
+        const group = {
+            ...boundRule({
+                id: 'g',
+                fieldId: 'insight_list_group',
+                parentFieldId: 'insight_list_cls_4',
+                values: ['旧集团'],
+            }),
+            hideTilesWhenEmpty: true,
+        } as DashboardFilterRule;
+        const filters = asFilters([category, group]);
+
+        const result = await updateCategoryFilterCascadeAsync(
+            filters,
+            { ...category, values: ['酱油'] },
+            '酱油',
+            projectUuid,
+            dashboardContext,
+            {
+                scope: {
+                    location: { scope: 'tab', tabUuid: TAB_UUID },
+                    chain: buildCategoryChain(
+                        {
+                            globalFilters: asFilters([]),
+                            tabFilters: { [TAB_UUID]: filters },
+                        },
+                        TAB_UUID,
+                    ),
+                },
+            },
+        );
+
+        expect(result.dimensions.find((d) => d.id === 'g')?.values).toEqual([]);
     });
 });

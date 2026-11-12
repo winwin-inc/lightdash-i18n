@@ -1,11 +1,15 @@
 import {
+    FilterOperator,
     type DashboardFilterRule,
     type DashboardFilters,
     type FieldValueSearchResult,
-    FilterOperator,
 } from '@lightdash/common';
 import { lightdashApi } from '../api';
 import { enqueueFieldSearch } from './fieldSearchQueue';
+import {
+    needsCandidateProbe,
+    type CandidateAvailabilityStatus,
+} from './filterCandidateAvailability';
 import { isWarehouseResourceLimitError } from './warehouseError';
 
 /**
@@ -107,12 +111,16 @@ export const isBoundValueFilter = (filter: DashboardFilterRule): boolean => {
 };
 
 /**
- * 是否存在需要按类目链解析的筛选器（类目 + 绑定父级的普通维度）。
+ * 是否存在需要按类目链解析的筛选器
+ * （类目 + 绑定父级的普通维度 + 需要「候选探测」的筛选器）。
  * 用于替代「有类目筛选器才初始化」的门禁。
  */
 export const hasBoundFilters = (filters: DashboardFilters): boolean =>
     filters.dimensions.some(
-        (filter) => isCategoryField(filter) || isBoundValueFilter(filter),
+        (filter) =>
+            isCategoryField(filter) ||
+            isBoundValueFilter(filter) ||
+            needsCandidateProbe(filter),
     );
 
 /**
@@ -638,6 +646,17 @@ export const getCategoryFiltersSignature = (
         boundValues: filters.dimensions
             .filter((filter) => isBoundValueFilter(filter))
             .map(boundRuleSignature),
+        // 需要「候选探测」的筛选器：候选取决于它左侧的链（父级 / 时间等），
+        // 左链任何值变化都必须重新探测，否则会停留在旧探测结果上。
+        candidateProbes: filters.dimensions
+            .map((filter, index) => ({ filter, index }))
+            .filter(({ filter }) => needsCandidateProbe(filter))
+            .map(({ filter, index }) => ({
+                rule: boundRuleSignature(filter),
+                leftChain: filters.dimensions
+                    .slice(0, index)
+                    .map(boundRuleSignature),
+            })),
     });
 };
 
@@ -1199,14 +1218,24 @@ const resolveBoundValuesAsync = async ({
         return { status: 'keep', reason: 'unsupported-operator' };
     }
 
+    // 「无值时隐藏关联图表」+ 当前有值：链路断裂 / 无候选时清空值，
+    // 让隐藏判断（isFilterEmptyForTileVisibility）按「值型算子且值为空」隐藏图表。
+    // 未开开关的筛选器保持原语义（保留原值）；已为空时也无需重复写入。
+    const clearValuesWhenEmpty =
+        filter.hideTilesWhenEmpty === true && (filter.values ?? []).length > 0;
+
     const entry = chain.find((candidate) => candidate.rule.id === filter.id);
     const searchFilters = collectFieldSearchFilters(
         chain,
         entry ?? { rule: filter, location: GLOBAL_FILTER_LOCATION },
         parentValueOverride,
     );
-    // 父级没有值：链路断裂。不清空用户的值（否则切 Tab 会把作者默认值也消掉）。
+    // 父级没有值：链路断裂。默认保留用户的值（否则切 Tab 会把作者默认值也消掉）；
+    // 但开启了「无值时隐藏关联图表」的筛选器必须真正变空才能隐藏，故清空。
     if (searchFilters === undefined) {
+        if (clearValuesWhenEmpty) {
+            return { status: 'resolved', values: [] };
+        }
         return { status: 'keep', reason: 'broken-chain' };
     }
 
@@ -1227,7 +1256,11 @@ const resolveBoundValuesAsync = async ({
     const candidates = result.values;
     if (candidates.length === 0) {
         // 空结果：无法区分「确实没数据」与「行级过滤把行都过滤了」。
-        // 保留原值：宁可空图（明显）也不要乱填（隐蔽）。
+        // 默认保留原值：宁可空图（明显）也不要乱填（隐蔽）；
+        // 开启「无值时隐藏关联图表」时清空，由隐藏逻辑把图表整块藏掉。
+        if (clearValuesWhenEmpty) {
+            return { status: 'resolved', values: [] };
+        }
         return { status: 'keep', reason: 'no-candidates' };
     }
 
@@ -1250,6 +1283,126 @@ const resolveBoundValuesAsync = async ({
     }
 
     return { status: 'resolved', values: filled };
+};
+
+/* -------------------------------------------------------------------------- */
+/*                「无值隐藏关联图表」的候选可用性探测（级联侧）                 */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * 候选可用性回调：入口解析结束后，对需要候选探测的筛选器上报最终结果。
+ * 每个筛选器只回调一次：has / none；请求失败或被取消时回调 unknown。
+ */
+export type CandidateAvailabilityHandler = (info: {
+    filterId: string;
+    status: CandidateAvailabilityStatus;
+    /** 探测所在作用域的 Tab uuid（undefined = 全局） */
+    tabUuid?: string;
+}) => void;
+
+/**
+ * 探测「任何值」筛选器在当前链下是否还有候选值（field/search，复用 5s 缓存）。
+ *
+ * 只探测、不写回：values / disabled 完全不动。
+ * - 不需要探测（未开开关 / 非「任何值」/ 类目 / SQL 列 / 值型算子）→ 'unknown'
+ * - 父链断裂（collectFieldSearchFilters 返回 undefined）→ 'none'
+ * - 请求取消 / 失败 → 'unknown'（未知不隐藏，避免接口故障误藏图表）
+ * - 有候选 → 'has'；无候选 → 'none'
+ */
+export const probeFilterCandidateAvailabilityAsync = async ({
+    filter,
+    chain,
+    projectUuid,
+    dashboardContext,
+    session,
+}: {
+    filter: DashboardFilterRule;
+    chain: CategoryChain;
+    projectUuid: string;
+    dashboardContext?: DashboardFilterContext;
+    session?: CategoryRequestSession;
+}): Promise<CandidateAvailabilityStatus> => {
+    if (!needsCandidateProbe(filter)) {
+        return 'unknown';
+    }
+
+    const entry = chain.find(
+        (candidate) => candidate.rule.id === filter.id,
+    ) ?? {
+        rule: filter,
+        location: GLOBAL_FILTER_LOCATION,
+    };
+    const searchFilters = collectFieldSearchFilters(chain, entry);
+    // 未绑定父级的普通维度：左侧没有值不是「断链」，按无条件查询探测全集；
+    // 只有显式绑定了父级（子系列等）时，undefined 才表示父链断裂 / 无候选。
+    if (searchFilters === undefined && getParentFieldId(filter) !== null) {
+        return 'none';
+    }
+
+    const result = await fetchFieldSearchValues(
+        projectUuid,
+        filter.target.fieldId,
+        filter.target.tableName,
+        searchFilters ?? [],
+        dashboardContext,
+        session,
+    );
+
+    if (result.status === 'cancelled' || result.status === 'error') {
+        return 'unknown';
+    }
+
+    return result.values.length > 0 ? 'has' : 'none';
+};
+
+/**
+ * 入口解析结束后串行探测各作用域链上需要候选探测的筛选器并回调。
+ *
+ * - 每个筛选器只回调一次最终结果（has / none；失败或取消 → unknown）
+ * - 回调带上探测所在作用域的 tabUuid（undefined = 全局）；
+ *   同一作用域内同一筛选器只探测一次（全局筛选器会进入各 Tab 的链，
+ *   按作用域分别上报；重复请求命中 5s 缓存，不会多打仓库）
+ * - 每次探测前检查会话：取消后不再发请求、不再回调
+ * - 未提供回调时直接跳过：纯探测没有意义，也不该多发请求
+ */
+const reportCandidateAvailabilityAsync = async ({
+    scopes,
+    projectUuid,
+    dashboardContext,
+    session,
+    onCandidateAvailability,
+}: {
+    scopes: { chain: CategoryChain; tabUuid: string | undefined }[];
+    projectUuid: string;
+    dashboardContext?: DashboardFilterContext;
+    session?: CategoryRequestSession;
+    onCandidateAvailability?: CandidateAvailabilityHandler;
+}): Promise<void> => {
+    if (!onCandidateAvailability) return;
+
+    const reported = new Set<string>();
+    for (const { chain, tabUuid } of scopes) {
+        for (const entry of chain) {
+            if (!needsCandidateProbe(entry.rule)) continue;
+            const reportKey = `${tabUuid ?? 'global'}:${entry.rule.id}`;
+            if (reported.has(reportKey)) continue;
+            if (session?.isCancelled()) return;
+            reported.add(reportKey);
+
+            const status = await probeFilterCandidateAvailabilityAsync({
+                filter: entry.rule,
+                chain,
+                projectUuid,
+                dashboardContext,
+                session,
+            });
+            onCandidateAvailability({
+                filterId: entry.rule.id,
+                status,
+                tabUuid,
+            });
+        }
+    }
 };
 
 /**
@@ -1957,6 +2110,8 @@ export const initializeCategoryFiltersAsync = async (
             previousValues: string[];
             nextValues: string[];
         }) => void;
+        /** 候选可用性探测回调（「任何值」+ 无值隐藏图表 的筛选器，解析结束后上报） */
+        onCandidateAvailability?: CandidateAvailabilityHandler;
     },
 ): Promise<DashboardFilters> => {
     let workingFilters = filters;
@@ -2225,6 +2380,18 @@ export const initializeCategoryFiltersAsync = async (
         });
     }
 
+    // 解析结束后探测候选可用性（即使没有任何写入也要探测：首次解析就需要隐藏判断）。
+    // 会话被取消时上面的早退不会走到这里（cancelled 直接返回前不探测）。
+    await reportCandidateAvailabilityAsync({
+        scopes: [
+            { chain: workingChain, tabUuid: location.tabUuid ?? undefined },
+        ],
+        projectUuid,
+        dashboardContext,
+        session: options?.session,
+        onCandidateAvailability: options?.onCandidateAvailability,
+    });
+
     if (!hasChanges) return filters;
     return workingFilters;
 };
@@ -2257,6 +2424,8 @@ export const updateCategoryFilterCascadeAsync = async (
             previousValues: string[];
             nextValues: string[];
         }) => void;
+        /** 候选可用性探测回调（「任何值」+ 无值隐藏图表 的筛选器，解析结束后上报） */
+        onCandidateAvailability?: CandidateAvailabilityHandler;
     },
 ): Promise<DashboardFilters> => {
     const recoverableFilterIds = new Set(options?.recoverableFilterIds ?? []);
@@ -2298,6 +2467,17 @@ export const updateCategoryFilterCascadeAsync = async (
         return filters;
     }
 
+    // 解析结束后探测候选可用性（没有写入也要探测：首次解析就需要隐藏判断）
+    await reportCandidateAvailabilityAsync({
+        scopes: [
+            { chain: result.chain, tabUuid: location.tabUuid ?? undefined },
+        ],
+        projectUuid,
+        dashboardContext,
+        session: options?.session,
+        onCandidateAvailability: options?.onCandidateAvailability,
+    });
+
     if (!result.hasChanges) {
         return filters;
     }
@@ -2337,6 +2517,8 @@ export const updateCategoryCascadeForLocationsAsync = async (
             previousValues: string[];
             nextValues: string[];
         }) => void;
+        /** 候选可用性探测回调（按每个请求作用域的 tabUuid 上报，解析结束后执行） */
+        onCandidateAvailability?: CandidateAvailabilityHandler;
     },
 ): Promise<CategoryFilterLayers> => {
     const recoverableFilterIds = new Set(options?.recoverableFilterIds ?? []);
@@ -2431,6 +2613,23 @@ export const updateCategoryCascadeForLocationsAsync = async (
             getFieldSearchRequestCountForDev() - requestsAtStart,
     });
 
+    // 解析结束后按最终各作用域链探测候选可用性（没有写入也要探测），
+    // 按每个请求作用域的 tabUuid 上报；跨作用域入口
+    // （updateCrossScopeCategoryCascadeAsync）委托到这里，不重复探测。
+    await reportCandidateAvailabilityAsync({
+        scopes: requests.map((request) => ({
+            chain: buildCategoryChain(
+                { globalFilters, tabFilters },
+                request.location.tabUuid,
+            ),
+            tabUuid: request.location.tabUuid ?? undefined,
+        })),
+        projectUuid,
+        dashboardContext,
+        session: options?.session,
+        onCandidateAvailability: options?.onCandidateAvailability,
+    });
+
     return { globalFilters, tabFilters };
 };
 
@@ -2510,6 +2709,8 @@ export const updateCrossScopeCategoryCascadeAsync = async (
             previousValues: string[];
             nextValues: string[];
         }) => void;
+        /** 候选可用性探测回调（委托给 updateCategoryCascadeForLocationsAsync 统一探测） */
+        onCandidateAvailability?: CandidateAvailabilityHandler;
     },
 ): Promise<CategoryFilterLayers> => {
     if (!isCategoryField(changedFilter) && !isBoundValueFilter(changedFilter)) {
