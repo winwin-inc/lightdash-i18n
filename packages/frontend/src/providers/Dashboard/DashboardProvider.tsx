@@ -3283,7 +3283,35 @@ const DashboardProvider: React.FC<
         (!!activeTabUuid &&
             pendingTabCategoryResolutions[activeTabUuid] === true);
 
+    // 绝大多数看板没有开启该开关：先做一次 O(filters) 的早退，
+    // 避免对现有看板引入多余的 tiles 分组 / getMergedFiltersForTab 计算。
+    const hasAnyHideTilesFlag = useMemo(() => {
+        const hasFlag = (filters: DashboardFilters): boolean =>
+            filters.dimensions.some((f) => f.hideTilesWhenEmpty === true) ||
+            filters.metrics.some((f) => f.hideTilesWhenEmpty === true) ||
+            filters.tableCalculations.some(
+                (f) => f.hideTilesWhenEmpty === true,
+            );
+
+        return (
+            hasFlag(dashboardFilters) ||
+            hasFlag(dashboardTemporaryFilters) ||
+            Object.values(tabFilters).some(hasFlag) ||
+            Object.values(tabTemporaryFilters).some(hasFlag)
+        );
+    }, [
+        dashboardFilters,
+        dashboardTemporaryFilters,
+        tabFilters,
+        tabTemporaryFilters,
+    ]);
+
     const hiddenTileUuids = useMemo(() => {
+        if (!hasAnyHideTilesFlag) {
+            hiddenTileUuidsRef.current = EMPTY_TILE_VISIBILITY_SET;
+            return EMPTY_TILE_VISIBILITY_SET;
+        }
+
         // 解析期间保持上一次结果，避免图表在「清空→补值」之间闪烁/重复查询
         if (isCategoryResolutionPendingForActiveTab) {
             return hiddenTileUuidsRef.current;
@@ -3294,12 +3322,16 @@ const DashboardProvider: React.FC<
             if (dashboardTabs && dashboardTabs.length > 0) {
                 const tabUuids = new Set(dashboardTabs.map((tab) => tab.uuid));
                 const defaultTabUuid = dashboardTabs[0]?.uuid;
+                // 只计算会被渲染的 Tab（访问过 + 当前），避免多 Tab 看板在
+                // 每次筛选器变化时为所有 Tab 合并筛选器（未访问 Tab 的图本来就不挂载）。
+                const tabsToCompute = new Set(visitedTabUuids);
+                if (activeTabUuid) tabsToCompute.add(activeTabUuid);
                 dashboardTiles.forEach((tile) => {
                     const tileTabUuid =
                         tile.tabUuid && tabUuids.has(tile.tabUuid)
                             ? tile.tabUuid
                             : defaultTabUuid;
-                    if (!tileTabUuid) return;
+                    if (!tileTabUuid || !tabsToCompute.has(tileTabUuid)) return;
                     const bucket = tilesByTab.get(tileTabUuid);
                     if (bucket) bucket.push(tile);
                     else tilesByTab.set(tileTabUuid, [tile]);
@@ -3356,9 +3388,11 @@ const DashboardProvider: React.FC<
         globalCandidateAvailability,
         tabCandidateAvailability,
         activeTabUuid,
+        visitedTabUuids,
         isGlobalCategoryResolutionPending,
         pendingTabCategoryResolutions,
         isCategoryResolutionPendingForActiveTab,
+        hasAnyHideTilesFlag,
     ]);
 
     const areAllChartsLoaded = useMemo(() => {

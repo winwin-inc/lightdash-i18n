@@ -15,6 +15,34 @@ import MarkdownTile from '../DashboardTiles/DashboardMarkdownTile';
 import SqlChartTile from '../DashboardTiles/DashboardSqlChartTile';
 import TileBase from '../DashboardTiles/TileBase';
 
+const HiddenWhenEmptyBadge: FC = () => {
+    const { t } = useTranslation();
+    return (
+        <Tooltip
+            withinPortal
+            variant="xs"
+            label={t(
+                'components_dashboard_tiles.tile_hidden_when_empty_tooltip',
+            )}
+        >
+            <Badge
+                size="xs"
+                variant="light"
+                color="gray"
+                style={{
+                    position: 'absolute',
+                    top: 6,
+                    right: 6,
+                    zIndex: 2,
+                    pointerEvents: 'auto',
+                }}
+            >
+                {t('components_dashboard_tiles.tile_hidden_when_empty')}
+            </Badge>
+        </Tooltip>
+    );
+};
+
 const GridTile: FC<
     Pick<
         React.ComponentProps<typeof TileBase>,
@@ -29,45 +57,22 @@ const GridTile: FC<
     }
 > = memo((props) => {
     const { tile, wouldHideWhenEmpty, ...tileProps } = props;
-    const { t } = useTranslation();
     useProfiler(`Dashboard-${tile.type}`);
 
     const badge =
         props.isEditMode && wouldHideWhenEmpty ? (
-            <Tooltip
-                withinPortal
-                variant="xs"
-                label={t(
-                    'components_dashboard_tiles.tile_hidden_when_empty_tooltip',
-                )}
-            >
-                <Badge
-                    size="xs"
-                    variant="light"
-                    color="gray"
-                    style={{
-                        position: 'absolute',
-                        top: 6,
-                        right: 6,
-                        zIndex: 2,
-                        pointerEvents: 'auto',
-                    }}
-                >
-                    {t('components_dashboard_tiles.tile_hidden_when_empty')}
-                </Badge>
-            </Tooltip>
+            <HiddenWhenEmptyBadge />
         ) : null;
 
     if (props.locked) {
+        const lockedTile = (
+            <TileBase isLoading={false} title={''} {...tileProps} tile={tile} />
+        );
+        if (!badge) return lockedTile;
         return (
             <Box h="100%" style={{ position: 'relative' }}>
                 {badge}
-                <TileBase
-                    isLoading={false}
-                    title={''}
-                    {...tileProps}
-                    tile={tile}
-                />
+                {lockedTile}
             </Box>
         );
     }
@@ -92,6 +97,9 @@ const GridTile: FC<
             }
         }
     })();
+
+    // 未命中「无值隐藏」时不加任何 wrapper，保持原有 DOM/布局
+    if (!badge) return tileContent;
 
     return (
         <Box h="100%" style={{ position: 'relative' }}>

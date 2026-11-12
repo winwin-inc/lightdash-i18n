@@ -252,10 +252,12 @@ export class UnfurlService extends BaseService {
             // When every chart is hidden by a filter with no values
             // (hideTilesWhenEmpty), no loading overlay is ever attached,
             // so tolerate the timeout/not-found here instead of failing the export.
+            // Keep Playwright's default 30s window: a slow dashboard should not
+            // be screenshotted before its charts mount.
             try {
                 await page.waitForSelector('.loading_chart_overlay', {
                     state: 'attached',
-                    timeout: 10_000,
+                    timeout: 30_000,
                 });
             } catch {
                 // No overlay appeared (e.g. all charts hidden): continue.
