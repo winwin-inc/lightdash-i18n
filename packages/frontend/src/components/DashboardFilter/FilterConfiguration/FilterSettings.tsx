@@ -670,25 +670,6 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                                 />
                             </Group>
                         </Radio.Group>
-                        <Tooltip
-                            withinPortal
-                            variant="xs"
-                            label={t(
-                                'components_dashboard_filter.configuration.date_range.mode_tooltip',
-                            )}
-                        >
-                            <Box
-                                component="span"
-                                display="inline-flex"
-                                tabIndex={0}
-                                sx={{ cursor: 'help', outline: 'none' }}
-                            >
-                                <MantineIcon
-                                    icon={IconHelpCircle}
-                                    size="sm"
-                                />
-                            </Box>
-                        </Tooltip>
                     </Group>
                 )}
 

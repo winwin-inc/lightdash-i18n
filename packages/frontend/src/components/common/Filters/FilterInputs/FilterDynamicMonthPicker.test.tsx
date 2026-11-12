@@ -2,8 +2,8 @@ import { renderWithProviders } from '../../../../testing/testUtils';
 import FilterDynamicMonthPicker from './FilterDynamicMonthPicker';
 import { describe, expect, it, vi } from 'vitest';
 
-// 回归：编辑模式 + 动态分支渲染「上月」与可见的 ⓘ（此前 MantineIcon
-// 传 color="dimmed" 会被原样写进 svg stroke，非法颜色导致图标不可见）
+// 编辑模式 + 动态分支只渲染「上月」文案：预设语义与当前解析的说明
+// 统一放在约束编辑器「数据可用日」行的 ⓘ tooltip，取值区不再内联
 const dynamicRule = {
     id: 'r1',
     target: { fieldId: 'f1' },
@@ -16,7 +16,7 @@ const dynamicRule = {
 
 describe('FilterDynamicMonthPicker', () => {
     describe('edit mode + dynamic', () => {
-        it('renders the preset label and a visible help icon', () => {
+        it('renders the preset label without inline help icon', () => {
             renderWithProviders(
                 <FilterDynamicMonthPicker
                     rule={dynamicRule}
@@ -31,12 +31,8 @@ describe('FilterDynamicMonthPicker', () => {
                     body.includes('Last month'),
             ).toBe(true);
 
-            const svg = document.querySelector(
-                '.tabler-icon-help-circle',
-            ) as SVGSVGElement | null;
-            expect(svg).not.toBeNull();
-            // currentColor（跟随文字色，始终可见）；'dimmed' 为非法颜色字面量
-            expect(svg?.getAttribute('stroke')).not.toBe('dimmed');
+            // 说明已并入约束编辑器「数据可用日」行，此处不再有 ⓘ
+            expect(document.querySelector('.tabler-icon-help-circle')).toBeNull();
         });
     });
 });

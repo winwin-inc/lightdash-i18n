@@ -36,6 +36,7 @@ import {
 import useFiltersContext from '../../common/Filters/useFiltersContext';
 import {
     getFirstDayOfWeek,
+    getDynamicMaxAllowedDate,
     resolveRuleBounds,
 } from '../../common/Filters/utils/filterDateUtils';
 import MantineIcon from '../../common/MantineIcon';
@@ -276,20 +277,8 @@ const DateRangeConstraintEditor: FC<Props> = ({
         <Stack spacing="xs" mt={4}>
             {isDynamicMode && granularity === TimeFrames.MONTH && (
                 <Group spacing="xs" noWrap align="center">
-                    <Text size="xs" fw={500}>
-                        {t(
-                            'components_dashboard_filter.configuration.date_range.data_available_day_label',
-                        )}
-                    </Text>
-                    <InfoTooltip
-                        label={t(
-                            'components_dashboard_filter.configuration.date_range.data_available_day_tooltip',
-                            {
-                                defaultValue:
-                                    '上月数据自本月 N 号起可用；N 号前动态最晚/上月预设自动取上上月。缺省 4 号',
-                            },
-                        )}
-                    />
+                    {/* 控件在前、描述在后，与「按数据更新限制最晚」等
+                        控件行格式对齐 */}
                     <NumberInput
                         size="xs"
                         w={44}
@@ -306,9 +295,27 @@ const DateRangeConstraintEditor: FC<Props> = ({
                     />
                     <Text size="xs" c="dimmed">
                         {t(
-                            'components_dashboard_filter.configuration.date_range.data_available_day_unit',
+                            'components_dashboard_filter.configuration.date_range.data_available_day_suffix',
                         )}
                     </Text>
+                    <InfoTooltip
+                        label={t(
+                            'components_dashboard_filter.configuration.date_range.data_available_day_tooltip',
+                            {
+                                day:
+                                    filterRule.dataAvailableFromDay ??
+                                    DATA_MONTH_AVAILABLE_FROM_DAY,
+                                value: dayjs(
+                                    getDynamicMaxAllowedDate(
+                                        TimeFrames.MONTH,
+                                        dayjs(),
+                                        true,
+                                        filterRule.dataAvailableFromDay,
+                                    ) ?? dayjs(),
+                                ).format('YYYY-MM'),
+                            },
+                        )}
+                    />
                 </Group>
             )}
             {showRollingWindowInput && isDynamicMode && (

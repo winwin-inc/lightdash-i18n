@@ -1,5 +1,4 @@
 import {
-    DATA_MONTH_AVAILABLE_FROM_DAY,
     TimeFrames,
     formatDate,
     isSingleDateDynamic,
@@ -9,19 +8,10 @@ import {
     type FilterRule,
     type SingleDateSetting,
 } from '@lightdash/common';
-import {
-    Box,
-    Stack,
-    Text,
-    Tooltip,
-    type PopoverProps,
-} from '@mantine/core';
-import { IconHelpCircle } from '@tabler/icons-react';
-import dayjs from 'dayjs';
+import { Stack, Text, type PopoverProps } from '@mantine/core';
 import { useMemo, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import MantineIcon from '../../MantineIcon';
 import FilterMonthAndYearPicker from './FilterMonthAndYearPicker';
 import {
     getSingleDateRuleWithFixedValues,
@@ -55,8 +45,8 @@ type Props = {
  * 模式（动态日期 / 固定日期）的 Radio 在看板筛选器配置卡片层
  * （FilterSettings，与「在之间」同一行）；本组件只渲染当前模式的
  * 输入体：
- * - 动态：紧凑一行「上月 + ⓘ」——预设说明与当前解析结果收进 tooltip，
- *   不在正文铺开（对齐约束编辑器长文案进 tooltip 的拍板）；
+ * - 动态：一行「上月」文案——预设语义与当前解析的说明统一放在
+ *   约束编辑器「数据可用日」行的 ⓘ tooltip 里，此处不再重复；
  * - 固定：月份选择器。
  */
 const FilterDynamicMonthPicker: FC<Props> = ({
@@ -69,12 +59,8 @@ const FilterDynamicMonthPicker: FC<Props> = ({
     popoverProps,
     isEditMode,
 }) => {
-    const { t, i18n } = useTranslation();
+    const { t } = useTranslation();
     const isDynamic = isSingleDateDynamic(rule);
-
-    const previewFormat = i18n.language.toLowerCase().startsWith('zh')
-        ? 'YYYY年M月'
-        : 'MMMM YYYY';
 
     const viewModeResolved = useMemo(() => {
         if (isEditMode || !isDynamic) return null;
@@ -133,48 +119,16 @@ const FilterDynamicMonthPicker: FC<Props> = ({
         );
     }
 
-    // Edit mode + dynamic: compact preset row; explanation and the resolved
-    // month live in the ⓘ tooltip instead of inline hint lines.
+    // Edit mode + dynamic: preset label only; the semantics and the
+    // currently resolved month live on the constraint editor's
+    // data-available-day row tooltip.
     if (isDynamic) {
-        const dynamicPreview = displayValueStr
-            ? dayjs(monthValue).format(previewFormat)
-            : null;
         return (
             <Stack spacing="xs" w="100%">
                 <Text size="xs" c="dimmed">
                     {t(
                         'components_common_filters_inputs.single_date.preset.last_available_month_short',
                     )}
-                    <Tooltip
-                        withinPortal
-                        variant="xs"
-                        multiline
-                        maw={280}
-                        position="top"
-                        label={t(
-                            'components_common_filters_inputs.single_date.preset.last_available_month_tooltip',
-                            {
-                                day:
-                                    rule.dataAvailableFromDay ??
-                                    DATA_MONTH_AVAILABLE_FROM_DAY,
-                                value: dynamicPreview ?? '—',
-                            },
-                        )}
-                    >
-                        <Box
-                            component="span"
-                            display="inline-flex"
-                            ml={4}
-                            tabIndex={0}
-                            sx={{
-                                cursor: 'help',
-                                outline: 'none',
-                                verticalAlign: 'middle',
-                            }}
-                        >
-                            <MantineIcon icon={IconHelpCircle} size="sm" />
-                        </Box>
-                    </Tooltip>
                 </Text>
             </Stack>
         );
