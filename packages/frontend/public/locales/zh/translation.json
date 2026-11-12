@@ -2626,7 +2626,8 @@
     },
     "single_date": {
       "preset": {
-        "last_available_month_short": "上月"
+        "count_label": "取值",
+        "count_unit": "个可用月前"
       }
     },
     "to_latest_month_hint": "开始月",
@@ -2816,7 +2817,7 @@
         "rolling_label": "按数据更新限制最早",
         "rolling_unit_months": "个整月",
         "data_available_day_suffix": "号数据可用",
-        "data_available_day_tooltip": "上月数据自本月 {{day}} 号起可用；{{day}} 号前「跟随数据更新」最晚可选与「上月」预设自动取上上月。缺省 4 号。当前解析：{{value}}",
+        "data_available_day_tooltip": "上月数据自本月 {{day}} 号起可用；{{day}} 号前「跟随数据更新」最晚可选与单值动态默认自动取上上月。缺省 4 号。当前最近可用月：{{value}}",
         "rolling_tooltip": "作用于查看者可选范围：开启后最早可选＝最近 N 个整月，随最晚可选月逐月自动滚动；关闭时可设置固定最早日期。",
         "rolling_badge_dynamic": "动态：{{value}}",
         "rolling_badge_fixed": "固定窗口（不滚动）",

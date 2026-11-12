@@ -2626,7 +2626,8 @@
     },
     "single_date": {
       "preset": {
-        "last_available_month_short": "Last month"
+        "count_label": "Value",
+        "count_unit": "available month(s) ago"
       }
     },
     "to_latest_month_hint": "Start month",
@@ -2816,7 +2817,7 @@
         "rolling_label": "Limit earliest by data updates",
         "rolling_unit_months": "whole months",
         "data_available_day_suffix": "of month, data available",
-        "data_available_day_tooltip": "Last month's data is available from day {{day}} of the current month; before it, the dynamic latest month and the last-month preset fall back to the month before last. Defaults to the 4th. Currently resolves to {{value}}.",
+        "data_available_day_tooltip": "Last month's data is available from day {{day}} of the current month; before it, the dynamic latest month and the single-value dynamic default fall back to the month before last. Defaults to the 4th. Latest available month: {{value}}.",
         "rolling_tooltip": "Applies to the range viewers can pick: when on, earliest selectable = last N whole months, rolling monthly with the latest selectable month; when off, you can set a fixed earliest date.",
         "rolling_badge_dynamic": "Dynamic: {{value}}",
         "rolling_badge_fixed": "Fixed window (not rolling)",

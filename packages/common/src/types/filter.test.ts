@@ -644,4 +644,39 @@ describe('resolveLastAvailableMonth / resolveSingleDateValue', () => {
             result.getDate(),
         ]).toEqual([2026, 1, 1]);
     });
+
+    it('count N resolves to the N-th available month back', () => {
+        const base = {
+            values: ['2020-01'],
+            settings: {
+                singleDate: {
+                    mode: 'dynamic' as const,
+                    preset: 'lastAvailableMonth' as const,
+                    count: 2,
+                },
+            },
+        };
+        // 2026-07-10（4 号已过）：最近可用月 2026-06，再往前 1 个 → 2026-05
+        expect(
+            resolveSingleDateValue(base, new Date('2026-07-10')),
+        ).toBe('2026-05');
+        // 2026-07-03（4 号前）：最近可用月 2026-05，再往前 1 个 → 2026-04
+        expect(
+            resolveSingleDateValue(base, new Date('2026-07-03')),
+        ).toBe('2026-04');
+        // 非法 count（0 / 负数 / 小数）回退 1
+        for (const invalid of [0, -1, 1.5]) {
+            expect(
+                resolveSingleDateValue(
+                    {
+                        ...base,
+                        settings: {
+                            singleDate: { ...base.settings.singleDate, count: invalid },
+                        },
+                    },
+                    new Date('2026-07-10'),
+                ),
+            ).toBe('2026-06');
+        }
+    });
 });

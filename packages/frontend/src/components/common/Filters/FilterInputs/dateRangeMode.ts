@@ -1,5 +1,6 @@
 import {
     FilterOperator,
+    parseSingleDateCount,
     resolveDateRangeValues,
     resolveSingleDateValue,
     TimeFrames,
@@ -209,14 +210,21 @@ export const buildDateRangeModeChangeRule = <T extends DateRangeModeRule>(
 };
 
 /**
- * Preset seeded when switching a single-value month `EQUALS` filter to
- * dynamic mode (the only single-date preset today): last available month
- * with the day-of-month data cutoff (before the 4th → month before last).
+ * Setting seeded when switching a single-value month `EQUALS` filter to
+ * dynamic mode: last available month (data-availability cutoff applied).
+ * `count` defaults to 1 (last available month); a previously configured
+ * count on the same preset is preserved across mode toggles.
  */
-export const LAST_AVAILABLE_MONTH_SETTING: SingleDateSetting = {
+export const buildLastAvailableMonthSetting = (
+    previous: SingleDateSetting | undefined,
+): SingleDateSetting => ({
     mode: 'dynamic',
     preset: 'lastAvailableMonth',
-};
+    count:
+        previous?.preset === 'lastAvailableMonth'
+            ? parseSingleDateCount(previous.count)
+            : 1,
+});
 
 /** Minimal structural shape consumed by `buildSingleDateModeChangeRule`. */
 export type SingleDateModeRule = {
@@ -253,7 +261,7 @@ export const buildSingleDateModeChangeRule = <T extends SingleDateModeRule>(
     }
     const settings = {
         ...rule.settings,
-        singleDate: LAST_AVAILABLE_MONTH_SETTING,
+        singleDate: buildLastAvailableMonthSetting(rule.settings?.singleDate),
     };
     const resolved = resolveSingleDateValue(
         {

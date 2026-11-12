@@ -1,4 +1,5 @@
 import {
+    parseSingleDateCount,
     TimeFrames,
     formatDate,
     isSingleDateDynamic,
@@ -8,10 +9,17 @@ import {
     type FilterRule,
     type SingleDateSetting,
 } from '@lightdash/common';
-import { Stack, Text, type PopoverProps } from '@mantine/core';
+import {
+    Flex,
+    NumberInput,
+    Stack,
+    Text,
+    type PopoverProps,
+} from '@mantine/core';
 import { useMemo, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { buildLastAvailableMonthSetting } from './dateRangeMode';
 import FilterMonthAndYearPicker from './FilterMonthAndYearPicker';
 import {
     getSingleDateRuleWithFixedValues,
@@ -45,8 +53,9 @@ type Props = {
  * 模式（动态日期 / 固定日期）的 Radio 在看板筛选器配置卡片层
  * （FilterSettings，与「在之间」同一行）；本组件只渲染当前模式的
  * 输入体：
- * - 动态：一行「上月」文案——预设语义与当前解析的说明统一放在
- *   约束编辑器「数据可用日」行的 ⓘ tooltip 里，此处不再重复；
+ * - 动态：与「在之间」默认区间同款的配置行「取值 [N] 个可用月前」
+ *   ——按数据可用日口径回退 N 个完整可用月（N=1 即上月）；
+ *   预设语义说明统一在约束编辑器「数据可用日」行；
  * - 固定：月份选择器。
  */
 const FilterDynamicMonthPicker: FC<Props> = ({
@@ -110,6 +119,30 @@ const FilterDynamicMonthPicker: FC<Props> = ({
         />
     );
 
+    const handleCountChange = (value: string | number) => {
+        const n =
+            typeof value === 'number'
+                ? value
+                : Number.parseInt(String(value ?? ''), 10);
+        // 非法输入（清空中）保持最近一次合法值，避免误写默认
+        if (!Number.isFinite(n)) return;
+        const singleDate = {
+            ...buildLastAvailableMonthSetting(rule.settings?.singleDate),
+            count: parseSingleDateCount(n),
+        };
+        const settings = { ...rule.settings, singleDate };
+        const resolved = resolveSingleDateValue({
+            values: rule.values ?? undefined,
+            dataAvailableFromDay: rule.dataAvailableFromDay,
+            settings,
+        });
+        onChange({
+            ...rule,
+            values: resolved != null ? [resolved] : rule.values,
+            settings,
+        });
+    };
+
     // View mode: no mode Radio; show resolved month, allow override
     if (!isEditMode) {
         return (
@@ -119,17 +152,38 @@ const FilterDynamicMonthPicker: FC<Props> = ({
         );
     }
 
-    // Edit mode + dynamic: preset label only; the semantics and the
-    // currently resolved month live on the constraint editor's
-    // data-available-day row tooltip.
+    // Edit mode + dynamic: configurable row mirroring the between picker's
+    // "N months ago" bound rows (availability-based semantics).
     if (isDynamic) {
+        const count = parseSingleDateCount(
+            (rule.settings?.singleDate as SingleDateSetting | undefined)
+                ?.count,
+        );
         return (
             <Stack spacing="xs" w="100%">
-                <Text size="xs" c="dimmed">
-                    {t(
-                        'components_common_filters_inputs.single_date.preset.last_available_month_short',
-                    )}
-                </Text>
+                <Flex gap="xs" wrap="nowrap" align="center">
+                    <Text size="xs" w={60} c="dimmed">
+                        {t(
+                            'components_common_filters_inputs.single_date.preset.count_label',
+                        )}
+                    </Text>
+                    <NumberInput
+                        size="xs"
+                        w={64}
+                        min={1}
+                        max={120}
+                        step={1}
+                        hideControls
+                        value={count}
+                        disabled={disabled}
+                        onChange={handleCountChange}
+                    />
+                    <Text size="xs" c="dimmed">
+                        {t(
+                            'components_common_filters_inputs.single_date.preset.count_unit',
+                        )}
+                    </Text>
+                </Flex>
             </Stack>
         );
     }

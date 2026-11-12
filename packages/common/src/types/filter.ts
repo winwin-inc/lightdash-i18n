@@ -291,10 +291,29 @@ export type SingleDatePreset = 'lastAvailableMonth';
 
 /**
  * Settings for a single-value dynamic date default (month + equals).
+ * `count` = how many available months back (default 1): the resolved
+ * month is the last AVAILABLE month (data-availability cutoff applied)
+ * minus (count - 1). Calendar-relative "N months ago" semantics are
+ * deliberately NOT used — before the cutoff day the last calendar month
+ * has no data yet.
  */
 export type SingleDateSetting = {
     mode?: DateRangeMode;
     preset?: SingleDatePreset;
+    count?: number;
+};
+
+/** Sanitize a stored `singleDate.count`: non-finite / < 1 values fall back
+ * to 1 (N = 0 or negative would point at incomplete months). */
+export const parseSingleDateCount = (raw: unknown): number => {
+    if (typeof raw === 'number' && Number.isFinite(raw)) {
+        return raw >= 1 ? Math.floor(raw) : 1;
+    }
+    if (typeof raw === 'string') {
+        const n = Number(raw);
+        return Number.isFinite(n) && n >= 1 ? Math.floor(n) : 1;
+    }
+    return 1;
 };
 
 /**
@@ -479,7 +498,9 @@ export const resolveSingleDateValue = (
         const cutoff = getEffectiveDataAvailableFromDay(
             rule.dataAvailableFromDay,
         );
-        const monthsBack = ref.date() < cutoff ? 2 : 1;
+        const baseMonthsBack = ref.date() < cutoff ? 2 : 1;
+        const count = parseSingleDateCount(settings.singleDate.count);
+        const monthsBack = baseMonthsBack + (count - 1);
         return ref
             .clone()
             .subtract(monthsBack, 'months')

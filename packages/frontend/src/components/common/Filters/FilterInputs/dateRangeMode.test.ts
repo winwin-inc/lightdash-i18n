@@ -4,8 +4,8 @@ import { describe, expect, it } from 'vitest';
 import {
     DYNAMIC_DATE_RANGE_DEFAULT_END,
     DYNAMIC_DATE_RANGE_DEFAULT_START,
-    LAST_AVAILABLE_MONTH_SETTING,
     buildDateRangeModeChangeRule,
+    buildLastAvailableMonthSetting,
     buildSingleDateModeChangeRule,
     getLockedDynamicUnit,
     isDateRangeMode,
@@ -226,14 +226,14 @@ describe('dateRangeMode', () => {
     });
 
     describe('buildSingleDateModeChangeRule', () => {
-        it('seeds the lastAvailableMonth preset and resolves values from the 4th (day >= 4 → last month)', () => {
+        it('seeds the lastAvailableMonth preset (count 1) and resolves values from the 4th (day >= 4 → last month)', () => {
             const next = buildSingleDateModeChangeRule<SingleDateModeRule>(
                 { values: ['2026-01-01'] },
                 'dynamic',
                 new Date('2026-11-12T08:00:00'),
             );
             expect(next.settings?.singleDate).toEqual(
-                LAST_AVAILABLE_MONTH_SETTING,
+                buildLastAvailableMonthSetting(undefined),
             );
             // 4 号已过 → 上月（2026-10）
             expect(next.values).toEqual(['2026-10']);
@@ -246,6 +246,26 @@ describe('dateRangeMode', () => {
                 new Date('2026-11-02T08:00:00'),
             );
             // 4 号前 → 上上月（2026-09）
+            expect(next.values).toEqual(['2026-09']);
+        });
+
+        it('seeds count from a previously configured preset across mode toggles', () => {
+            const next = buildSingleDateModeChangeRule<SingleDateModeRule>(
+                {
+                    values: ['2026-10'],
+                    settings: {
+                        singleDate: {
+                            mode: 'dynamic',
+                            preset: 'lastAvailableMonth',
+                            count: 2,
+                        },
+                    },
+                },
+                'dynamic',
+                new Date('2026-11-12T08:00:00'),
+            );
+            expect(next.settings?.singleDate?.count).toBe(2);
+            // 4 号已过：最近可用月 2026-10，再往前 1 个 → 2026-09
             expect(next.values).toEqual(['2026-09']);
         });
 
@@ -262,7 +282,7 @@ describe('dateRangeMode', () => {
                 new Date('2026-11-12T08:00:00'),
             );
             expect(next.settings?.singleDate).toEqual(
-                LAST_AVAILABLE_MONTH_SETTING,
+                buildLastAvailableMonthSetting(undefined),
             );
             // dateRange / unitOfTime 等其它 settings 不受单日期模式切换影响
         });
@@ -271,7 +291,7 @@ describe('dateRangeMode', () => {
             const rule = {
                 values: ['2026-10'],
                 settings: {
-                    singleDate: LAST_AVAILABLE_MONTH_SETTING,
+                    singleDate: buildLastAvailableMonthSetting({ count: 3 }),
                     dateRange: { mode: 'dynamic' },
                 },
             };
