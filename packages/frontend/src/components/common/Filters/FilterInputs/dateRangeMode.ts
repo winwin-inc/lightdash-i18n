@@ -136,7 +136,21 @@ export const parseDateRangeCount = (raw: unknown): number => {
 export type DateRangeModeRule = {
     values?: (string | null)[] | null;
     settings?: { dateRange?: DateRangeSetting } | null;
+    /** 约束字段视图：切动态模式时 seed「按数据更新限制最晚」用 */
+    maxAllowedDate?: string;
+    enableDynamicMaxAllowedDate?: boolean;
 };
+
+/**
+ * 切到动态模式时默认开启「按数据更新限制最晚」（缺省 4 号）——
+ * 动态默认值与可选范围统一按数据可用口径；已配置固定最晚
+ * （rolling 锚点 / 季粒度固定窗口）时不强行覆盖，尊重作者选择。
+ */
+const seedEnableDynamicMax = (rule: {
+    maxAllowedDate?: string;
+    enableDynamicMaxAllowedDate?: boolean;
+}): boolean | undefined =>
+    rule.maxAllowedDate == null ? true : rule.enableDynamicMaxAllowedDate;
 
 /** `DateRangeModeRule` + 规则级粒度字段（保存期规范化用）。 */
 export type GranularDateRangeModeRule = DateRangeModeRule & {
@@ -206,6 +220,9 @@ export const buildDateRangeModeChangeRule = <T extends DateRangeModeRule>(
         ...rule,
         values: resolveDynamicDateRangeValues(nextDateRange, granularity),
         settings: { ...rule.settings, dateRange: nextDateRange },
+        // 切动态默认开启「按数据更新限制最晚」，动态默认值被夹到
+        // 最晚可用月（固定最晚已配置时尊重现状不覆盖）
+        enableDynamicMaxAllowedDate: seedEnableDynamicMax(rule),
     } as T;
 };
 
@@ -231,6 +248,9 @@ export type SingleDateModeRule = {
     values?: (string | null)[] | null;
     /** 规则级数据可用日（上月预设 cutoff，缺省 4 号） */
     dataAvailableFromDay?: number;
+    /** 约束字段视图：切动态模式时 seed「按数据更新限制最晚」用 */
+    maxAllowedDate?: string;
+    enableDynamicMaxAllowedDate?: boolean;
     // 真实规则的 settings 还携带 dateRange / unitOfTime 等兄弟键，
     // 索引签名保持结构兼容（与 DateFilterSettings 的真实形状一致）
     settings?:
@@ -275,6 +295,9 @@ export const buildSingleDateModeChangeRule = <T extends SingleDateModeRule>(
         ...rule,
         values: resolved != null ? [resolved] : rule.values,
         settings,
+        // 切动态默认开启「按数据更新限制最晚」，默认值与可选范围
+        // 统一按数据可用口径（固定最晚已配置时尊重现状不覆盖）
+        enableDynamicMaxAllowedDate: seedEnableDynamicMax(rule),
     } as T;
 };
 

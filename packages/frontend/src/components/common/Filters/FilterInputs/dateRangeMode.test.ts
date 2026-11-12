@@ -202,6 +202,24 @@ describe('dateRangeMode', () => {
             );
         });
 
+        it('seeds enableDynamicMaxAllowedDate on dynamic switch (no fixed latest)', () => {
+            // 统一口径：切动态默认开启「按数据更新限制最晚」
+            const next = buildDateRangeModeChangeRule<DateRangeModeRule>(
+                { values: [] },
+                'dynamic',
+                TimeFrames.MONTH,
+            );
+            expect(next.enableDynamicMaxAllowedDate).toBe(true);
+
+            // 固定最晚已配置时尊重现状不覆盖
+            const withFixedMax = buildDateRangeModeChangeRule<DateRangeModeRule>(
+                { values: [], maxAllowedDate: '2026-03-31' },
+                'dynamic',
+                TimeFrames.MONTH,
+            );
+            expect(withFixedMax.enableDynamicMaxAllowedDate).toBeUndefined();
+        });
+
         it('drops only dateRange when switching to fixed, preserving other settings keys and values', () => {
             const rule = {
                 values: ['2026-01-01', '2026-06-30'],
@@ -285,6 +303,27 @@ describe('dateRangeMode', () => {
                 buildLastAvailableMonthSetting(undefined),
             );
             // dateRange / unitOfTime 等其它 settings 不受单日期模式切换影响
+        });
+
+        it('seeds enableDynamicMaxAllowedDate when switching to dynamic (no fixed latest)', () => {
+            // 统一口径：切动态默认开启「按数据更新限制最晚」（缺省 4 号）
+            const next = buildSingleDateModeChangeRule<SingleDateModeRule>(
+                { values: ['2026-10'] },
+                'dynamic',
+                new Date('2026-11-12T08:00:00'),
+            );
+            expect(next.enableDynamicMaxAllowedDate).toBe(true);
+
+            // 已配置固定最晚（rolling 锚点语义）时不强行覆盖
+            const withFixedMax = buildSingleDateModeChangeRule<SingleDateModeRule>(
+                {
+                    values: ['2026-10'],
+                    maxAllowedDate: '2026-03-31',
+                },
+                'dynamic',
+                new Date('2026-11-12T08:00:00'),
+            );
+            expect(withFixedMax.enableDynamicMaxAllowedDate).toBeUndefined();
         });
 
         it('drops only singleDate when switching to fixed, preserving values and other settings', () => {

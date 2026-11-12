@@ -275,49 +275,6 @@ const DateRangeConstraintEditor: FC<Props> = ({
 
     return (
         <Stack spacing="xs" mt={4}>
-            {isDynamicMode && granularity === TimeFrames.MONTH && (
-                <Group spacing="xs" noWrap align="center">
-                    {/* 控件在前、描述在后，与「按数据更新限制最晚」等
-                        控件行格式对齐 */}
-                    <NumberInput
-                        size="xs"
-                        w={44}
-                        styles={{ input: { height: 26 } }}
-                        min={DATA_MONTH_AVAILABLE_FROM_DAY_MIN}
-                        max={DATA_MONTH_AVAILABLE_FROM_DAY_MAX}
-                        step={1}
-                        hideControls
-                        value={
-                            filterRule.dataAvailableFromDay ??
-                            DATA_MONTH_AVAILABLE_FROM_DAY
-                        }
-                        onChange={handleDataAvailableDayChange}
-                    />
-                    <Text size="xs" fw={500}>
-                        {t(
-                            'components_dashboard_filter.configuration.date_range.data_available_day_suffix',
-                        )}
-                    </Text>
-                    <InfoTooltip
-                        label={t(
-                            'components_dashboard_filter.configuration.date_range.data_available_day_tooltip',
-                            {
-                                day:
-                                    filterRule.dataAvailableFromDay ??
-                                    DATA_MONTH_AVAILABLE_FROM_DAY,
-                                value: dayjs(
-                                    getDynamicMaxAllowedDate(
-                                        TimeFrames.MONTH,
-                                        dayjs(),
-                                        true,
-                                        filterRule.dataAvailableFromDay,
-                                    ) ?? dayjs(),
-                                ).format('YYYY-MM'),
-                            },
-                        )}
-                    />
-                </Group>
-            )}
             {showRollingWindowInput && isDynamicMode && (
                 <Stack spacing={4}>
                     <Group spacing="xs" noWrap align="center">
@@ -456,6 +413,54 @@ const DateRangeConstraintEditor: FC<Props> = ({
                     />
                 </Group>
             )}
+            {/* 数据可用日是「按数据更新限制最晚」的子配置（仅月粒度）：
+                与「最早可选＝近 N 个整月」同为开关下的嵌套行，
+                开关开启才可配置 */}
+            {showDynamicMaxSwitch &&
+                isDynamicMode &&
+                !!filterRule.enableDynamicMaxAllowedDate &&
+                granularity === TimeFrames.MONTH && (
+                    <Group spacing="xs" noWrap align="center">
+                        {/* 控件在前、描述在后，与上方开关行格式对齐 */}
+                        <NumberInput
+                            size="xs"
+                            w={44}
+                            styles={{ input: { height: 26 } }}
+                            min={DATA_MONTH_AVAILABLE_FROM_DAY_MIN}
+                            max={DATA_MONTH_AVAILABLE_FROM_DAY_MAX}
+                            step={1}
+                            hideControls
+                            value={
+                                filterRule.dataAvailableFromDay ??
+                                DATA_MONTH_AVAILABLE_FROM_DAY
+                            }
+                            onChange={handleDataAvailableDayChange}
+                        />
+                        <Text size="xs" fw={500}>
+                            {t(
+                                'components_dashboard_filter.configuration.date_range.data_available_day_suffix',
+                            )}
+                        </Text>
+                        <InfoTooltip
+                            label={t(
+                                'components_dashboard_filter.configuration.date_range.data_available_day_tooltip',
+                                {
+                                    day:
+                                        filterRule.dataAvailableFromDay ??
+                                        DATA_MONTH_AVAILABLE_FROM_DAY,
+                                    value: dayjs(
+                                        getDynamicMaxAllowedDate(
+                                            TimeFrames.MONTH,
+                                            dayjs(),
+                                            true,
+                                            filterRule.dataAvailableFromDay,
+                                        ) ?? dayjs(),
+                                    ).format('YYYY-MM'),
+                                },
+                            )}
+                        />
+                    </Group>
+                )}
             {!(granularity === TimeFrames.MONTH && isDynamicMode) && (
             <Group noWrap align="flex-start">
                 {granularity === TimeFrames.MONTH ? (
