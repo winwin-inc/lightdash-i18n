@@ -1,3 +1,5 @@
+import { LightdashError } from '@lightdash/common';
+
 export interface AnalyticsTrack {
     event: string;
     properties?: Record<string, unknown>;
@@ -255,6 +257,41 @@ type CliLightdashConfigLoaded = BaseTrack & {
     };
 };
 
+type CliSqlStarted = BaseTrack & {
+    event: 'sql.started';
+    properties: {
+        executionId: string;
+        projectId: string;
+    };
+};
+type CliSqlCompleted = BaseTrack & {
+    event: 'sql.completed';
+    properties: {
+        executionId: string;
+        projectId: string;
+        rowCount: number;
+        columnCount: number;
+        durationMs: number;
+    };
+};
+type CliSqlError = BaseTrack & {
+    event: 'sql.error';
+    properties: {
+        executionId: string;
+        error: string;
+        errorCategory: string;
+    };
+};
+
+type CliCommandExecuted = BaseTrack & {
+    event: 'command.executed';
+    properties: {
+        command: string;
+        durationMs: number;
+        success: boolean;
+    };
+};
+
 type Track =
     | CliGenerateStarted
     | CliGenerateCompleted
@@ -282,11 +319,44 @@ type Track =
     | CliGenerateExposuresError
     | CliLogin
     | CliContentAsCode
-    | CliLightdashConfigLoaded;
+    | CliLightdashConfigLoaded
+    | CliSqlStarted
+    | CliSqlCompleted
+    | CliSqlError
+    | CliCommandExecuted;
+
+const ERROR_NAME_TO_CATEGORY: Record<string, string> = {
+    ForbiddenError: 'forbidden',
+    AuthorizationError: 'authorization',
+    ParameterError: 'parameter',
+    NotFoundError: 'not_found',
+    CompileError: 'compile',
+    DbtError: 'dbt',
+    WarehouseConnectionError: 'warehouse_connection',
+    WarehouseQueryError: 'warehouse_query',
+};
+
+export const categorizeError = (error: unknown): string => {
+    if (error instanceof LightdashError) {
+        return ERROR_NAME_TO_CATEGORY[error.name] ?? 'lightdash';
+    }
+    if (error instanceof Error) {
+        const msg = error.message;
+        if (
+            msg.includes('ECONNREFUSED') ||
+            msg.includes('ENOTFOUND') ||
+            msg.includes('ETIMEDOUT')
+        ) {
+            return 'network';
+        }
+    }
+    return 'unknown';
+};
 
 export class LightdashAnalytics {
     static async track(_payload: Track): Promise<void> {
         // 禁用官方遥测，避免内网环境 await 外网导致 CI 卡住
+        // eslint-disable-next-line no-void
         void _payload;
     }
 }

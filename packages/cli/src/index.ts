@@ -24,7 +24,9 @@ import { downloadHandler, uploadHandler } from './handlers/download';
 import { exportChartImageHandler } from './handlers/exportChartImage';
 import { generateHandler } from './handlers/generate';
 import { generateExposuresHandler } from './handlers/generateExposures';
+import { getProjectHandler } from './handlers/getProject';
 import { lintHandler } from './handlers/lint';
+import { listProjectsHandler } from './handlers/listProjects';
 import { login } from './handlers/login';
 import {
     previewHandler,
@@ -32,8 +34,14 @@ import {
     stopPreviewHandler,
 } from './handlers/preview';
 import { renameHandler } from './handlers/renameHandler';
-import { setProjectHandler } from './handlers/setProject';
+import { runChartHandler } from './handlers/runChart';
+import {
+    setProjectHandler,
+    unsetProjectHandler,
+} from './handlers/setProject';
+import { sqlHandler } from './handlers/sql';
 import { validateHandler } from './handlers/validate';
+import { warehouseCatalogHandler } from './handlers/warehouseCatalog';
 import * as styles from './styles';
 // Trigger CLI tests
 // Suppress AWS SDK V2 warning, imported by snowflake SDK
@@ -214,6 +222,23 @@ configProgram
         ).conflicts('name'),
     )
     .action(setProjectHandler);
+configProgram
+    .command('list-projects')
+    .description(
+        'List all projects in the organization (excludes preview projects)',
+    )
+    .option('--verbose', undefined, false)
+    .action(listProjectsHandler);
+configProgram
+    .command('get-project')
+    .description('Show the currently selected project')
+    .option('--verbose', undefined, false)
+    .action(getProjectHandler);
+configProgram
+    .command('unset-project')
+    .description('Clear the currently selected project')
+    .option('--verbose', undefined, false)
+    .action(unsetProjectHandler);
 
 const dbtProgram = program.command('dbt').description('Runs dbt commands');
 
@@ -619,6 +644,75 @@ program
         false,
     )
     .action(uploadHandler);
+
+program
+    .command('run-chart')
+    .description('Execute a chart YAML to verify the query runs')
+    .requiredOption('-p, --path <path>', 'Path to chart YAML file')
+    .option('-o, --output <file>', 'Output file path for CSV results')
+    .option('-l, --limit <number>', 'Row limit for query', parseIntArgument)
+    .option(
+        '--page-size <number>',
+        'Number of rows per page (default: 500)',
+        parseIntArgument,
+    )
+    .option('--verbose', 'Show detailed output', false)
+    .action(runChartHandler);
+
+program
+    .command('sql')
+    .description(
+        'Run raw SQL query against the warehouse using project credentials',
+    )
+    .argument('<query>', 'SQL query to execute')
+    .requiredOption('-o, --output <file>', 'Output file path for CSV results')
+    .option(
+        '--limit <number>',
+        'Maximum rows to return from query',
+        parseIntArgument,
+    )
+    .option(
+        '--page-size <number>',
+        'Number of rows per page (default: 500, max: 5000)',
+        parseIntArgument,
+    )
+    .option('--verbose', 'Show detailed output', false)
+    .action(sqlHandler);
+
+program
+    .command('warehouse-catalog')
+    .description(
+        "Explore the selected project's raw warehouse databases, schemas, tables, and fields",
+    )
+    .option('--database <name>', 'Filter by exact database name')
+    .option('--schema <name>', 'Filter by exact schema name')
+    .option('--table <name>', 'Filter by exact table name')
+    .option(
+        '--include-fields',
+        'Include field names and Lightdash types for one fully qualified table',
+        false,
+    )
+    .option(
+        '--refresh',
+        'Refetch warehouse metadata and refresh the server catalog cache first',
+        false,
+    )
+    .option('--json', 'Emit machine-readable JSON instead of a table', false)
+    .option('--verbose', 'Show detailed output', false)
+    .addHelpText(
+        'after',
+        `
+${styles.bold('Examples:')}
+  ${styles.title('⚡')} lightdash ${styles.bold('warehouse-catalog')}
+  ${styles.title('⚡')} lightdash ${styles.bold(
+      'warehouse-catalog',
+  )} --database analytics --schema public
+  ${styles.title('⚡')} lightdash ${styles.bold(
+      'warehouse-catalog',
+  )} --database analytics --schema public --table orders --include-fields --json
+`,
+    )
+    .action(warehouseCatalogHandler);
 
 program
     .command('deploy')
