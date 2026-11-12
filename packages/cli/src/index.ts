@@ -21,6 +21,7 @@ import { dbtRunHandler } from './handlers/dbt/run';
 import { deployHandler } from './handlers/deploy';
 import { diagnosticsHandler } from './handlers/diagnostics';
 import { downloadHandler, uploadHandler } from './handlers/download';
+import { exportChartImageHandler } from './handlers/exportChartImage';
 import { generateHandler } from './handlers/generate';
 import { generateExposuresHandler } from './handlers/generateExposures';
 import { lintHandler } from './handlers/lint';
@@ -559,6 +560,23 @@ program
         undefined,
     )
     .action(downloadHandler);
+
+program
+    .command('export-chart-image')
+    .description(
+        'Export a deployed chart as a PNG image. The chart must already exist on the server.',
+    )
+    .argument('<chart>', 'Chart UUID or slug')
+    .requiredOption(
+        '-o, --output <file>',
+        'Output file path for the PNG image',
+    )
+    .option(
+        '--project <uuid>',
+        'Lightdash project UUID (defaults to the currently selected project)',
+    )
+    .option('--verbose', 'Show detailed output', false)
+    .action(exportChartImageHandler);
 
 program
     .command('upload')

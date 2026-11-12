@@ -3,6 +3,7 @@ import {
     ApiCalculateCountResponse,
     ApiCalculateTotalResponse,
     ApiErrorPayload,
+    ApiExportChartImageResponse,
     ApiGetChartHistoryResponse,
     ApiGetChartVersionResponse,
     ApiPromoteChartResponse,
@@ -12,6 +13,7 @@ import {
     QueryExecutionContext,
     SortField,
     type ParametersValuesMap,
+    UUID,
 } from '@lightdash/common';
 import {
     Body,
@@ -21,6 +23,7 @@ import {
     OperationId,
     Path,
     Post,
+    Query,
     Request,
     Response,
     Route,
@@ -441,6 +444,31 @@ export class SavedChartController extends BaseController {
             results: {
                 jobId,
             },
+        };
+    }
+
+    /**
+     * Export a saved chart as a PNG image
+     * @summary Export chart image
+     * @param chartUuid chartUuid for the chart to export
+     * @param projectUuid project uuid, required when chartUuidOrSlug is a slug
+     * @param req express request
+     */
+    @Middlewares([allowApiKeyAuthentication, isAuthenticated])
+    @SuccessResponse('200', 'Success')
+    @Post('/export')
+    @OperationId('exportSavedChartImage')
+    async exportSavedChartImage(
+        @Path() chartUuid: string,
+        @Request() req: express.Request,
+        @Query() projectUuid?: UUID,
+    ): Promise<ApiExportChartImageResponse> {
+        this.setStatus(200);
+        return {
+            status: 'ok',
+            results: await this.services
+                .getUnfurlService()
+                .exportChart(chartUuid, req.user!, projectUuid),
         };
     }
 }

@@ -906,6 +906,11 @@ export type ApiCalculateCountResponse = {
     };
 };
 
+export type ApiExportChartImageResponse = {
+    status: 'ok';
+    results: string; // image URL
+};
+
 export type CalculateSubtotalsFromQuery = CalculateTotalFromQuery & {
     columnOrder: string[];
     pivotDimensions?: string[];

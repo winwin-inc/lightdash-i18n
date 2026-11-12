@@ -17445,6 +17445,20 @@
                 "required": ["results", "status"],
                 "type": "object"
             },
+            "ApiExportChartImageResponse": {
+                "properties": {
+                    "results": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": ["ok"],
+                        "nullable": false
+                    }
+                },
+                "required": ["results", "status"],
+                "type": "object"
+            },
             "RenameType": {
                 "enum": ["model", "field"],
                 "type": "string"
@@ -27526,7 +27540,7 @@
     },
     "info": {
         "title": "Lightdash API",
-        "version": "2.7.1",
+        "version": "2.7.2",
         "description": "Open API documentation for all public Lightdash API endpoints. # Authentication Before you get started, you might need to create a Personal Access Token to authenticate via the API. You can create a token by following this guide: https://docs.lightdash.com/references/personal_tokens\n",
         "license": {
             "name": "MIT"
@@ -32576,6 +32590,57 @@
                         }
                     }
                 }
+            }
+        },
+        "/api/v1/saved/{chartUuid}/export": {
+            "post": {
+                "operationId": "exportSavedChartImage",
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiExportChartImageResponse"
+                                }
+                            }
+                        }
+                    },
+                    "default": {
+                        "description": "Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorPayload"
+                                }
+                            }
+                        }
+                    }
+                },
+                "description": "Export a saved chart as a PNG image",
+                "summary": "Export chart image",
+                "tags": ["Charts"],
+                "security": [],
+                "parameters": [
+                    {
+                        "description": "chartUuid for the chart to export",
+                        "in": "path",
+                        "name": "chartUuid",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "project uuid, required when chartUuidOrSlug is a slug",
+                        "in": "query",
+                        "name": "projectUuid",
+                        "required": false,
+                        "schema": {
+                            "$ref": "#/components/schemas/UUID"
+                        }
+                    }
+                ]
             }
         },
         "/api/v1/projects/{projectUuid}/rename": {
