@@ -125,6 +125,10 @@
                             "description": "Hidden filter: not displayed on page, but filter still applies",
                             "type": "boolean"
                         },
+                        "hideTilesWhenEmpty": {
+                            "description": "查看模式下，该筛选器无确定值时隐藏它作用到的图表。\n作用范围 = 该筛选器「应用图表」(tileTargets) 中勾选的图表。\n「任何值」(disabled) 按当前链下是否有候选值判定：有候选不隐藏，无候选隐藏；\n候选探测未完成 / 失败时视为未知，不隐藏。\n默认关闭。",
+                            "type": "boolean"
+                        },
                         "label": {
                             "type": "string"
                         },
@@ -218,6 +222,10 @@
                         },
                         "hidden": {
                             "description": "Hidden filter: not displayed on page, but filter still applies",
+                            "type": "boolean"
+                        },
+                        "hideTilesWhenEmpty": {
+                            "description": "查看模式下，该筛选器无确定值时隐藏它作用到的图表。\n作用范围 = 该筛选器「应用图表」(tileTargets) 中勾选的图表。\n「任何值」(disabled) 按当前链下是否有候选值判定：有候选不隐藏，无候选隐藏；\n候选探测未完成 / 失败时视为未知，不隐藏。\n默认关闭。",
                             "type": "boolean"
                         },
                         "label": {
@@ -703,6 +711,10 @@
                 },
                 "hidden": {
                     "description": "Hidden filter: not displayed on page, but filter still applies",
+                    "type": "boolean"
+                },
+                "hideTilesWhenEmpty": {
+                    "description": "查看模式下，该筛选器无确定值时隐藏它作用到的图表。\n作用范围 = 该筛选器「应用图表」(tileTargets) 中勾选的图表。\n「任何值」(disabled) 按当前链下是否有候选值判定：有候选不隐藏，无候选隐藏；\n候选探测未完成 / 失败时视为未知，不隐藏。\n默认关闭。",
                     "type": "boolean"
                 },
                 "label": {

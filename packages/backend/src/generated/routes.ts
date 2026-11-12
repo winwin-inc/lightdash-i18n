@@ -1731,6 +1731,7 @@ const models: TsoaRoute.Models = {
                             ],
                         },
                         parentFieldId: { dataType: 'string' },
+                        hideTilesWhenEmpty: { dataType: 'boolean' },
                         categoryLevel: {
                             dataType: 'union',
                             subSchemas: [
@@ -19563,6 +19564,7 @@ const models: TsoaRoute.Models = {
                             ],
                         },
                         parentFieldId: { dataType: 'string' },
+                        hideTilesWhenEmpty: { dataType: 'boolean' },
                         categoryLevel: {
                             dataType: 'union',
                             subSchemas: [
@@ -19697,6 +19699,13 @@ const models: TsoaRoute.Models = {
                         { dataType: 'enum', enums: [2] },
                         { dataType: 'enum', enums: [1] },
                         { dataType: 'enum', enums: [4] },
+                        { dataType: 'undefined' },
+                    ],
+                },
+                hideTilesWhenEmpty: {
+                    dataType: 'union',
+                    subSchemas: [
+                        { dataType: 'boolean' },
                         { dataType: 'undefined' },
                     ],
                 },
