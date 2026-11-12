@@ -732,6 +732,13 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                         />
                         <DateRangeConstraintEditor
                             filterRule={filterRule}
+                            granularity={
+                                isDateRangeOperator
+                                    ? dateRangeGranularity
+                                    : isSingleDateMonthEquals
+                                      ? TimeFrames.MONTH
+                                      : TimeFrames.DAY
+                            }
                             popoverProps={popoverProps}
                             onChangeFilterRule={onChangeFilterRule}
                         />

@@ -389,6 +389,76 @@ describe('resolveRuleBounds', () => {
         expect(bounds.maxDate).toBeUndefined();
     });
 
+    it('single-date dynamic (month EQUALS) consumes rolling + dynamic max', () => {
+        // 单值「是」动态默认：模式看 settings.singleDate；边界与区间同源
+        const bounds = resolveRuleBounds(
+            {
+                operator: FilterOperator.EQUALS,
+                dateRangeGranularity: TimeFrames.MONTH,
+                enableDynamicMaxAllowedDate: true,
+                rollingMinAllowedMonths: 6,
+                settings: {
+                    singleDate: {
+                        mode: 'dynamic',
+                        preset: 'lastAvailableMonth',
+                    },
+                },
+            },
+            dayjs('2026-11-11'),
+        );
+
+        // 4 号已过：max 2026-10-31，rolling 6 个月 → 2026-05-01
+        expect(bounds.minDate).toEqual(
+            dayjs('2026-05-01').startOf('month').toDate(),
+        );
+        expect(bounds.maxDate).toEqual(
+            dayjs('2026-10-31').endOf('month').toDate(),
+        );
+    });
+
+    it('single-date fixed (month EQUALS) consumes static bounds only', () => {
+        // 固定模式：rolling / 跟随数据更新是动态模式专属，残留不生效
+        const bounds = resolveRuleBounds(
+            {
+                operator: FilterOperator.EQUALS,
+                dateRangeGranularity: TimeFrames.MONTH,
+                enableDynamicMaxAllowedDate: true,
+                rollingMinAllowedMonths: 12,
+                minAllowedDate: '2025-06-01',
+                maxAllowedDate: '2026-03-31',
+            },
+            dayjs('2026-11-11'),
+        );
+
+        expect(bounds.minDate).toEqual(
+            dayjs('2025-06-01').startOf('month').toDate(),
+        );
+        expect(bounds.maxDate).toEqual(
+            dayjs('2026-03-31').endOf('month').toDate(),
+        );
+    });
+
+    it('single-date rule ignores dateRange settings residue (mode by operator)', () => {
+        // EQUALS 的动态模式只看 singleDate；dateRange 残留不得把它误判为动态
+        const bounds = resolveRuleBounds(
+            {
+                operator: FilterOperator.EQUALS,
+                dateRangeGranularity: TimeFrames.MONTH,
+                enableDynamicMaxAllowedDate: true,
+                rollingMinAllowedMonths: 12,
+                minAllowedDate: '2025-06-01',
+                settings: { dateRange: { mode: 'dynamic' } },
+            },
+            dayjs('2026-11-11'),
+        );
+
+        // 固定模式：静态最早生效，动态约束全部短路
+        expect(bounds.minDate).toEqual(
+            dayjs('2025-06-01').startOf('month').toDate(),
+        );
+        expect(bounds.maxDate).toBeUndefined();
+    });
+
     it('supports the validation-time availability delay via options', () => {
         const rule = {
             operator: FilterOperator.IN_BETWEEN,

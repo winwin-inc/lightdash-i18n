@@ -4,7 +4,9 @@ import {
     assertUnreachable,
     isDateRangeDynamic,
     isRollingMinAllowedMonthsActive,
+    isSingleDateDynamic,
     resolveDateRangeValues,
+    resolveSingleDateValue,
     type DashboardFilterRule,
 } from '@lightdash/common';
 import dayjs from 'dayjs';
@@ -71,6 +73,70 @@ export const validateDashboardFilterDateRange = (
         filterRule.operator !== FilterOperator.IN_BETWEEN &&
         filterRule.operator !== FilterOperator.NOT_IN_BETWEEN
     ) {
+        // ── 单值月份「是」：动态默认（singleDate）与固定值的可选范围校验 ──
+        // 与区间规则同构：rolling 无最晚可选月拒绝保存；动态默认从宽口径、
+        // 固定值运行时口径；未配置任何边界（无约束的普通规则）不校验。
+        // EQUALS 规则不携带 dateRangeGranularity（粒度是字段属性），按 MONTH
+        // 视图解析边界与门禁
+        if (filterRule.operator === FilterOperator.EQUALS) {
+            const ruleView = {
+                ...filterRule,
+                dateRangeGranularity: TimeFrames.MONTH,
+            };
+            const dynamicDefault = isSingleDateDynamic(filterRule);
+            if (
+                dynamicDefault &&
+                isRollingMinAllowedMonthsActive(ruleView)
+            ) {
+                const { maxDate } = resolveRuleBounds(
+                    ruleView,
+                    referenceDate,
+                );
+                if (maxDate == null) {
+                    return { code: 'rolling_requires_max' };
+                }
+            }
+            const hasBoundsConfig =
+                filterRule.minAllowedDate != null ||
+                filterRule.maxAllowedDate != null ||
+                !!filterRule.enableDynamicMaxAllowedDate ||
+                filterRule.rollingMinAllowedMonths != null;
+            if (!hasBoundsConfig) {
+                return null;
+            }
+            // 月度单值形态：YYYY-MM（可带日/时间部分，兼容 timestamp 残留）
+            const parseValueSlot = (raw: unknown): dayjs.Dayjs | null => {
+                if (
+                    typeof raw !== 'string' ||
+                    !/^\d{4}-\d{2}(-\d{2})?([T ].*)?$/.test(raw)
+                ) {
+                    return null;
+                }
+                const parsed = dayjs(raw);
+                return parsed.isValid() ? parsed : null;
+            };
+            const value = dynamicDefault
+                ? parseValueSlot(
+                      resolveSingleDateValue(filterRule, referenceDate),
+                  )
+                : parseValueSlot(filterRule.values?.[0]);
+            if (!value?.isValid()) {
+                return null;
+            }
+            // 口径：单值预设按 4 号规则收窄解析，永远落在运行时窗口内
+            // （预设月 = 运行时最晚可选月）；用从宽口径反而会在每月 1–3 号
+            // 把 N=1 的预设误拦到窗口外。固定值与查看者所见同口径
+            const { minDate, maxDate } = resolveRuleBounds(
+                ruleView,
+                referenceDate,
+            );
+            if (maxDate && value.isAfter(dayjs(maxDate), 'month')) {
+                return { code: 'end_after_max', minDate, maxDate };
+            }
+            if (minDate && value.isBefore(dayjs(minDate), 'month')) {
+                return { code: 'start_before_min', minDate, maxDate };
+            }
+        }
         return null;
     }
 

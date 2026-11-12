@@ -193,14 +193,15 @@ export type DashboardFilterRule<
      */
     enableDynamicMaxAllowedDate?: boolean;
     /**
-     * Rolling lower bound for month-granularity IN_BETWEEN filters, expressed
+     * Rolling lower bound for month-granularity filters, expressed
      * as the number N of complete months in the selectable window:
      * min = start of the month of the resolved latest selectable month,
      * minus (N - 1) months. The window rolls forward automatically as the
      * latest selectable month advances (dynamic max) or stays static when
      * anchored to a fixed maxAllowedDate.
-     * undefined = not enabled. Only consumed when operator is IN_BETWEEN and
-     * dateRangeGranularity is MONTH; other operators/granularities
+     * undefined = not enabled. Consumed when operator is IN_BETWEEN with
+     * MONTH dateRangeGranularity, or single-value EQUALS on a month field
+     * with a dynamic singleDate default; other operators/granularities
      * short-circuit it. Save-time validation should reject the combination
      * "rolling without any latest selectable month" (no maxAllowedDate and
      * enableDynamicMaxAllowedDate off).
@@ -314,9 +315,12 @@ export const isValidRollingMinAllowedMonths = (
     value <= ROLLING_MIN_ALLOWED_MONTHS_MAX;
 
 /**
- * Whether a rule's rolling lower bound is actually consumed: only
- * IN_BETWEEN + MONTH granularity + a valid N activate it. Other
- * operator/granularity combinations short-circuit (clamping
+ * Whether a rule's rolling lower bound is actually consumed:
+ * - IN_BETWEEN + MONTH dateRangeGranularity + valid N, or
+ * - single-value EQUALS on a month field + dynamic singleDate default
+ *   (granularity is a field property there, callers pass it via
+ *   `granularityOverride`) + valid N.
+ * Other operator/granularity combinations short-circuit (clamping
  * NOT_IN_BETWEEN would invert the exclusion semantics; the quarter
  * picker's alignment is not rolling-safe yet).
  */
@@ -326,10 +330,16 @@ export const isRollingMinAllowedMonthsActive = (
         dateRangeGranularity?: TimeFrames;
         rollingMinAllowedMonths?: number;
     },
-): boolean =>
-    rule.operator === FilterOperator.IN_BETWEEN &&
-    rule.dateRangeGranularity === TimeFrames.MONTH &&
-    isValidRollingMinAllowedMonths(rule.rollingMinAllowedMonths);
+    granularityOverride?: TimeFrames,
+): boolean => {
+    const granularity = granularityOverride ?? rule.dateRangeGranularity;
+    return (
+        (rule.operator === FilterOperator.IN_BETWEEN ||
+            rule.operator === FilterOperator.EQUALS) &&
+        granularity === TimeFrames.MONTH &&
+        isValidRollingMinAllowedMonths(rule.rollingMinAllowedMonths)
+    );
+};
 
 /**
  * Offset direction for a dynamic date-range bound. `ago` = `now - count unit`,

@@ -2,6 +2,7 @@ import {
     FilterOperator,
     isRollingMinAllowedMonthsActive,
     isValidRollingMinAllowedMonths,
+    isSingleDateDynamic,
     ROLLING_MIN_ALLOWED_MONTHS_MAX,
     ROLLING_MIN_ALLOWED_MONTHS_MIN,
     TimeFrames,
@@ -38,6 +39,9 @@ import MantineIcon from '../../common/MantineIcon';
 
 type Props = {
     filterRule: DashboardFilterRule;
+    /** 约束 pickers 的粒度：区间算子取规则的 dateRangeGranularity，
+     *  单值月份「是」取字段 timeInterval（FilterSettings 统一计算后传入） */
+    granularity: TimeFrames;
     popoverProps?: Omit<PopoverProps, 'children'>;
     onChangeFilterRule: (value: DashboardFilterRule) => void;
 };
@@ -77,39 +81,40 @@ const InfoTooltip: FC<{ label: string; children?: ReactNode }> = ({
 
 const DateRangeConstraintEditor: FC<Props> = ({
     filterRule,
+    granularity,
     popoverProps,
     onChangeFilterRule,
 }) => {
     const { t } = useTranslation();
     const { startOfWeek } = useFiltersContext();
 
-    // Granularity used by the min/max pickers.
-    // - For IN_BETWEEN / NOT_IN_BETWEEN: the user-chosen dateRangeGranularity
-    //   (set via the date selector) drives the picker type so e.g. a month
-    //   range filter gets month pickers for min/max too.
-    // - For every other operator the min/max are always day pickers. The
-    //   date selector is hidden in those operators anyway, so the only sane
-    //   default is DAY.
-    const isRangeOperator =
-        filterRule.operator === FilterOperator.IN_BETWEEN ||
-        filterRule.operator === FilterOperator.NOT_IN_BETWEEN;
-    const granularity = isRangeOperator
-        ? filterRule.dateRangeGranularity ?? TimeFrames.DAY
-        : TimeFrames.DAY;
+    // Granularity used by the min/max pickers, provided by the settings
+    // card: IN_BETWEEN / NOT_IN_BETWEEN use the user-chosen
+    // dateRangeGranularity; single-value month EQUALS uses the field's
+    // month granularity (month pickers for min/max); everything else is
+    // day pickers (the date selector is hidden in those operators anyway).
+    const isSingleDateOperator =
+        filterRule.operator === FilterOperator.EQUALS &&
+        granularity === TimeFrames.MONTH;
 
-    const isDynamicMode =
-        resolveDateRangeMode(filterRule.settings?.dateRange, granularity) ===
-        'dynamic';
+    // 模式按算子取源：区间看 dateRange，单值月份「是」看 singleDate
+    const isDynamicMode = isSingleDateOperator
+        ? isSingleDateDynamic(filterRule)
+        : resolveDateRangeMode(filterRule.settings?.dateRange, granularity) ===
+              'dynamic';
 
     const showDynamicMaxSwitch =
-        filterRule.operator === FilterOperator.IN_BETWEEN &&
-        (granularity === TimeFrames.MONTH ||
-            granularity === TimeFrames.QUARTER);
+        (filterRule.operator === FilterOperator.IN_BETWEEN &&
+            (granularity === TimeFrames.MONTH ||
+                granularity === TimeFrames.QUARTER)) ||
+        isSingleDateOperator;
 
-    // Rolling earliest bound ("last N months") is month + IN_BETWEEN only —
-    // the quarter picker's alignment is not rolling-safe (see design doc §3.2).
+    // Rolling earliest bound ("last N months") is month + IN_BETWEEN /
+    // dynamic month EQUALS only — the quarter picker's alignment is not
+    // rolling-safe (see design doc §3.2).
     const showRollingWindowInput =
-        filterRule.operator === FilterOperator.IN_BETWEEN &&
+        (filterRule.operator === FilterOperator.IN_BETWEEN ||
+            isSingleDateOperator) &&
         granularity === TimeFrames.MONTH;
     const rollingConfigured = filterRule.rollingMinAllowedMonths != null;
 
@@ -118,8 +123,14 @@ const DateRangeConstraintEditor: FC<Props> = ({
     // dynamic max when no fixed latest date). Runtime data-availability
     // delay (4th-of-month rule) applies, matching what viewers see.
     const effectiveBounds = useMemo(
-        () => resolveRuleBounds(filterRule),
-        [filterRule],
+        () =>
+            resolveRuleBounds({
+                ...filterRule,
+                // granularity 由设置卡片传入（单值「是」规则自身不携带
+                // dateRangeGranularity，不补传会被当作 DAY 短路动态约束）
+                dateRangeGranularity: granularity,
+            }),
+        [filterRule, granularity],
     );
     const rollingActive = isRollingMinAllowedMonthsActive({
         operator: filterRule.operator,

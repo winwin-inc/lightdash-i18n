@@ -688,4 +688,85 @@ describe('stripDisallowedDynamicDateRange (P2-4)', () => {
         };
         expect(stripDisallowedDynamicDateRange(rule)).toBe(rule);
     });
+
+    // ── 单值月份「是」：模式看 singleDate，不携带 dateRangeGranularity ──
+    it('EQUALS dynamic keeps rolling/dynamic-max, strips static earliest + dateRange residue', () => {
+        const rule: DashboardFilterRule = {
+            id: 'filter-1',
+            label: 'Order month',
+            operator: FilterOperator.EQUALS,
+            target: { fieldId: 'orders_month', tableName: 'orders' },
+            values: ['2026-10'],
+            enableDynamicMaxAllowedDate: true,
+            rollingMinAllowedMonths: 12,
+            minAllowedDate: '2024-01-01',
+            settings: {
+                singleDate: { mode: 'dynamic', preset: 'lastAvailableMonth' },
+                dateRange: { mode: 'dynamic' },
+            },
+        };
+        const next = stripDisallowedDynamicDateRange(rule);
+        // 动态约束保留；静态最早 / dateRange 残留剥离；singleDate 保留
+        expect(next.rollingMinAllowedMonths).toBe(12);
+        expect(next.enableDynamicMaxAllowedDate).toBe(true);
+        expect(next.minAllowedDate).toBeUndefined();
+        expect(next.settings?.singleDate).toEqual({
+            mode: 'dynamic',
+            preset: 'lastAvailableMonth',
+        });
+        expect(next.settings?.dateRange).toBeUndefined();
+    });
+
+    it('EQUALS fixed strips rolling/dynamic-max residue, keeps static bounds', () => {
+        const rule: DashboardFilterRule = {
+            id: 'filter-1',
+            label: 'Order month',
+            operator: FilterOperator.EQUALS,
+            target: { fieldId: 'orders_month', tableName: 'orders' },
+            values: ['2026-10'],
+            enableDynamicMaxAllowedDate: true,
+            rollingMinAllowedMonths: 24,
+            minAllowedDate: '2025-01-01',
+            maxAllowedDate: '2026-03-31',
+            settings: { dateRange: { mode: 'dynamic' } },
+        };
+        const next = stripDisallowedDynamicDateRange(rule);
+        expect(next.rollingMinAllowedMonths).toBeUndefined();
+        expect(next.enableDynamicMaxAllowedDate).toBeUndefined();
+        expect(next.minAllowedDate).toBe('2025-01-01');
+        expect(next.maxAllowedDate).toBe('2026-03-31');
+        expect(next.settings).toBeUndefined();
+    });
+
+    it('EQUALS dynamic strips fixed latest when dynamic max is on', () => {
+        // 固定最晚会静默覆盖动态上限，与区间规则同构不共存
+        const rule: DashboardFilterRule = {
+            id: 'filter-1',
+            label: 'Order month',
+            operator: FilterOperator.EQUALS,
+            target: { fieldId: 'orders_month', tableName: 'orders' },
+            values: ['2026-10'],
+            enableDynamicMaxAllowedDate: true,
+            rollingMinAllowedMonths: 12,
+            maxAllowedDate: '2026-03-31',
+            settings: {
+                singleDate: { mode: 'dynamic', preset: 'lastAvailableMonth' },
+            },
+        };
+        const next = stripDisallowedDynamicDateRange(rule);
+        expect(next.maxAllowedDate).toBeUndefined();
+        expect(next.enableDynamicMaxAllowedDate).toBe(true);
+    });
+
+    it('EQUALS without constraints returns the same reference', () => {
+        const rule: DashboardFilterRule = {
+            id: 'filter-1',
+            label: 'Order month',
+            operator: FilterOperator.EQUALS,
+            target: { fieldId: 'orders_month', tableName: 'orders' },
+            values: ['2026-10'],
+            settings: { completed: true },
+        };
+        expect(stripDisallowedDynamicDateRange(rule)).toBe(rule);
+    });
 });

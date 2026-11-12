@@ -1,10 +1,11 @@
 import {
     DATA_MONTH_AVAILABLE_FROM_DAY,
+    FilterOperator,
     isRollingMinAllowedMonthsActive,
     isValidRollingMinAllowedMonths,
     TimeFrames,
     type DateRangeSetting,
-    type FilterOperator,
+    type SingleDateSetting,
     type WeekDay,
 } from '@lightdash/common';
 import { type DayOfWeek } from '@mantine/dates';
@@ -353,8 +354,13 @@ export type RuleDateBoundsInput = {
     dateRangeGranularity?: TimeFrames;
     enableDynamicMaxAllowedDate?: boolean;
     rollingMinAllowedMonths?: number;
-    /** 默认值模式（dynamic/fixed）——决定约束字段的归属，防止跨模式混用 */
-    settings?: { dateRange?: DateRangeSetting } | null;
+    /** 默认值模式（dynamic/fixed）——决定约束字段的归属，防止跨模式混用；
+     *  区间算子看 dateRange，单值算子（月份「是」）看 singleDate */
+    settings?:
+        | ({ dateRange?: DateRangeSetting } & {
+              singleDate?: SingleDateSetting;
+          })
+        | null;
 };
 
 /**
@@ -374,7 +380,12 @@ export const resolveRuleBounds = (
     //   rolling 锚点，含「固定窗口」语义）?? 跟随数据更新
     // - 固定模式：只消费静态最早/最晚；rolling / 跟随数据更新字段不参与
     //   （保存规范化会剥离，这里对存量脏数据兜底）
-    const isDynamicMode = rule.settings?.dateRange?.mode === 'dynamic';
+    // 模式按算子取源：区间算子看 settings.dateRange，单值月份「是」看
+    // settings.singleDate（两者互斥，不会同时存在）
+    const isDynamicMode =
+        rule.operator === FilterOperator.EQUALS
+            ? rule.settings?.singleDate?.mode === 'dynamic'
+            : rule.settings?.dateRange?.mode === 'dynamic';
     const rollingMinAllowedMonths =
         isDynamicMode &&
         isRollingMinAllowedMonthsActive({

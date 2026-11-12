@@ -579,4 +579,64 @@ describe('validateDashboardFilterDateRange', () => {
                 ?.code,
         ).toBe('end_after_max');
     });
+
+    // ── 单值月份「是」：动态默认与固定值的可选范围校验 ──
+    it('EQUALS dynamic rejects rolling without any latest bound', () => {
+        const rule = createFilterRule({
+            operator: FilterOperator.EQUALS,
+            rollingMinAllowedMonths: 12,
+            settings: {
+                singleDate: { mode: 'dynamic', preset: 'lastAvailableMonth' },
+            },
+            values: ['2026-10'],
+        });
+
+        expect(
+            validateDashboardFilterDateRange(rule, new Date('2026-11-11')),
+        ).toEqual({ code: 'rolling_requires_max' });
+    });
+
+    it('EQUALS dynamic preset passes against the runtime window (N=1, before the 4th)', () => {
+        // 2026-11-02（4 号前）：预设 = 上上月（2026-09）；运行时窗口
+        // N=1 → [2026-09-01, 2026-09-30]，预设落在窗口内，不得误拦
+        const rule = createFilterRule({
+            operator: FilterOperator.EQUALS,
+            enableDynamicMaxAllowedDate: true,
+            rollingMinAllowedMonths: 1,
+            settings: {
+                singleDate: { mode: 'dynamic', preset: 'lastAvailableMonth' },
+            },
+            values: ['2026-09'],
+        });
+
+        expect(
+            validateDashboardFilterDateRange(rule, new Date('2026-11-02')),
+        ).toBeNull();
+    });
+
+    it('EQUALS fixed value beyond static latest is rejected', () => {
+        const rule = createFilterRule({
+            operator: FilterOperator.EQUALS,
+            minAllowedDate: '2025-01-01',
+            maxAllowedDate: '2026-03-31',
+            values: ['2026-10'],
+        });
+
+        const error = validateDashboardFilterDateRange(
+            rule,
+            new Date('2026-11-11'),
+        );
+        expect(error?.code).toBe('end_after_max');
+    });
+
+    it('EQUALS without any bounds config skips validation', () => {
+        const rule = createFilterRule({
+            operator: FilterOperator.EQUALS,
+            values: ['2099-01'],
+        });
+
+        expect(
+            validateDashboardFilterDateRange(rule, new Date('2026-11-11')),
+        ).toBeNull();
+    });
 });

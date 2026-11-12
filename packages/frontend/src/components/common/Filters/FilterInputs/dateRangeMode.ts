@@ -1,4 +1,5 @@
 import {
+    FilterOperator,
     resolveDateRangeValues,
     resolveSingleDateValue,
     TimeFrames,
@@ -139,6 +140,12 @@ export type DateRangeModeRule = {
 /** `DateRangeModeRule` + 规则级粒度字段（保存期规范化用）。 */
 export type GranularDateRangeModeRule = DateRangeModeRule & {
     dateRangeGranularity?: TimeFrames;
+    operator?: FilterOperator;
+    settings?:
+        | ({ dateRange?: DateRangeSetting } & {
+              singleDate?: SingleDateSetting;
+          })
+        | null;
 };
 
 /**
@@ -267,7 +274,6 @@ export const stripDisallowedDynamicDateRange = <
 >(
     rule: T,
 ): T => {
-    const granularity = rule.dateRangeGranularity ?? TimeFrames.DAY;
     const settings = rule.settings;
     // 约束字段（rolling / 跟随数据更新 / 静态最早最晚）不在 GranularDateRangeModeRule 上，
     // 统一经此视图访问，避免各分支重复断言
@@ -277,6 +283,52 @@ export const stripDisallowedDynamicDateRange = <
         minAllowedDate?: string;
         maxAllowedDate?: string;
     };
+    // ── 单值「是」（月份）规则：模式看 settings.singleDate，粒度是字段属性 ──
+    // 不走下方 dateRangeGranularity 门禁（EQUALS 规则不携带该字段，会被误判
+    // 为 DAY 而剥掉动态约束）。与区间规则同构的归属隔离：
+    // - 动态模式：最早归 rolling（剥静态最早残留）；「跟随数据更新」开启时
+    //   最晚归其所有（剥共存固定最晚）；同时剥不该存在的 dateRange 残留
+    // - 固定模式：rolling / 跟随数据更新不参与，一并剥除
+    if (rule.operator === FilterOperator.EQUALS) {
+        if (settings?.singleDate?.mode !== 'dynamic') {
+            if (
+                constrainedView.rollingMinAllowedMonths == null &&
+                !constrainedView.enableDynamicMaxAllowedDate &&
+                settings?.dateRange == null
+            ) {
+                return rule;
+            }
+            const { dateRange: _dropped, ...restSettings } = settings ?? {};
+            return {
+                ...rule,
+                settings:
+                    Object.keys(restSettings).length > 0
+                        ? restSettings
+                        : undefined,
+                rollingMinAllowedMonths: undefined,
+                enableDynamicMaxAllowedDate: undefined,
+            } as T;
+        }
+        const hasStaticMin = constrainedView.minAllowedDate != null;
+        const hasFixedMaxConflict =
+            !!constrainedView.enableDynamicMaxAllowedDate &&
+            constrainedView.maxAllowedDate != null;
+        if (!hasStaticMin && !hasFixedMaxConflict && settings?.dateRange == null) {
+            return rule;
+        }
+        const stripped: T & { maxAllowedDate?: string } = {
+            ...rule,
+            minAllowedDate: undefined,
+        } as T;
+        const { dateRange: _droppedRange, ...restSettings } = settings ?? {};
+        (stripped as GranularDateRangeModeRule).settings =
+            Object.keys(restSettings).length > 0 ? restSettings : undefined;
+        if (hasFixedMaxConflict) {
+            stripped.maxAllowedDate = undefined;
+        }
+        return stripped as T;
+    }
+    const granularity = rule.dateRangeGranularity ?? TimeFrames.DAY;
     if (!isDynamicDateRangeAllowed(granularity)) {
         // 粒度不允许动态默认：动态默认与动态约束（rolling / 跟随数据更新上限）一并清理
         if (
