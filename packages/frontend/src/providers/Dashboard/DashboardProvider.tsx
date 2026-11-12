@@ -98,6 +98,7 @@ import {
 } from '../../utils/categoryFilters';
 import {
     mergeCandidateAvailability,
+    needsCandidateProbe,
     type CandidateAvailabilityMap,
     type CandidateAvailabilityStatus,
 } from '../../utils/filterCandidateAvailability';
@@ -565,7 +566,6 @@ const DashboardProvider: React.FC<
                 if (current[info.filterId] === info.status) return current;
                 return { ...current, [info.filterId]: info.status };
             };
-
             if (targetScope === null) {
                 setGlobalCandidateAvailability(update);
                 return;
@@ -1010,6 +1010,13 @@ const DashboardProvider: React.FC<
     // (定义在选择层之后：重置时需要一并清除用户选择与本地记忆)
 
     // dashboard tab filter
+    // 稳定的 isFilterEnabled 引用：getMergedFiltersForTab 的 useCallback
+    // 依赖它；内联箭头会让该函数每次 render 换引用，导致隐藏集合等下游 memo 重算。
+    const isTabFilterEnabledCb = useCallback(
+        (uuid: string) => isTabFilterEnabled[uuid] ?? true,
+        [isTabFilterEnabled],
+    );
+
     const {
         tabFilters,
         setTabFilters,
@@ -1031,7 +1038,7 @@ const DashboardProvider: React.FC<
         dashboardFilters,
         dashboardTemporaryFilters,
         isGlobalFilterEnabled,
-        isFilterEnabled: (uuid: string) => isTabFilterEnabled[uuid] ?? true,
+        isFilterEnabled: isTabFilterEnabledCb,
     });
 
     /* ------------------------------------------------------------------ */
@@ -3305,6 +3312,67 @@ const DashboardProvider: React.FC<
         tabFilters,
         tabTemporaryFilters,
     ]);
+
+    /**
+     * 清理不再需要探测的筛选器条目：筛选器从「任何值」改为有值（或被删除）后，
+     * 旧探测结果（none）不能残留，否则下次回到「任何值」时会在新探测返回前
+     * 短暂误藏图表。仅在开关开启的看板上做 O(filters) 扫描。
+     */
+    useEffect(() => {
+        if (!hasAnyHideTilesFlag) {
+            setGlobalCandidateAvailability({});
+            setTabCandidateAvailability({});
+            return;
+        }
+
+        const collectProbeIds = (filters: DashboardFilters): Set<string> => {
+            const ids = new Set<string>();
+            filters.dimensions.forEach((f) => {
+                if (needsCandidateProbe(f)) ids.add(f.id);
+            });
+            return ids;
+        };
+
+        const globalIds = collectProbeIds(dashboardFilters);
+        setGlobalCandidateAvailability((current) => {
+            const stale = Object.keys(current).filter(
+                (filterId) => !globalIds.has(filterId),
+            );
+            if (stale.length === 0) return current;
+            const next: CandidateAvailabilityMap = {};
+            Object.entries(current).forEach(([filterId, status]) => {
+                if (globalIds.has(filterId)) next[filterId] = status;
+            });
+            return next;
+        });
+
+        setTabCandidateAvailability((current) => {
+            let changed = false;
+            const next: Record<string, CandidateAvailabilityMap> = {};
+            Object.entries(current).forEach(([scopeKey, availability]) => {
+                const ids = collectProbeIds(
+                    tabFilters[scopeKey] ?? emptyFilters,
+                );
+                const kept: CandidateAvailabilityMap = {};
+                Object.entries(availability).forEach(([filterId, status]) => {
+                    if (ids.has(filterId)) kept[filterId] = status;
+                    else changed = true;
+                });
+                if (
+                    Object.keys(kept).length > 0 ||
+                    Object.keys(availability).length > 0
+                ) {
+                    next[scopeKey] = kept;
+                }
+                if (
+                    Object.keys(kept).length !== Object.keys(availability).length
+                ) {
+                    changed = true;
+                }
+            });
+            return changed ? next : current;
+        });
+    }, [hasAnyHideTilesFlag, dashboardFilters, tabFilters]);
 
     const hiddenTileUuids = useMemo(() => {
         if (!hasAnyHideTilesFlag) {

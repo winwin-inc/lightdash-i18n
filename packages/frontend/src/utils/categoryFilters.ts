@@ -1396,6 +1396,9 @@ const reportCandidateAvailabilityAsync = async ({
                 dashboardContext,
                 session,
             });
+            // 会话在 await 期间被更新的操作取代：旧会话的结果（含 cancelled
+            // → unknown）不得写回，否则会清掉新会话已经落地的 has/none。
+            if (session?.isCancelled()) return;
             onCandidateAvailability({
                 filterId: entry.rule.id,
                 status,

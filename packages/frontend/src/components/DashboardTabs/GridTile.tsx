@@ -68,7 +68,10 @@ const GridTile: FC<
         const lockedTile = (
             <TileBase isLoading={false} title={''} {...tileProps} tile={tile} />
         );
-        if (!badge) return lockedTile;
+        if (!badge) {
+            // 与原实现保持完全一致的 DOM（锁定态一直有一层 100% 高度的 Box）
+            return <Box h="100%">{lockedTile}</Box>;
+        }
         return (
             <Box h="100%" style={{ position: 'relative' }}>
                 {badge}

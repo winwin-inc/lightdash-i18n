@@ -404,7 +404,7 @@ describe('入口解析结束后的候选可用性上报', () => {
         expect(api).not.toHaveBeenCalled();
     });
 
-    it('探测过程中会话被取消：当次结果回调 unknown，后续筛选器不再上报', async () => {
+    it('探测过程中会话被取消：不再上报，后续筛选器也不再探测', async () => {
         const session = createCategoryRequestSession();
         let resolveFirst: ((value: unknown) => void) | undefined;
         api.mockImplementationOnce(
@@ -450,13 +450,8 @@ describe('入口解析结束后的候选可用性上报', () => {
         });
         await pending;
 
-        // probe-a：被取消 → 只回调一次 unknown；probe-b：不再探测、不再上报
-        expect(onCandidateAvailability).toHaveBeenCalledTimes(1);
-        expect(onCandidateAvailability).toHaveBeenCalledWith({
-            filterId: 'probe-a',
-            status: 'unknown',
-            tabUuid: TAB_UUID,
-        });
+        // probe-a：会话已取消 → 不再回调；probe-b：不再探测、不再上报
+        expect(onCandidateAvailability).not.toHaveBeenCalled();
         expect(api).toHaveBeenCalledTimes(1);
     });
 });

@@ -48,9 +48,12 @@
 - 位置：筛选器配置弹窗 → **「查看者限制」分区** → 开关 **「无值时隐藏关联图表」**。
   与「筛选器只读」「筛选器隐藏」同区，仅编辑模式可见，配置随看板保存。
 - 作用范围：**只作用于「应用图表」里勾选的图**（`tileTargets` 绑定的 tile）。
-  没勾任何图时不会隐藏任何东西；「自动应用」的 tile 按 `tileTargets` + 字段匹配。
-- 可见性提示：开启后，会被隐藏的图表 tile 在编辑模式显示 **「无值隐藏」角标**，
-  hover tooltip 文案说明「当前筛选器无值时该图表会被隐藏」（用于让作者提前发现误配）。
+  未配置过 `tileTargets`（auto）时按字段匹配自动作用于含该字段的图；
+  只有在配置里把某张图勾掉（`false`）才排除它。
+- 可见性提示：开启后，编辑模式对「查看态会被隐藏的图」显示 **「无值隐藏」角标**，
+  hover tooltip 说明「查看模式下，该筛选器无值时会隐藏此图表」；
+  「任何值」规则的角标依赖查看态探测结果（编辑模式不探测，作者从未在查看态
+  跑过时可能无角标，属预期）。
 
 前端入口在 `FilterSettings.tsx`（查看者限制分区）与 `DashboardTabs`（角标 +
 提示条），字段随 `filterRule` 一起经 `onChangeFilterRule` 保存。
@@ -75,8 +78,9 @@
 - **pending 门禁**：类目/绑定值解析未完成（`isCategoryResolutionPending`）期间，
   `hiddenTileUuids` **保持上一次结果**，避免「先隐藏 → 解析完又显示」的闪烁和重复查询。
 - **10s 兜底**：每个作用域独立的 `CATEGORY_RESOLUTION_MAX_WAIT_MS = 10000`
-  兜底定时器，超时后放行图表查询并按当前探测结果校正；探测请求失败/取消回调
-  `unknown` → 不隐藏。
+  兜底定时器，超时后放行图表查询并按当前探测结果校正；探测请求失败回调
+  `unknown` → 不隐藏；会话被新操作取代时**不上报**（旧会话结果不得覆盖新会话
+  已落地的 has/none）。
 - 探测结果按作用域存放：`globalCandidateAvailability` + `tabCandidateAvailability`
   （Tab 覆盖全局，`mergeCandidateAvailability`）。
 
@@ -119,9 +123,10 @@
 - **逐图 CSV 导出本期不做**：单图下载/调度任务里不应用「无值隐藏」（图表照常
   生成）；本期只覆盖看板页查看态与看板截图/PDF 导出。
 - **看板截图/PDF（Unfurl）健壮性**：所有图表被隐藏时页面没有 `.loading_chart_overlay`，
-  `waitForAllLoaded()` 的 attached 等待改为 try/catch + 10s 超时容忍（忽略后继续），
-  后续 `state: 'hidden'` 等待不变（overlay 不存在时视为 hidden 立即通过），导出
-  不再因「等不到 overlay」超时报错。
+  `waitForAllLoaded()` 的 attached 等待改为 try/catch + 30s 超时容忍（保持
+  Playwright 默认窗口，慢看板不会提前截图；忽略后继续），后续 `state: 'hidden'`
+  等待不变（overlay 不存在时视为 hidden 立即通过），导出不再因「等不到 overlay」
+  超时报错。代价是纯 Markdown / 全隐藏看板导出固定多等 30s。
 
 ## 八、验证清单
 
