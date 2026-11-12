@@ -686,7 +686,6 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                                 <MantineIcon
                                     icon={IconHelpCircle}
                                     size="sm"
-                                    color="dimmed"
                                 />
                             </Box>
                         </Tooltip>

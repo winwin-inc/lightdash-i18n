@@ -160,16 +160,15 @@ const FilterDynamicMonthPicker: FC<Props> = ({
                         <Box
                             component="span"
                             display="inline-flex"
-                            verticalAlign="middle"
                             ml={4}
                             tabIndex={0}
-                            sx={{ cursor: 'help', outline: 'none' }}
+                            sx={{
+                                cursor: 'help',
+                                outline: 'none',
+                                verticalAlign: 'middle',
+                            }}
                         >
-                            <MantineIcon
-                                icon={IconHelpCircle}
-                                size="sm"
-                                color="dimmed"
-                            />
+                            <MantineIcon icon={IconHelpCircle} size="sm" />
                         </Box>
                     </Tooltip>
                 </Text>
