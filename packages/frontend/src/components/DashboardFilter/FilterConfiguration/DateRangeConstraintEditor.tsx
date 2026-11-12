@@ -293,7 +293,7 @@ const DateRangeConstraintEditor: FC<Props> = ({
                         }
                         onChange={handleDataAvailableDayChange}
                     />
-                    <Text size="xs" c="dimmed">
+                    <Text size="xs" fw={500}>
                         {t(
                             'components_dashboard_filter.configuration.date_range.data_available_day_suffix',
                         )}
