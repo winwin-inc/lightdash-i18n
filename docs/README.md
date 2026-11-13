@@ -31,7 +31,8 @@
 | [查询性能优化方案](./ops/query-performance-plan.md) | 四件代码层能做的事（count 查询、连接复用、分页索引、导出复用）+ 数据层边界（**草案**） |
 | [数仓查询超时后上游没有取消](./ops/warehouse-query-cancel.md) | 客户端超时只断 socket、MCP 把“还在跑”报成失败的机制与修复（**已实施**） |
 | [导出与 API 分进程（scheduler 独立 Deployment）](./ops/export-scheduler-split.md) | 同一镜像换启动参数把 graphile worker 拆出去；k8s 清单、迁移竞争与验证步骤（**暂不实现**） |
-| [一键导出整个看板（按 Tab 分 Excel）](./ops/dashboard-xlsx-export-plan.md) | 三种布局（每图一文件 / 单文件多工作表 / 按 Tab 分文件）对照、性能成本与上线前待办（**已实现，暂不上线**） |
+| [一键导出整个看板（按 Tab 分 Excel）](./ops/dashboard-xlsx-export-plan.md) | 按 Tab 分文件的实现、性能成本与上线前待办（另两种布局已删除）（**已实现**） |
+| [看板导出：Tab 筛选器生效 + 筛选器常量列 + 布局收口](./ops/dashboard-export-tab-filters.md) | 导出链路应用 Tab 筛选器、筛选器作为常量列前置到产物行首、布局选项整体删除的实施说明（**已实施**） |
 | [report-server ⇄ Lightdash 空间授权排查与修复](./ops/report-server-lightdash-space-auth.md) | `is_auth`/`is_auth_project` 乐观标记导致「授权看似成功但用户无权限」；接口契约、判别 SQL、修复补丁（**排查结论／修复待开发**） |
 | [fix-duplicate-chart-slugs.sql](./ops/fix-duplicate-chart-slugs.sql) | 重复 chart slug 的人工修复步骤（migration 注释里引用） |
 

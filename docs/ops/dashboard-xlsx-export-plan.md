@@ -1,6 +1,7 @@
 # 一键导出整个看板数据（按 Tab 分 Excel、按图分 Sheet）方案
 
-状态：三种布局（每图一文件 / 单文件多工作表 / 按 Tab 分文件）已实现，**暂不上线**；上线前需先修 §8 的 P0/P1。分支 `feat/dashboard-xlsx-export`。
+状态：按 Tab 分文件的产物形态**已实现并收口**（另外两种布局已删除）；分支 `feat/dashboard-xlsx-export`，
+后续改造（Tab 筛选器生效、筛选器常量列）见 [`dashboard-export-tab-filters.md`](./dashboard-export-tab-filters.md)。
 
 ## 1. 需求
 
@@ -111,21 +112,28 @@
 - 失败 tile 有明确提示，不静默丢数据
 - 20 图 / 300 MB 规模下不 OOM、不超时（或超时前给出可读的失败原因）
 
-## 8. 三种布局对照与已知问题（2026-11 核对）
+## 8. 三种布局对照与已知问题（2026-11 核对，历史记录）
 
-前端弹窗与定期交付表单共用同一组 `xlsxFileLayout` 取值，文案按「文件怎么分」表述，避免「工作簿/工作表」术语门槛：
+> **2026-11 布局收口后更新**：布局选项整体移除——`SchedulerCsvOptions.xlsxFileLayout` 字段已从类型里删除，
+> 导出弹窗与定期交付表单不再展示选择，产物固定「每个 Tab 一个文件（ZIP）」；`zip` / `workbook` 两条分支
+> 作为死代码一并删除（该选项从未上线，没有历史交付需要兼容）。
+> 实施细节见 [`dashboard-export-tab-filters.md`](./dashboard-export-tab-filters.md)。
+> 下表保留为三种布局内存成本的对照记录。
+
+当时的弹窗与定期交付表单共用同一组 `xlsxFileLayout` 取值，文案按「文件怎么分」表述：
 
 | 选项（zh） | 取值 | 产物 | 结构 |
 |---|---|---|---|
-| 每张图一个文件（ZIP） | `zip`（默认） | 1 个 zip | 每图一个 xlsx，每个文件 1 张表 |
-| 单个文件（每张图一个工作表） | `workbook` | 1 个 xlsx | 每图一张 sheet |
-| 每个 Tab 一个文件（ZIP） | `per-tab-workbook` | 1 个 zip | 每 Tab 一个 xlsx，文件内每图一张 sheet |
+| 每张图一个文件（ZIP） | `zip`（**已删除**） | 1 个 zip | 每图一个 xlsx，每个文件 1 张表 |
+| 单个文件（每张图一个工作表） | `workbook`（**已删除**） | 1 个 xlsx | 每图一张 sheet |
+| 每个 Tab 一个文件（ZIP） | 固定产物（无配置项） | 1 个 zip | 每 Tab 一个 xlsx，文件内每图一张 sheet |
 
 三者查询阶段完全相同（每图一次 `invalidateCache: true` 重查），差异只在查询之后：
 `zip` 不合并最省内存 → `per-tab` 串行逐 Tab 合并（峰值 = 最大 Tab）→ `workbook` 全部 sheet 一次进堆（峰值最高）。
-所以默认保持 `zip`。
+当时据此「默认保持 `zip`」；收口后唯一产物就是客户要的「按 Tab 分文件」形态，
+内存峰值靠 §10 的串行逐 Tab 合并 + 每合并完一个 Tab 立即删本地输入来控制。
 
-**已知问题（上线前必修）**
+**已知问题（上线前必修，均已修，见 §9）**
 
 1. **P0 合并布局必失败**：`WorkbookExportHelper.loadSourceWorksheet` 用 `fetch(localPath)`，
    而 `keepTempFilesForMerge` 让 `localPath` 变成 `/tmp/*.xlsx`；Node fetch 不接受裸路径 →
@@ -170,7 +178,10 @@ ZIP 内 xlsx 条目本身用 `level: 0`（不再二次压缩）。
    结论上暂不补（以代码走查为准），`SchedulerTask.test.ts` 本机也因 `lz4` native 二进制平台不匹配跑不起来。
 3. **zip 内条目顺序不确定**：流式 append 后顺序取决于下载响应到达顺序（命名是确定的），
    要顺序确定就得全量缓冲，与流式目标冲突，已作为取舍接受。
-4. ~~`tabs.xlsx` 废弃 key~~：已删（页签改成按布局显示 `.xlsx/.zip`）；`xlsx_output_help` 措辞仍可再收紧。
+4. ~~`tabs.xlsx` 废弃 key~~：已删；`xlsx_output_help` 措辞也已随布局收口整体解决——
+   定期交付表单的 6 个布局相关 key（`xlsx_output` / `xlsx_output_help` / `xlsx_zip` / `xlsx_workbook` /
+   `xlsx_per_tab_workbook` / `xlsx_per_tab_single_tab_hint`）已从 zh/en 移除；
+   导出弹窗页签只剩静态的「XLSX」标签，不再按布局切换 `.xlsx/.zip`。
 5. ~~0 图报错的 i18n~~：已处理——后端保持英文错误串，前端 `useDashboard` 匹配到该错误时
    换成 `hooks_dashboard.no_charts_to_export`（与 `showToastApiError` 处理仓资源限额错误同一套做法）。
 
