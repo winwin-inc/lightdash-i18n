@@ -20,6 +20,10 @@ import {
 } from './access/requiredDashboardContext';
 import { exploreRequiresDashboardContext } from './access/exploreRequiresDashboardContext';
 import { McpToolDeps } from './deps';
+import {
+    rowsToScalarFlat,
+    type MetricQueryValueFormat,
+} from './flatRows';
 import { jsonToolResult } from './helpers';
 import {
     PROJECT_UUID_PARAM_DESCRIPTION,
@@ -34,6 +38,8 @@ type RunSavedChartArgs = {
     savedChartUuid: string;
     projectUuid?: string;
     limit?: number;
+    /** 单元格取值格式：raw（默认）取底层值，formatted 取展示格式化值 */
+    valueFormat?: MetricQueryValueFormat;
     /** 强制看板模式（dashboardStrict）下传入的关联看板 UUID */
     dashboardUuid?: string;
 };
@@ -42,6 +48,8 @@ type RunDashboardTilesArgs = {
     dashboardUuid: string;
     projectUuid?: string;
     limit?: number;
+    /** 单元格取值格式：raw（默认）取底层值，formatted 取展示格式化值 */
+    valueFormat?: MetricQueryValueFormat;
 };
 
 type QueryColumn = {
@@ -89,6 +97,12 @@ const runSavedChartArgsSchema = {
         .describe(
             'Maximum number of rows to return. Defaults to 500 and is capped by the server query limit.',
         ),
+    valueFormat: z
+        .enum(['raw', 'formatted'])
+        .optional()
+        .describe(
+            "Cell value format: 'raw' returns the underlying value, 'formatted' returns the display-formatted value. Defaults to 'raw'.",
+        ),
 };
 
 /** 强制看板模式：run_saved_chart 增加可选 dashboardUuid 参数（非 strict 时不加） */
@@ -114,6 +128,12 @@ const runDashboardTilesArgsSchema = {
         .optional()
         .describe(
             'Maximum number of rows to return per tile. Defaults to 500 and is capped by the server query limit.',
+        ),
+    valueFormat: z
+        .enum(['raw', 'formatted'])
+        .optional()
+        .describe(
+            "Cell value format: 'raw' returns the underlying value, 'formatted' returns the display-formatted value. Defaults to 'raw'.",
         ),
 };
 
@@ -177,6 +197,7 @@ const runChartQuery = async (
     projectUuid: string,
     chart: SavedChart,
     limit: number | undefined,
+    valueFormat: MetricQueryValueFormat | undefined,
     dashboardContext?: DashboardQueryContextAttributes,
 ): Promise<ChartRunResult> => {
     const rowLimit = resolveRowLimit(deps, limit);
@@ -203,7 +224,9 @@ const runChartQuery = async (
         },
     });
 
-    const rows = results.rows as Record<string, AnyType>[];
+    // v1 对齐：嵌套 cell（{ value: { raw, formatted } }）拍平成标量行，
+    // valueFormat 决定取 raw 还是 formatted（默认 raw）。
+    const rows = rowsToScalarFlat(results.rows, valueFormat);
 
     return {
         columns: buildColumns(results.fields),
@@ -224,6 +247,7 @@ const runDashboardTile = async (
     tile: { uuid: string; properties: { title?: string } },
     chartUuid: string,
     limit: number | undefined,
+    valueFormat: MetricQueryValueFormat | undefined,
     /** 严格模式下用于看板类 403/404 映射的 dashboardUuid */
     dashboardUuid: string,
     /** 磁贴查询的行级口径：所属看板的上下文（v1 对齐，sql_filter 依赖 slug） */
@@ -250,6 +274,7 @@ const runDashboardTile = async (
             projectUuid,
             chart,
             limit,
+            valueFormat,
             dashboardContext,
         );
 
@@ -319,6 +344,7 @@ export const registerChartRunTools = (
                 savedChartUuid,
                 projectUuid: explicitProjectUuid,
                 limit,
+                valueFormat,
                 dashboardUuid,
             } = args as RunSavedChartArgs;
 
@@ -385,6 +411,7 @@ export const registerChartRunTools = (
                     projectUuid,
                     chart,
                     limit,
+                    valueFormat,
                     dashboardContextForQuery,
                 );
             } catch (error) {
@@ -427,6 +454,7 @@ export const registerChartRunTools = (
                 dashboardUuid,
                 projectUuid: explicitProjectUuid,
                 limit,
+                valueFormat,
             } = args as RunDashboardTilesArgs;
 
             const { projectUuid } = await resolveProjectContext(
@@ -498,6 +526,7 @@ export const registerChartRunTools = (
                         tile,
                         chartUuid,
                         limit,
+                        valueFormat,
                         dashboardUuid,
                         {
                             dashboardUuid: dashboard.uuid,

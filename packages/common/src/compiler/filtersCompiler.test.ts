@@ -1,5 +1,5 @@
 import moment from 'moment/moment';
-import { FilterOperator, UnitOfTime } from '../types/filter';
+import { FilterOperator, UnitOfTime, type DateFilterRule } from '../types/filter';
 import { TimeFrames } from '../types/timeFrames';
 import { WeekDay } from '../utils/timeFrames';
 import {
@@ -171,6 +171,33 @@ describe('Filter SQL', () => {
                 'UTC',
             ),
         ).toBe(`(customers.created) = ('2026-06-01')`);
+    });
+    test('should honor a rule-level dataAvailableFromDay cutoff', () => {
+        // cutoff=10：2026-07-04 尚未到 10 号 → 上上月（默认口径下是上月）
+        jest.setSystemTime(new Date('2026-07-04T12:00:00Z'));
+
+        expect(
+            renderDateFilterSql(
+                DimensionSqlMock,
+                {
+                    id: 'filter-id',
+                    target: { fieldId: 'customers_created' },
+                    operator: FilterOperator.EQUALS,
+                    values: ['2020-01'],
+                    dataAvailableFromDay: 10,
+                    settings: {
+                        singleDate: {
+                            mode: 'dynamic',
+                            preset: 'lastAvailableMonth',
+                        },
+                    },
+                    // 运行时传入的是 DashboardFilterRule（携带规则级约束字段，
+                    // 是 DateFilterRule 的超集），此处按运行时形态断言
+                } as DateFilterRule,
+                adapterType.default,
+                'UTC',
+            ),
+        ).toBe(`(customers.created) = ('2026-05-01')`);
     });
     test.each(Object.values(FilterOperator))(
         'should return number filter sql for operator %s',

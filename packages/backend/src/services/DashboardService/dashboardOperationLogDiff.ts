@@ -87,9 +87,12 @@ const FILTER_SUMMARY_KEYS = [
     'readOnly',
     'hidden',
     'clearable',
+    'hideTilesWhenEmpty',
     'requiredGroupId',
     'lockedTabUuids',
     'dateRangeGranularity',
+    'rollingMinAllowedMonths',
+    'dataAvailableFromDay',
 ] as const;
 
 const pickFilterSummary = (rule: DashboardFilterRule) => {

@@ -80,6 +80,11 @@ const baseFilterSummary = (rule: DashboardFilterRule) => ({
         .parentScope,
     parentTabUuid: (rule as DashboardFilterRule & { parentTabUuid?: unknown })
         .parentTabUuid,
+    hideTilesWhenEmpty: (
+        rule as DashboardFilterRule & {
+            hideTilesWhenEmpty?: unknown;
+        }
+    ).hideTilesWhenEmpty,
     settings: rule.settings,
     minAllowedDate: (rule as DashboardFilterRule & { minAllowedDate?: unknown })
         .minAllowedDate,
@@ -91,6 +96,10 @@ const baseFilterSummary = (rule: DashboardFilterRule) => ({
     dateRangeGranularity: (
         rule as DashboardFilterRule & { dateRangeGranularity?: unknown }
     ).dateRangeGranularity,
+    rollingMinAllowedMonths: rule.rollingMinAllowedMonths,
+    dataAvailableFromDay: (
+        rule as DashboardFilterRule & { dataAvailableFromDay?: unknown }
+    ).dataAvailableFromDay,
     tileTargetCount: Object.keys(rule.tileTargets || {}).length,
 });
 
@@ -208,6 +217,8 @@ export const enqueueFilterUpdatedFromDiff = (
         'maxAllowedDate',
         'enableDynamicMaxAllowedDate',
         'dateRangeGranularity',
+        'rollingMinAllowedMonths',
+        'dataAvailableFromDay',
         'settings',
     ] as const;
     if (

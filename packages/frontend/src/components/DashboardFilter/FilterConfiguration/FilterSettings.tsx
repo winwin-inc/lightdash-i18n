@@ -3,10 +3,13 @@ import {
     FilterType,
     getFilterRuleWithDefaultValue,
     getItemLabel,
+    isDimension,
+    isSingleDateDynamic,
     isTableCalculation,
     supportsSingleValue,
     TimeFrames,
     type DashboardFilterRule,
+    type DateRangeMode,
     type FilterableItem,
     type FilterRule,
 } from '@lightdash/common';
@@ -17,6 +20,7 @@ import {
     Divider,
     Group,
     MultiSelect,
+    Radio,
     Select,
     Stack,
     Switch,
@@ -36,6 +40,13 @@ import {
 } from '../../../utils/categoryLevel';
 import { FILTER_SELECT_LIMIT } from '../../common/Filters/constants';
 import FilterInputComponent from '../../common/Filters/FilterInputs';
+import {
+    buildDateRangeModeChangeRule,
+    buildSingleDateModeChangeRule,
+    isDateRangeMode,
+    isDynamicDateRangeAllowed,
+    resolveDateRangeMode,
+} from '../../common/Filters/FilterInputs/dateRangeMode';
 import FilterStringAutoComplete from '../../common/Filters/FilterInputs/FilterStringAutoComplete';
 import { useFilterOperatorOptions } from '../../common/Filters/FilterInputs/utils';
 import useFiltersContext from '../../common/Filters/useFiltersContext';
@@ -213,11 +224,19 @@ const FilterSettings: FC<FilterSettingsProps> = ({
     }, [filterLabel, filterRule.label, field]);
 
     const handleChangeFilterOperator = (operator: FilterRule['operator']) => {
+        // getFilterRuleWithDefaultValue resets `settings` (dropping any
+        // dynamic dateRange default); the rolling window is a rule-level
+        // field and must be cleaned explicitly — it is only consumed by
+        // IN_BETWEEN rules, so leaving it on other operators would be a
+        // silent stale residue (design doc §3.2).
+        const nextRule = getFilterRuleWithDefaultValue(filterType, field, {
+            ...filterRule,
+            operator,
+        });
         onChangeFilterRule(
-            getFilterRuleWithDefaultValue(filterType, field, {
-                ...filterRule,
-                operator,
-            }),
+            operator === FilterOperator.IN_BETWEEN
+                ? nextRule
+                : { ...nextRule, rollingMinAllowedMonths: undefined },
         );
     };
 
@@ -244,6 +263,78 @@ const FilterSettings: FC<FilterSettingsProps> = ({
         }
         return true;
     }, [isFilterDisabled, isEditMode]);
+
+    // ── 日期区间重组（M1/M2/M3）：模式 Radio 提到卡片层 ──
+    const isDateRangeOperator =
+        filterType === FilterType.DATE &&
+        (filterRule.operator === FilterOperator.IN_BETWEEN ||
+            filterRule.operator === FilterOperator.NOT_IN_BETWEEN);
+    const dateRangeGranularity =
+        filterRule.dateRangeGranularity ?? TimeFrames.DAY;
+    const dateRangeMode = resolveDateRangeMode(
+        filterRule.settings?.dateRange,
+        dateRangeGranularity,
+    );
+    // 单值月份「是」：动态默认（上月·按数据可用日）同样用卡片层模式 Radio，
+    // 与「在之间」布局对齐（取值控件内不再有自己的 Radio）；粒度来自字段
+    // 的 timeInterval（月粒度），而非规则级 dateRangeGranularity
+    const isSingleDateMonthEquals =
+        filterType === FilterType.DATE &&
+        filterRule.operator === FilterOperator.EQUALS &&
+        isDimension(field) &&
+        field.timeInterval?.toUpperCase() === TimeFrames.MONTH;
+    const effectiveDateRangeMode: DateRangeMode = isSingleDateMonthEquals
+        ? isSingleDateDynamic(filterRule)
+            ? 'dynamic'
+            : 'fixed'
+        : dateRangeMode;
+    // Card-level fixed/dynamic Radio: edit mode + DATE + (IN_BETWEEN with
+    // month/quarter granularity OR single-value month EQUALS), gated by the
+    // same showValueInput gate as the default value input (disabled filters
+    // cannot change the default's shape). NOT_IN_BETWEEN / other operators
+    // keep fixed-only controls.
+    const showDateRangeModeRadio =
+        isEditMode &&
+        filterType === FilterType.DATE &&
+        (isSingleDateMonthEquals ||
+            (filterRule.operator === FilterOperator.IN_BETWEEN &&
+                isDynamicDateRangeAllowed(dateRangeGranularity))) &&
+        showValueInput;
+
+    /**
+     * M1: granularity changes must not leave stale dynamic configs behind.
+     * - month ↔ quarter with a dynamic default: rebuild the dynamic config
+     *   for the new granularity (units normalised + values re-resolved);
+     * - downgrading to day / year: strip the dynamic default (it is not
+     *   representable there; previously it silently survived and queries
+     *   kept resolving dynamically while the UI showed fixed pickers);
+     * - leaving month granularity: drop the rolling window (month-only).
+     */
+    const handleDateRangeGranularityChange = (value: TimeFrames) => {
+        const previousMode = resolveDateRangeMode(
+            filterRule.settings?.dateRange,
+            dateRangeGranularity,
+        );
+        let nextRule: DashboardFilterRuleWithAllowedOperators = {
+            ...filterRule,
+            dateRangeGranularity: value,
+        };
+        const carryDynamicOver =
+            previousMode === 'dynamic' &&
+            filterRule.operator === FilterOperator.IN_BETWEEN &&
+            isDynamicDateRangeAllowed(value);
+        if (carryDynamicOver) {
+            nextRule = buildDateRangeModeChangeRule(nextRule, 'dynamic', value);
+        } else if (previousMode === 'dynamic') {
+            // Downgrade (day/year) or non-IN_BETWEEN residue: drop the
+            // dynamic default so the UI and the query compiler agree.
+            nextRule = buildDateRangeModeChangeRule(nextRule, 'fixed', value);
+        }
+        if (value !== TimeFrames.MONTH) {
+            nextRule = { ...nextRule, rollingMinAllowedMonths: undefined };
+        }
+        onChangeFilterRule(nextRule);
+    };
 
     const showAnyValueDisabledInput = useMemo(() => {
         return (
@@ -486,6 +577,118 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                     />
                 )}
 
+                {isEditMode && isDateRangeOperator && (
+                    <Stack spacing={4}>
+                        <Text size="xs" fw={500}>
+                            {t(
+                                'components_dashboard_filter.configuration.date_range.granularity_label',
+                            )}
+                        </Text>
+                        <Select
+                            size="xs"
+                            withinPortal={popoverProps?.withinPortal ?? true}
+                            onDropdownOpen={popoverProps?.onOpen}
+                            onDropdownClose={popoverProps?.onClose}
+                            value={dateRangeGranularity}
+                            onChange={(value) => {
+                                if (!value) return;
+                                if (
+                                    value !== TimeFrames.DAY &&
+                                    value !== TimeFrames.MONTH &&
+                                    value !== TimeFrames.QUARTER &&
+                                    value !== TimeFrames.YEAR
+                                ) {
+                                    return;
+                                }
+                                handleDateRangeGranularityChange(value);
+                            }}
+                            data={[
+                                {
+                                    value: TimeFrames.DAY,
+                                    label: t(
+                                        'components_dashboard_filter.configuration.date_range.granularity.day',
+                                    ),
+                                },
+                                {
+                                    value: TimeFrames.MONTH,
+                                    label: t(
+                                        'components_dashboard_filter.configuration.date_range.granularity.month',
+                                    ),
+                                },
+                                {
+                                    value: TimeFrames.QUARTER,
+                                    label: t(
+                                        'components_dashboard_filter.configuration.date_range.granularity.quarter',
+                                    ),
+                                },
+                                {
+                                    value: TimeFrames.YEAR,
+                                    label: t(
+                                        'components_dashboard_filter.configuration.date_range.granularity.year',
+                                    ),
+                                },
+                            ]}
+                        />
+                    </Stack>
+                )}
+
+                {showDateRangeModeRadio && (
+                    <Group spacing="xs" noWrap align="center" mt={2}>
+                        <Radio.Group
+                            value={effectiveDateRangeMode}
+                            onChange={(value) => {
+                                if (isDateRangeMode(value)) {
+                                    onChangeFilterRule(
+                                        isSingleDateMonthEquals
+                                            ? buildSingleDateModeChangeRule(
+                                                  filterRule,
+                                                  value,
+                                              )
+                                            : buildDateRangeModeChangeRule(
+                                                  filterRule,
+                                                  value,
+                                                  dateRangeGranularity,
+                                              ),
+                                    );
+                                }
+                            }}
+                        >
+                            <Group spacing="lg">
+                                <Radio
+                                    value="dynamic"
+                                    size="xs"
+                                    label={t(
+                                        'components_dashboard_filter.configuration.date_range.mode.dynamic',
+                                    )}
+                                />
+                                <Radio
+                                    value="fixed"
+                                    size="xs"
+                                    label={t(
+                                        'components_dashboard_filter.configuration.date_range.mode.fixed',
+                                    )}
+                                />
+                            </Group>
+                        </Radio.Group>
+                    </Group>
+                )}
+
+                {isEditMode &&
+                    (isDateRangeOperator || isSingleDateMonthEquals) &&
+                    (showValueInput || filterRule.required) && (
+                        <Divider
+                            label={t(
+                                // 区间与单值各自有分节标题，避免模式
+                                // Radio 悬空、与「可选范围」混淆
+                                isDateRangeOperator
+                                    ? 'components_dashboard_filter.configuration.section.date_range_default'
+                                    : 'components_dashboard_filter.configuration.section.date_range_default_single',
+                            )}
+                            labelPosition="left"
+                            my={2}
+                        />
+                    )}
+
                 {(showValueInput || filterRule.required) && (
                     <FilterInputComponent
                         popoverProps={popoverProps}
@@ -503,79 +706,28 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                     />
                 )}
 
-                {isEditMode &&
-                    filterType === FilterType.DATE &&
-                    (filterRule.operator === FilterOperator.IN_BETWEEN ||
-                        filterRule.operator ===
-                            FilterOperator.NOT_IN_BETWEEN) && (
-                        <Stack spacing={4}>
-                            <Text size="xs" fw={500}>
-                                {t(
-                                    'components_dashboard_filter.configuration.date_range.granularity_label',
-                                )}
-                            </Text>
-                            <Select
-                                size="xs"
-                                withinPortal={
-                                    popoverProps?.withinPortal ?? true
-                                }
-                                onDropdownOpen={popoverProps?.onOpen}
-                                onDropdownClose={popoverProps?.onClose}
-                                value={
-                                    filterRule.dateRangeGranularity ??
-                                    TimeFrames.DAY
-                                }
-                                onChange={(value) => {
-                                    if (!value) return;
-                                    if (
-                                        value !== TimeFrames.DAY &&
-                                        value !== TimeFrames.MONTH &&
-                                        value !== TimeFrames.QUARTER &&
-                                        value !== TimeFrames.YEAR
-                                    ) {
-                                        return;
-                                    }
-                                    onChangeFilterRule({
-                                        ...filterRule,
-                                        dateRangeGranularity: value,
-                                    });
-                                }}
-                                data={[
-                                    {
-                                        value: TimeFrames.DAY,
-                                        label: t(
-                                            'components_dashboard_filter.configuration.date_range.granularity.day',
-                                        ),
-                                    },
-                                    {
-                                        value: TimeFrames.MONTH,
-                                        label: t(
-                                            'components_dashboard_filter.configuration.date_range.granularity.month',
-                                        ),
-                                    },
-                                    {
-                                        value: TimeFrames.QUARTER,
-                                        label: t(
-                                            'components_dashboard_filter.configuration.date_range.granularity.quarter',
-                                        ),
-                                    },
-                                    {
-                                        value: TimeFrames.YEAR,
-                                        label: t(
-                                            'components_dashboard_filter.configuration.date_range.granularity.year',
-                                        ),
-                                    },
-                                ]}
-                            />
-                        </Stack>
-                    )}
-
                 {isEditMode && filterType === FilterType.DATE && (
-                    <DateRangeConstraintEditor
-                        filterRule={filterRule}
-                        popoverProps={popoverProps}
-                        onChangeFilterRule={onChangeFilterRule}
-                    />
+                    <>
+                        <Divider
+                            label={t(
+                                'components_dashboard_filter.configuration.section.date_range_constraints',
+                            )}
+                            labelPosition="left"
+                            my={2}
+                        />
+                        <DateRangeConstraintEditor
+                            filterRule={filterRule}
+                            granularity={
+                                isDateRangeOperator
+                                    ? dateRangeGranularity
+                                    : isSingleDateMonthEquals
+                                      ? TimeFrames.MONTH
+                                      : TimeFrames.DAY
+                            }
+                            popoverProps={popoverProps}
+                            onChangeFilterRule={onChangeFilterRule}
+                        />
+                    </>
                 )}
 
                 {isEditMode &&
@@ -761,6 +913,46 @@ const FilterSettings: FC<FilterSettingsProps> = ({
                                 }}
                             />
                         </Group>
+
+                        {/* 无值隐藏关联图表：仅非类目筛选器可配（类目链的显隐由类目逻辑控制）。
+                            开关单独一行，避免三个开关挤在一行里被截断。 */}
+                        {filterRule.categoryLevel === undefined && (
+                            <Group spacing="lg" mt={2}>
+                                <Switch
+                                    label={
+                                        <Group spacing={4}>
+                                            <Text size="xs" fw={500}>
+                                                {t(
+                                                    'components_dashboard_filter.configuration.hide_tiles_when_empty.label',
+                                                )}
+                                            </Text>
+                                            <Tooltip
+                                                withinPortal
+                                                variant="xs"
+                                                label={t(
+                                                    'components_dashboard_filter.configuration.hide_tiles_when_empty.tooltip',
+                                                )}
+                                            >
+                                                <MantineIcon
+                                                    size="sm"
+                                                    icon={IconHelpCircle}
+                                                />
+                                            </Tooltip>
+                                        </Group>
+                                    }
+                                    labelPosition="right"
+                                    checked={!!filterRule.hideTilesWhenEmpty}
+                                    onChange={(e) => {
+                                        onChangeFilterRule({
+                                            ...filterRule,
+                                            hideTilesWhenEmpty:
+                                                e.currentTarget.checked ||
+                                                undefined,
+                                        });
+                                    }}
+                                />
+                            </Group>
+                        )}
                     </>
                 )}
 

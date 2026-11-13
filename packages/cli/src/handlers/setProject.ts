@@ -1,7 +1,8 @@
 import { OrganizationProject } from '@lightdash/common';
 import inquirer from 'inquirer';
 import { URL } from 'url';
-import { getConfig, setProject } from '../config';
+import { LightdashAnalytics } from '../analytics/analytics';
+import { getConfig, setProject, unsetProject } from '../config';
 import GlobalState from '../globalState';
 import { lightdashApi } from './dbt/apiClient';
 
@@ -91,4 +92,30 @@ export const setFirstProject = async () => {
 export const setProjectHandler = async (options: SetProjectOptions) => {
     GlobalState.setVerbose(options.verbose);
     return setProjectCommand(options.name, options.uuid);
+};
+
+const unsetProjectCommand = async () => {
+    await unsetProject();
+    console.error(`\n  Project unset.\n`);
+};
+
+export const unsetProjectHandler = async (options: { verbose: boolean }) => {
+    const startTime = Date.now();
+    let success = true;
+    GlobalState.setVerbose(options.verbose);
+    try {
+        await unsetProjectCommand();
+    } catch (e) {
+        success = false;
+        throw e;
+    } finally {
+        await LightdashAnalytics.track({
+            event: 'command.executed',
+            properties: {
+                command: 'unset-project',
+                durationMs: Date.now() - startTime,
+                success,
+            },
+        });
+    }
 };

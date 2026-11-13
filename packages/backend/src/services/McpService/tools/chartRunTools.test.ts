@@ -128,7 +128,18 @@ const buildDeps = ({
     });
 
     const runMetricQuery = jest.fn().mockResolvedValue({
-        rows: [{ orders_status: 'completed', orders_total_revenue: 100 }],
+        // v1 对齐：真实 API 返回嵌套 cell（{ value: { raw, formatted } }），
+        // 工具层负责拍平成标量行
+        rows: [
+            {
+                orders_status: {
+                    value: { raw: 'completed', formatted: 'completed' },
+                },
+                orders_total_revenue: {
+                    value: { raw: 100, formatted: '100.00' },
+                },
+            },
+        ],
         fields: {
             orders_status: {
                 fieldType: FieldType.DIMENSION,

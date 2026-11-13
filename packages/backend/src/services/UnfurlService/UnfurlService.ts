@@ -12,6 +12,7 @@ import {
     LightdashMode,
     LightdashPage,
     LightdashRequestMethodHeader,
+    NotFoundError,
     ParameterError,
     QueryHistoryStatus,
     RequestMethod,
@@ -80,6 +81,7 @@ export enum ScreenshotContext {
     SCHEDULED_DELIVERY = 'scheduled_delivery',
     SLACK = 'slack',
     EXPORT_DASHBOARD = 'export_dashboard',
+    EXPORT_CHART = 'export_chart',
 }
 
 const SCREENSHOT_RETRIES = 3;
@@ -246,10 +248,20 @@ export class UnfurlService extends BaseService {
 
         // This is needed because tables are lazy loaded so we have no way of knowing when the chart is displayed
         async function waitForAllLoaded() {
-            // Wait for all the loading overlays to be in the DOM
-            await page.waitForSelector('.loading_chart_overlay', {
-                state: 'attached',
-            });
+            // Wait for all the loading overlays to be in the DOM.
+            // When every chart is hidden by a filter with no values
+            // (hideTilesWhenEmpty), no loading overlay is ever attached,
+            // so tolerate the timeout/not-found here instead of failing the export.
+            // Keep Playwright's default 30s window: a slow dashboard should not
+            // be screenshotted before its charts mount.
+            try {
+                await page.waitForSelector('.loading_chart_overlay', {
+                    state: 'attached',
+                    timeout: 30_000,
+                });
+            } catch {
+                // No overlay appeared (e.g. all charts hidden): continue.
+            }
 
             // Wait for the loading overlay to be hidden (loading is complete)
             await page.waitForSelector('.loading_chart_overlay', {
@@ -515,6 +527,64 @@ export class UnfurlService extends BaseService {
             imageUrl,
             pdfFile,
         };
+    }
+
+    async exportChart(
+        chartUuidOrSlug: string,
+        user: SessionUser,
+        projectUuid?: string,
+    ): Promise<string> {
+        const chart = await this.savedChartModel.get(chartUuidOrSlug);
+        // fork note: upstream filters slug lookups by projectUuid at the
+        // database level; our SavedChartModel.get ignores its options param,
+        // so enforce the project scope here instead.
+        if (projectUuid !== undefined && chart.projectUuid !== projectUuid) {
+            throw new NotFoundError(
+                `Chart "${chartUuidOrSlug}" not found in this project`,
+            );
+        }
+
+        const { isPrivate } = await this.spaceModel.get(chart.spaceUuid);
+        const access = await this.spaceModel.getUserSpaceAccess(
+            user.userUuid,
+            chart.spaceUuid,
+        );
+
+        if (
+            user.ability.cannot(
+                'view',
+                subject('SavedChart', {
+                    organizationUuid: chart.organizationUuid,
+                    isPrivate,
+                    access,
+                }),
+            )
+        ) {
+            throw new ForbiddenError();
+        }
+
+        const minimalUrl = new URL(
+            `/minimal/projects/${chart.projectUuid}/saved/${chart.uuid}`,
+            this.lightdashConfig.headlessBrowser.internalLightdashHost,
+        ).href;
+
+        this.logger.info(
+            `Exporting chart "${chart.name}" with minimalUrl ${minimalUrl}`,
+        );
+
+        const unfurlImage = await this.unfurlImage({
+            url: minimalUrl,
+            lightdashPage: LightdashPage.CHART,
+            imageId: `chart-image_${snakeCaseName(chart.name)}_${useNanoid()}`,
+            authUserUuid: user.userUuid,
+            context: ScreenshotContext.EXPORT_CHART,
+            selectedTabs: null,
+        });
+        if (unfurlImage.imageUrl === undefined) {
+            throw new Error('Unable to export chart image');
+        }
+        this.logger.info(`Chart "${chart.name}" exported successfully`);
+        return unfurlImage.imageUrl;
     }
 
     async exportDashboard(

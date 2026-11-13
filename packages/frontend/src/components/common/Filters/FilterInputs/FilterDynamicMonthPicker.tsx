@@ -1,19 +1,25 @@
 import {
+    parseSingleDateCount,
     TimeFrames,
     formatDate,
     isSingleDateDynamic,
     parseDate,
     resolveSingleDateValue,
     type BaseFilterRule,
-    type DateRangeMode,
     type FilterRule,
     type SingleDateSetting,
 } from '@lightdash/common';
-import { Radio, Stack, Text, type PopoverProps } from '@mantine/core';
-import dayjs from 'dayjs';
+import {
+    Flex,
+    NumberInput,
+    Stack,
+    Text,
+    type PopoverProps,
+} from '@mantine/core';
 import { useMemo, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { buildLastAvailableMonthSetting } from './dateRangeMode';
 import FilterMonthAndYearPicker from './FilterMonthAndYearPicker';
 import {
     getSingleDateRuleWithFixedValues,
@@ -22,6 +28,8 @@ import {
 
 type MonthEqualsRule = BaseFilterRule & {
     values?: (string | null)[];
+    /** 规则级数据可用日（上月预设 cutoff，缺省 4 号） */
+    dataAvailableFromDay?: number;
     settings?: FilterRule['settings'] & {
         singleDate?: SingleDateSetting;
     };
@@ -39,14 +47,17 @@ type Props = {
     isEditMode?: boolean;
 };
 
-const isMode = (value: string): value is DateRangeMode =>
-    value === 'fixed' || value === 'dynamic';
-
-const LAST_AVAILABLE_MONTH_SETTING: SingleDateSetting = {
-    mode: 'dynamic',
-    preset: 'lastAvailableMonth',
-};
-
+/**
+ * 单值月份「是」筛选器的取值输入。
+ *
+ * 模式（动态日期 / 固定日期）的 Radio 在看板筛选器配置卡片层
+ * （FilterSettings，与「在之间」同一行）；本组件只渲染当前模式的
+ * 输入体：
+ * - 动态：与「在之间」默认区间同款的配置行「取值 [N] 个可用月前」
+ *   ——按数据可用日口径回退 N 个完整可用月（N=1 即上月）；
+ *   预设语义说明统一在约束编辑器「数据可用日」行；
+ * - 固定：月份选择器。
+ */
 const FilterDynamicMonthPicker: FC<Props> = ({
     rule,
     onChange,
@@ -57,23 +68,17 @@ const FilterDynamicMonthPicker: FC<Props> = ({
     popoverProps,
     isEditMode,
 }) => {
-    const { t, i18n } = useTranslation();
-    const mode: DateRangeMode = isSingleDateDynamic(rule) ? 'dynamic' : 'fixed';
-
-    const previewFormat = i18n.language.toLowerCase().startsWith('zh')
-        ? 'YYYY年M月'
-        : 'MMMM YYYY';
+    const { t } = useTranslation();
+    const isDynamic = isSingleDateDynamic(rule);
 
     const viewModeResolved = useMemo(() => {
-        if (isEditMode || !isSingleDateDynamic(rule)) return null;
+        if (isEditMode || !isDynamic) return null;
         return resolveDisplayValues(rule)?.[0] as string | undefined;
-    }, [isEditMode, rule]);
+    }, [isEditMode, isDynamic, rule]);
 
     const displayValueStr =
         (viewModeResolved ??
-            (isSingleDateDynamic(rule)
-                ? resolveSingleDateValue(rule)
-                : rule.values?.[0])) ||
+            (isDynamic ? resolveSingleDateValue(rule) : rule.values?.[0])) ||
         null;
 
     const monthValue = displayValueStr
@@ -100,34 +105,6 @@ const FilterDynamicMonthPicker: FC<Props> = ({
         );
     };
 
-    const handleModeChange = (nextMode: DateRangeMode) => {
-        if (nextMode === 'dynamic') {
-            const resolved = resolveSingleDateValue({
-                ...rule,
-                settings: {
-                    ...rule.settings,
-                    singleDate: LAST_AVAILABLE_MONTH_SETTING,
-                },
-            });
-            onChange({
-                ...rule,
-                values: resolved != null ? [resolved] : rule.values,
-                settings: {
-                    ...rule.settings,
-                    singleDate: LAST_AVAILABLE_MONTH_SETTING,
-                },
-            });
-            return;
-        }
-        // Switching to fixed: drop singleDate, keep current values
-        if (!rule.settings) {
-            onChange(rule);
-            return;
-        }
-        const { singleDate: _drop, ...settings } = rule.settings;
-        onChange({ ...rule, settings });
-    };
-
     const renderFixedPicker = () => (
         <FilterMonthAndYearPicker
             disabled={disabled}
@@ -142,7 +119,31 @@ const FilterDynamicMonthPicker: FC<Props> = ({
         />
     );
 
-    // View mode: no Fixed/Dynamic radios; show resolved month, allow override
+    const handleCountChange = (value: string | number) => {
+        const n =
+            typeof value === 'number'
+                ? value
+                : Number.parseInt(String(value ?? ''), 10);
+        // 非法输入（清空中）保持最近一次合法值，避免误写默认
+        if (!Number.isFinite(n)) return;
+        const singleDate = {
+            ...buildLastAvailableMonthSetting(rule.settings?.singleDate),
+            count: parseSingleDateCount(n),
+        };
+        const settings = { ...rule.settings, singleDate };
+        const resolved = resolveSingleDateValue({
+            values: rule.values ?? undefined,
+            dataAvailableFromDay: rule.dataAvailableFromDay,
+            settings,
+        });
+        onChange({
+            ...rule,
+            values: resolved != null ? [resolved] : rule.values,
+            settings,
+        });
+    };
+
+    // View mode: no mode Radio; show resolved month, allow override
     if (!isEditMode) {
         return (
             <Stack spacing="xs" w="100%">
@@ -151,62 +152,46 @@ const FilterDynamicMonthPicker: FC<Props> = ({
         );
     }
 
-    const dynamicPreview =
-        mode === 'dynamic' && displayValueStr
-            ? dayjs(
-                  parseDate(
-                      formatDate(displayValueStr, TimeFrames.MONTH),
-                      TimeFrames.MONTH,
-                  ),
-              ).format(previewFormat)
-            : null;
+    // Edit mode + dynamic: configurable row mirroring the between picker's
+    // "N months ago" bound rows (availability-based semantics).
+    if (isDynamic) {
+        const count = parseSingleDateCount(
+            (rule.settings?.singleDate as SingleDateSetting | undefined)
+                ?.count,
+        );
+        return (
+            <Stack spacing="xs" w="100%">
+                <Flex gap="xs" wrap="nowrap" align="center">
+                    <Text size="xs" w={60} c="dimmed">
+                        {t(
+                            'components_common_filters_inputs.single_date.preset.count_label',
+                        )}
+                    </Text>
+                    <NumberInput
+                        size="xs"
+                        w={64}
+                        min={1}
+                        max={120}
+                        step={1}
+                        hideControls
+                        value={count}
+                        disabled={disabled}
+                        onChange={handleCountChange}
+                    />
+                    <Text size="xs" c="dimmed">
+                        {t(
+                            'components_common_filters_inputs.single_date.preset.count_unit',
+                        )}
+                    </Text>
+                </Flex>
+            </Stack>
+        );
+    }
 
+    // Edit mode + fixed
     return (
         <Stack spacing="xs" w="100%">
-            <Radio.Group
-                value={mode}
-                onChange={(value) => {
-                    if (isMode(value)) handleModeChange(value);
-                }}
-            >
-                <Stack spacing={4}>
-                    <Radio
-                        value="dynamic"
-                        size="xs"
-                        disabled={disabled}
-                        label={t(
-                            'components_common_filters_inputs.date_range.dynamic.custom_label',
-                        )}
-                    />
-                    {mode === 'dynamic' && (
-                        <Stack spacing={4} pl="lg">
-                            <Text size="xs">
-                                {t(
-                                    'components_common_filters_inputs.single_date.preset.last_available_month',
-                                )}
-                            </Text>
-                            {dynamicPreview && (
-                                <Text size="xs" color="dimmed">
-                                    {dynamicPreview}
-                                </Text>
-                            )}
-                        </Stack>
-                    )}
-                    <Radio
-                        value="fixed"
-                        size="xs"
-                        disabled={disabled}
-                        label={t(
-                            'components_common_filters_inputs.date_range.dynamic.fixed_label',
-                        )}
-                    />
-                    {mode === 'fixed' && (
-                        <Stack spacing={4} pl="lg">
-                            {renderFixedPicker()}
-                        </Stack>
-                    )}
-                </Stack>
-            </Radio.Group>
+            {renderFixedPicker()}
         </Stack>
     );
 };

@@ -2612,16 +2612,9 @@
         "start_label": "Start time",
         "end_label": "End time",
         "mode_label": "Dynamic",
-        "direction": {
-          "ago": "ago",
-          "later": "later"
-        },
-        "unit": {
-          "days": "days",
-          "weeks": "weeks",
-          "months": "months",
-          "quarters": "quarters",
-          "years": "years"
+        "unit_suffix": {
+          "months": "months ago",
+          "quarters": "quarters ago"
         },
         "bound_summary": "{{direction}} {{count}} {{unit}}",
         "range_summary": "{{start}} to {{end}}"
@@ -2629,7 +2622,8 @@
     },
     "single_date": {
       "preset": {
-        "last_available_month": "Last month (available from the 4th)"
+        "count_label": "Value",
+        "count_unit": "available month(s) ago"
       }
     },
     "to_latest_month_hint": "Start month",
@@ -2808,14 +2802,35 @@
       "filter_read_only": "Filter read-only",
       "filter_hidden": "Filter hidden",
       "filter_no_clear": "Cannot be cleared",
+      "hide_tiles_when_empty": {
+        "label": "Hide linked charts when this filter has no value",
+        "tooltip": "Automatically hide the charts checked under \"Apply to charts\" when this filter has no value. For \"Any value\", charts are hidden only when the current filter chain has no candidate values."
+      },
       "date_range": {
         "min_label": "Earliest selectable date",
+        "min_tooltip": "Leave empty for no limit; this value stays fixed. Disabled while \"Limit earliest by data updates\" is on — the viewer-pickable range = last N whole months (rolling with data).",
+        "max_tooltip": "Leave empty for no limit; this value stays fixed. Disabled while \"Limit latest by data updates\" is on — the latest month viewers can pick rolls with data (months: before day {{day}} → two months back, from day {{day}} → last month; quarters → last complete quarter).",
         "max_label": "Latest selectable date",
         "placeholder": "YYYY-MM-DD",
-        "hint": "Leave earliest date empty for no lower limit. Leave latest date empty for no upper limit unless the data-update limit is enabled. You can also set a fixed latest date.",
-        "dynamic_max_label": "Limit latest date by data refresh",
-        "dynamic_max_description": "When on: before the 4th, months can only go back two months; from the 4th, last month. Quarters use the last complete quarter.",
+        "dynamic_max_label": "Limit latest by data updates",
+        "dynamic_max_tooltip": "When on: before day {{day}}, months can only go back two months; from day {{day}}, last month. Quarters use the last complete quarter.",
+        "rolling_label": "Limit earliest by data updates",
+        "rolling_unit_months": "whole months",
+        "data_available_day_suffix": "of month, data available",
+        "data_available_day_tooltip": "Last month's data is available from day {{day}} of the current month; before it, the dynamic latest month and the single-value dynamic default fall back to the month before last. Latest available month: {{value}}.",
+        "rolling_tooltip": "Applies to the range viewers can pick: when on, earliest selectable = last N whole months, rolling monthly with the latest selectable month; when off, you can set a fixed earliest date.",
+        "rolling_badge_dynamic": "Dynamic: {{value}}",
+        "rolling_badge_fixed": "Fixed window (not rolling)",
+        "rolling_requires_max": "Enabling \"Limit earliest by data updates\" requires a latest selectable date: set a fixed latest date, or enable \"Limit latest by data updates\"",
+        "rolling_near_label": "Last",
+        "rolling_fixed_window_warning": "\"Limit earliest by data updates\" is currently a fixed window (not rolling): enable \"Limit latest by data updates\" to make it roll monthly",
+        "mode": {
+          "dynamic": "Dynamic dates",
+          "fixed": "Fixed dates"
+        },
         "default_out_of_range": "The default date is outside the allowed range",
+        "default_after_max_bounds": "Latest selectable: {{max}}",
+        "default_before_min_bounds": "Earliest selectable: {{min}}",
         "start_after_end": "Start date cannot be later than end date",
         "granularity_label": "Date selector",
         "granularity": {
@@ -2839,7 +2854,10 @@
         "value_policy": "Value policy",
         "viewer_limits": "Viewer limits",
         "option_limits": "Option limits",
-        "linkage": "Field linkage"
+        "linkage": "Field linkage",
+        "date_range_default": "Default range",
+      "date_range_default_single": "Default value",
+        "date_range_constraints": "Selectable range"
       }
     },
     "batch_bind": {
@@ -2958,6 +2976,7 @@
     }
   },
   "components_dashboard_tabs": {
+    "hidden_tiles_hint": "Hidden {{count}} chart(s) because the filter has no value",
     "add_tab_modal": {
       "title": "Add new tab",
       "form": {
@@ -3245,6 +3264,10 @@
     "is_empty": "Dashboard is empty.",
     "title": "You haven’t saved any charts yet.",
     "run_a_query": "Run a query"
+  },
+  "components_dashboard_tiles": {
+    "tile_hidden_when_empty": "Hidden when empty",
+    "tile_hidden_when_empty_tooltip": "This chart is hidden in view mode when the filter has no value"
   },
   "components_dashboard_tiles_base": {
     "duplicate": "Duplicate",

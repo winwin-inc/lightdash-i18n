@@ -2612,16 +2612,9 @@
         "start_label": "开始时间",
         "end_label": "结束时间",
         "mode_label": "动态",
-        "direction": {
-          "ago": "前",
-          "later": "后"
-        },
-        "unit": {
-          "days": "天",
-          "weeks": "周",
-          "months": "月",
-          "quarters": "季度",
-          "years": "年"
+        "unit_suffix": {
+          "months": "个月前",
+          "quarters": "个季度前"
         },
         "bound_summary": "{{direction}} {{count}} {{unit}}",
         "range_summary": "{{start}} 至 {{end}}"
@@ -2629,7 +2622,8 @@
     },
     "single_date": {
       "preset": {
-        "last_available_month": "上月（4号显示）"
+        "count_label": "取值",
+        "count_unit": "个可用月前"
       }
     },
     "to_latest_month_hint": "开始月",
@@ -2808,14 +2802,35 @@
       "filter_read_only": "筛选器只读",
       "filter_hidden": "筛选器隐藏",
       "filter_no_clear": "不可清空",
+      "hide_tiles_when_empty": {
+        "label": "无值时隐藏关联图表",
+        "tooltip": "无值时自动隐藏下方『应用图表』中勾选的图表。「任何值」时按当前筛选条件下是否存在候选值判断：有候选值显示，无候选值隐藏。"
+      },
       "date_range": {
         "min_label": "可选最早日期",
+        "min_tooltip": "留空＝不限制；此处为固定值，不会随时间变化。开启「按数据更新限制最早」后此处停用——查看者可选范围＝最近 N 个整月（随数据滚动）。",
+        "max_tooltip": "留空＝不限制；此处为固定值，不会随时间变化。开启「按数据更新限制最晚」后此处停用——查看者可选范围的最晚月随数据滚动（月粒度 {{day}} 号前可选到上上月、{{day}} 号及以后到上月；季度为最近完整季度）。",
         "max_label": "可选最晚日期",
         "placeholder": "YYYY-MM-DD",
-        "hint": "最早日期留空表示不限制；最晚日期留空且未开启数据更新限制时表示不限制。也可手动选择固定日期。",
-        "dynamic_max_label": "按数据更新限制最晚可选日期",
-        "dynamic_max_description": "开启后：月粒度 4 号前只能选到上上月，4 号及以后可选到上月；季度为最近一个完整季度",
+        "dynamic_max_label": "按数据更新限制最晚",
+        "dynamic_max_tooltip": "开启后：月粒度 {{day}} 号前只能选到上上月，{{day}} 号及以后可选到上月；季度为最近一个完整季度",
+        "rolling_label": "按数据更新限制最早",
+        "rolling_unit_months": "个整月",
+        "data_available_day_suffix": "号数据可用",
+        "data_available_day_tooltip": "上月数据自本月 {{day}} 号起可用；{{day}} 号前「跟随数据更新」最晚可选与单值动态默认自动取上上月。当前最近可用月：{{value}}",
+        "rolling_tooltip": "作用于查看者可选范围：开启后最早可选＝最近 N 个整月，随最晚可选月逐月自动滚动；关闭时可设置固定最早日期。",
+        "rolling_badge_dynamic": "动态：{{value}}",
+        "rolling_badge_fixed": "固定窗口（不滚动）",
+        "rolling_requires_max": "开启「按数据更新限制最早」需要最晚可选日期：请设置固定最晚，或开启「按数据更新限制最晚」",
+        "rolling_near_label": "近",
+        "rolling_fixed_window_warning": "「按数据更新限制最早」当前为固定窗口（不滚动）：需开启「按数据更新限制最晚」才会逐月滚动",
+        "mode": {
+          "dynamic": "动态日期",
+          "fixed": "固定日期"
+        },
         "default_out_of_range": "默认值日期超出了限制范围",
+        "default_after_max_bounds": "实际最晚可选：{{max}}",
+        "default_before_min_bounds": "实际最早可选：{{min}}",
         "start_after_end": "开始日期不能晚于结束日期",
         "granularity_label": "日期选择器",
         "granularity": {
@@ -2839,7 +2854,10 @@
         "value_policy": "取值策略",
         "viewer_limits": "查看者限制",
         "option_limits": "选项约束",
-        "linkage": "维度联动"
+        "linkage": "维度联动",
+        "date_range_default": "默认区间",
+      "date_range_default_single": "默认值",
+        "date_range_constraints": "可选范围"
       }
     },
     "batch_bind": {
@@ -2958,6 +2976,7 @@
     }
   },
   "components_dashboard_tabs": {
+    "hidden_tiles_hint": "当前筛选无值，已隐藏 {{count}} 张图表",
     "add_tab_modal": {
       "title": "添加新标签页",
       "form": {
@@ -3269,6 +3288,10 @@
     "is_empty": "看板为空。",
     "title": "您还没有保存任何图表。",
     "run_a_query": "运行查询"
+  },
+  "components_dashboard_tiles": {
+    "tile_hidden_when_empty": "无值隐藏",
+    "tile_hidden_when_empty_tooltip": "查看模式下，该筛选器无值时会隐藏此图表"
   },
   "components_dashboard_tiles_base": {
     "duplicate": "复制图块",

@@ -163,6 +163,14 @@ export type DashboardFilterRule<
     singleValue?: boolean;
     categoryLevel?: 1 | 2 | 3 | 4;
     /**
+     * 查看模式下，该筛选器无确定值时隐藏它作用到的图表。
+     * 作用范围 = 该筛选器「应用图表」(tileTargets) 中勾选的图表。
+     * 「任何值」(disabled) 按当前链下是否有候选值判定：有候选不隐藏，无候选隐藏；
+     * 候选探测未完成 / 失败时视为未知，不隐藏。
+     * 默认关闭。
+     */
+    hideTilesWhenEmpty?: boolean;
+    /**
      * 父级筛选器的字段 id（跨作用域绑定时仍指向父级字段）
      */
     parentFieldId?: string;
@@ -192,6 +200,31 @@ export type DashboardFilterRule<
      * last month; quarters: last complete quarter). Default is off.
      */
     enableDynamicMaxAllowedDate?: boolean;
+    /**
+     * Rolling lower bound for month-granularity filters, expressed
+     * as the number N of complete months in the selectable window:
+     * min = start of the month of the resolved latest selectable month,
+     * minus (N - 1) months. The window rolls forward automatically as the
+     * latest selectable month advances (dynamic max) or stays static when
+     * anchored to a fixed maxAllowedDate.
+     * undefined = not enabled. Consumed when operator is IN_BETWEEN with
+     * MONTH dateRangeGranularity, or single-value EQUALS on a month field
+     * with a dynamic singleDate default; other operators/granularities
+     * short-circuit it. Save-time validation should reject the combination
+     * "rolling without any latest selectable month" (no maxAllowedDate and
+     * enableDynamicMaxAllowedDate off).
+     */
+    rollingMinAllowedMonths?: number;
+    /**
+     * Rule-level override of the day-of-month data cutoff (default 4,
+     * DATA_MONTH_AVAILABLE_FROM_DAY): before this day only the month before
+     * last is considered available. Consumed by the dynamic latest-month
+     * bound (month granularity constraints) and the single-date
+     * `lastAvailableMonth` preset — frontend pickers/clamps/validation and
+     * backend scheduled resolution (the rule carries the value). Different
+     * rules may point at data sources with different availability days.
+     */
+    dataAvailableFromDay?: number;
     readOnly?: boolean;
     /** Hidden filter: not displayed on page, but filter still applies */
     hidden?: boolean;
@@ -266,17 +299,107 @@ export type SingleDatePreset = 'lastAvailableMonth';
 
 /**
  * Settings for a single-value dynamic date default (month + equals).
+ * `count` = how many available months back (default 1): the resolved
+ * month is the last AVAILABLE month (data-availability cutoff applied)
+ * minus (count - 1). Calendar-relative "N months ago" semantics are
+ * deliberately NOT used — before the cutoff day the last calendar month
+ * has no data yet.
  */
 export type SingleDateSetting = {
     mode?: DateRangeMode;
     preset?: SingleDatePreset;
+    count?: number;
+};
+
+/** Sanitize a stored `singleDate.count`: non-finite / < 1 values fall back
+ * to 1 (N = 0 or negative would point at incomplete months). */
+export const parseSingleDateCount = (raw: unknown): number => {
+    if (typeof raw === 'number' && Number.isFinite(raw)) {
+        return raw >= 1 ? Math.floor(raw) : 1;
+    }
+    if (typeof raw === 'string') {
+        const n = Number(raw);
+        return Number.isFinite(n) && n >= 1 ? Math.floor(n) : 1;
+    }
+    return 1;
 };
 
 /**
  * Day-of-month when the previous calendar month's data becomes available.
  * Before this day, only the month-before-last is considered available.
+ * This is the deployment-wide default; rules may override it via
+ * `dataAvailableFromDay` (different data pipelines land on different days).
  */
 export const DATA_MONTH_AVAILABLE_FROM_DAY = 4;
+
+/** Bounds for a valid rule-level `dataAvailableFromDay` override
+ * (1–28 avoids month-length ambiguity). */
+export const DATA_MONTH_AVAILABLE_FROM_DAY_MIN = 1;
+export const DATA_MONTH_AVAILABLE_FROM_DAY_MAX = 28;
+
+/** Whether a rule-level data-availability day is a valid integer in
+ * [1, 28]. Invalid values fall back to DATA_MONTH_AVAILABLE_FROM_DAY. */
+export const isValidDataAvailableFromDay = (
+    value: number | null | undefined,
+): value is number =>
+    value != null &&
+    Number.isInteger(value) &&
+    value >= DATA_MONTH_AVAILABLE_FROM_DAY_MIN &&
+    value <= DATA_MONTH_AVAILABLE_FROM_DAY_MAX;
+
+/** Resolve the effective day-of-month cutoff for a rule (default 4). */
+export const getEffectiveDataAvailableFromDay = (
+    value: number | null | undefined,
+): number =>
+    isValidDataAvailableFromDay(value) ? value : DATA_MONTH_AVAILABLE_FROM_DAY;
+
+/** Lower bound (inclusive) for a valid `rollingMinAllowedMonths` window size. */
+export const ROLLING_MIN_ALLOWED_MONTHS_MIN = 1;
+
+/** Upper bound (inclusive) for a valid `rollingMinAllowedMonths` window size. */
+export const ROLLING_MIN_ALLOWED_MONTHS_MAX = 120;
+
+/**
+ * Whether a rolling window size is a valid integer within
+ * [ROLLING_MIN_ALLOWED_MONTHS_MIN, ROLLING_MIN_ALLOWED_MONTHS_MAX].
+ * Invalid sizes are treated as "not configured" by resolvers
+ * (N = 0 / negative would invert min > max and lock the picker; NaN /
+ * fractions would produce Invalid Dates or silently floored windows).
+ */
+export const isValidRollingMinAllowedMonths = (
+    value: number | null | undefined,
+): value is number =>
+    value != null &&
+    Number.isInteger(value) &&
+    value >= ROLLING_MIN_ALLOWED_MONTHS_MIN &&
+    value <= ROLLING_MIN_ALLOWED_MONTHS_MAX;
+
+/**
+ * Whether a rule's rolling lower bound is actually consumed:
+ * - IN_BETWEEN + MONTH dateRangeGranularity + valid N, or
+ * - single-value EQUALS on a month field + dynamic singleDate default
+ *   (granularity is a field property there, callers pass it via
+ *   `granularityOverride`) + valid N.
+ * Other operator/granularity combinations short-circuit (clamping
+ * NOT_IN_BETWEEN would invert the exclusion semantics; the quarter
+ * picker's alignment is not rolling-safe yet).
+ */
+export const isRollingMinAllowedMonthsActive = (
+    rule: {
+        operator?: FilterOperator;
+        dateRangeGranularity?: TimeFrames;
+        rollingMinAllowedMonths?: number;
+    },
+    granularityOverride?: TimeFrames,
+): boolean => {
+    const granularity = granularityOverride ?? rule.dateRangeGranularity;
+    return (
+        (rule.operator === FilterOperator.IN_BETWEEN ||
+            rule.operator === FilterOperator.EQUALS) &&
+        granularity === TimeFrames.MONTH &&
+        isValidRollingMinAllowedMonths(rule.rollingMinAllowedMonths)
+    );
+};
 
 /**
  * Offset direction for a dynamic date-range bound. `ago` = `now - count unit`,
@@ -349,9 +472,11 @@ export const isSingleDateDynamic = (
 export const resolveLastAvailableMonth = (
     now: Date = new Date(),
     timezone?: string,
+    dataAvailableFromDay?: number,
 ): Date => {
     const ref = timezone ? moment(now).tz(timezone) : moment(now);
-    const monthsBack = ref.date() < DATA_MONTH_AVAILABLE_FROM_DAY ? 2 : 1;
+    const cutoff = getEffectiveDataAvailableFromDay(dataAvailableFromDay);
+    const monthsBack = ref.date() < cutoff ? 2 : 1;
     return ref.clone().subtract(monthsBack, 'months').startOf('month').toDate();
 };
 
@@ -360,7 +485,9 @@ export const resolveLastAvailableMonth = (
  * existing `values[0]` for non-dynamic rules or unknown presets.
  */
 export const resolveSingleDateValue = (
-    rule: Pick<FilterRule, 'values' | 'settings'>,
+    rule: Pick<FilterRule, 'values' | 'settings'> & {
+        dataAvailableFromDay?: number;
+    },
     now: Date = new Date(),
     timezone?: string,
 ): string | undefined => {
@@ -374,7 +501,12 @@ export const resolveSingleDateValue = (
     const { preset } = settings.singleDate;
     if (preset === 'lastAvailableMonth') {
         const ref = timezone ? moment(now).tz(timezone) : moment(now);
-        const monthsBack = ref.date() < DATA_MONTH_AVAILABLE_FROM_DAY ? 2 : 1;
+        const cutoff = getEffectiveDataAvailableFromDay(
+            rule.dataAvailableFromDay,
+        );
+        const baseMonthsBack = ref.date() < cutoff ? 2 : 1;
+        const count = parseSingleDateCount(settings.singleDate.count);
+        const monthsBack = baseMonthsBack + (count - 1);
         return ref
             .clone()
             .subtract(monthsBack, 'months')
@@ -669,6 +801,87 @@ type DashboardDimensionOverrideMatch = {
     overrideIndex: number;
 };
 
+/**
+ * Drop dynamic-default metadata (`dateRange` / `singleDate`) from settings,
+ * keeping value-carrying keys such as `unitOfTime`. Returns undefined when
+ * nothing remains.
+ */
+const stripDynamicDateSettings = (
+    settings: DateFilterSettings | undefined,
+): DateFilterSettings | undefined => {
+    if (settings == null) return undefined;
+    const rest: DateFilterSettings = { ...settings };
+    delete rest.dateRange;
+    delete rest.singleDate;
+    return Object.keys(rest).length > 0 ? rest : undefined;
+};
+
+/**
+ * Merge an override's settings onto a saved rule's settings (P2-1):
+ * - the saved rule owns value-semantics keys the override may omit — a
+ *   values-only override (URL/embed/SDK) must not drop a saved-only
+ *   `unitOfTime` / `completed` (the compiler defaults missing `unitOfTime`
+ *   for IN_THE_PAST to days, silently changing e.g. "last 6 months" to
+ *   "last 6 days");
+ * - the override's own value-carrying settings win on conflicts;
+ * - dynamic-default metadata (`dateRange` / `singleDate`) is saved-owned
+ *   and only backfilled while the merged operator still accepts that
+ *   value shape. After an operator change a stale `dateRange` (two bounds)
+ *   or `singleDate` (single value) would be re-resolved into the wrong
+ *   number of values, so it is dropped instead.
+ * Returns undefined when nothing survives the merge.
+ */
+const mergeOverrideSettings = (
+    savedSettings: DateFilterSettings | undefined,
+    overrideSettings: DateFilterSettings | undefined,
+    operator: FilterOperator | undefined,
+): DateFilterSettings | undefined => {
+    const merged: DateFilterSettings = {
+        ...savedSettings,
+        ...overrideSettings,
+    };
+    if (
+        operator === FilterOperator.IN_BETWEEN ||
+        operator === FilterOperator.NOT_IN_BETWEEN
+    ) {
+        merged.dateRange = savedSettings?.dateRange;
+        delete merged.singleDate;
+    } else if (operator === FilterOperator.EQUALS) {
+        merged.singleDate = savedSettings?.singleDate;
+        delete merged.dateRange;
+    } else {
+        delete merged.dateRange;
+        delete merged.singleDate;
+    }
+    return Object.values(merged).some((value) => value !== undefined)
+        ? merged
+        : undefined;
+};
+
+/**
+ * Strip saved-owned metadata from an override that matched no saved filter,
+ * so URL/embed/SDK injections cannot add requirement flags, viewer-interaction
+ * policy, date constraints, dynamic defaults or value restrictions.
+ * Value-carrying settings (e.g. `unitOfTime`) survive.
+ */
+const stripUnmatchedOverrideMetadata = <T extends DashboardFilterRule>(
+    override: T,
+): T => ({
+    ...override,
+    required: undefined,
+    requiredGroupId: undefined,
+    clearable: undefined,
+    settings: stripDynamicDateSettings(override.settings),
+    minAllowedDate: undefined,
+    maxAllowedDate: undefined,
+    enableDynamicMaxAllowedDate: undefined,
+    dateRangeGranularity: undefined,
+    rollingMinAllowedMonths: undefined,
+    dataAvailableFromDay: undefined,
+    excludedValues: undefined,
+    allowedOperators: undefined,
+});
+
 export const getDashboardDimensionOverrideMatches = (
     savedFilters: DashboardFilterRule[],
     overrides: DashboardFilterRuleOverride[],
@@ -754,20 +967,29 @@ export const applyDimensionOverrides = (
                 maxAllowedDate: dimension.maxAllowedDate,
                 // The saved dashboard owns how viewers may interact with values.
                 clearable: dimension.clearable,
+                // The saved dashboard owns dynamic-default metadata and the
+                // date-constraint config; the override only carries
+                // values/operator.
+                settings: mergeOverrideSettings(
+                    dimension.settings,
+                    override.settings,
+                    override.operator,
+                ),
+                enableDynamicMaxAllowedDate:
+                    dimension.enableDynamicMaxAllowedDate,
+                dateRangeGranularity: dimension.dateRangeGranularity,
+                rollingMinAllowedMonths: dimension.rollingMinAllowedMonths,
+                dataAvailableFromDay: dimension.dataAvailableFromDay,
             };
         },
     );
 
     // Append overrides that matched no saved filter by id or field. Strip
-    // requirement flags so URL overrides cannot inject required metadata.
+    // saved-owned metadata so URL/embed/SDK overrides cannot inject
+    // constraints, dynamic defaults or requirement metadata.
     const newDimensions = overrideArray
         .filter((o) => !savedIds.has(o.id) && !appliedOverrideIds.has(o.id))
-        .map((o) => ({
-            ...o,
-            required: undefined,
-            requiredGroupId: undefined,
-            clearable: undefined,
-        }));
+        .map((o) => stripUnmatchedOverrideMetadata(o));
     overriddenDimensions.push(...newDimensions);
 
     return overriddenDimensions;

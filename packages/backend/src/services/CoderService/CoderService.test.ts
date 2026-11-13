@@ -96,6 +96,37 @@ describe('CoderService', () => {
                 (result.dimensions[0] as DashboardFilterRule).tileTargets,
             ).toEqual({});
         });
+
+        it('preserves hideTilesWhenEmpty when converting tile refs', () => {
+            const mockDashboard: DashboardDAO = {
+                filters: {
+                    dimensions: [
+                        {
+                            hideTilesWhenEmpty: true,
+                            tileTargets: {
+                                'uuid-1': {
+                                    fieldId: 'field-1',
+                                } as DashboardTileTarget,
+                            },
+                        },
+                    ],
+                },
+                tiles: [
+                    {
+                        uuid: 'uuid-1',
+                        type: DashboardTileTypes.SAVED_CHART,
+                        properties: { chartSlug: 'slug-1' },
+                    },
+                ],
+            } as AnyType;
+
+            const result = CoderService.getFiltersWithTileSlugs(mockDashboard);
+
+            expect(
+                (result.dimensions[0] as DashboardFilterRule)
+                    .hideTilesWhenEmpty,
+            ).toBe(true);
+        });
     });
 
     describe('getFiltersWithTileUuids', () => {
@@ -203,6 +234,37 @@ describe('CoderService', () => {
                     someTargetProperty: 'value1',
                 },
             });
+        });
+
+        it('preserves hideTilesWhenEmpty when converting tile refs', () => {
+            const dashboardAsCode = {
+                filters: {
+                    dimensions: [
+                        {
+                            hideTilesWhenEmpty: true,
+                            tileTargets: {
+                                'chart-slug-1': {
+                                    someTargetProperty: 'value1',
+                                },
+                            },
+                        },
+                    ],
+                },
+            };
+            const tilesWithUuids = [
+                {
+                    uuid: 'uuid-1',
+                    type: DashboardTileTypes.SAVED_CHART,
+                    properties: { chartSlug: 'chart-slug-1' },
+                },
+            ];
+
+            const result = CoderService.getFiltersWithTileUuids(
+                dashboardAsCode as AnyType,
+                tilesWithUuids as AnyType,
+            );
+
+            expect(result.dimensions[0].hideTilesWhenEmpty).toBe(true);
         });
     });
 });

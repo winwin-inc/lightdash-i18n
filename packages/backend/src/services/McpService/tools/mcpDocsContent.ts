@@ -87,7 +87,7 @@ curl -X POST "$SITE_URL/api/v1/mcp" \\
 5. Use \`search_field_values\` to enumerate values. It works on \`queryable\` and \`metadataOnly\` tables; \`attributeDenied\` and unknown tables are rejected.
 6. Prefer \`run_semantic_metric_query\` (Explorer metric query JSON) for complex queries. Use \`run_metric_query\` for simple flat field selections.
 7. For a known dashboard pass \`dashboardUuid\` to \`get_dashboard_tiles\` / \`run_dashboard_tiles\`; without it the server picks the best candidate dashboard it can see.
-8. Narrow down big results with smaller \`limit\` values and \`filters\`. Never guess a \`fieldId\`.
+8. Narrow down big results with smaller \`limit\` values and \`filters\`. Never guess a \`fieldId\`. Query tools return flattened scalar rows (\`{ field: value }\`); pass \`valueFormat: "formatted"\` to \`run_semantic_metric_query\` / \`run_saved_chart\` / \`run_dashboard_tiles\` when you need display-formatted values instead of raw ones.
 9. To find custom charts on a dashboard use \`list_charts\` or \`get_dashboard_tiles\` and look for \`chartKind === "custom"\` (see topic \`content_fields\`).
 
 Example of a metric query call:

@@ -1807,6 +1807,16 @@
                             "readOnly": {
                                 "type": "boolean"
                             },
+                            "dataAvailableFromDay": {
+                                "type": "number",
+                                "format": "double",
+                                "description": "Rule-level override of the day-of-month data cutoff (default 4,\nDATA_MONTH_AVAILABLE_FROM_DAY): before this day only the month before\nlast is considered available. Consumed by the dynamic latest-month\nbound (month granularity constraints) and the single-date\n`lastAvailableMonth` preset — frontend pickers/clamps/validation and\nbackend scheduled resolution (the rule carries the value). Different\nrules may point at data sources with different availability days."
+                            },
+                            "rollingMinAllowedMonths": {
+                                "type": "number",
+                                "format": "double",
+                                "description": "Rolling lower bound for month-granularity filters, expressed\nas the number N of complete months in the selectable window:\nmin = start of the month of the resolved latest selectable month,\nminus (N - 1) months. The window rolls forward automatically as the\nlatest selectable month advances (dynamic max) or stays static when\nanchored to a fixed maxAllowedDate.\nundefined = not enabled. Consumed when operator is IN_BETWEEN with\nMONTH dateRangeGranularity, or single-value EQUALS on a month field\nwith a dynamic singleDate default; other operators/granularities\nshort-circuit it. Save-time validation should reject the combination\n\"rolling without any latest selectable month\" (no maxAllowedDate and\nenableDynamicMaxAllowedDate off)."
+                            },
                             "enableDynamicMaxAllowedDate": {
                                 "type": "boolean",
                                 "description": "When true and maxAllowedDate is empty, month/quarter pickers use a\nrolling latest date (before the 4th: two months ago; from the 4th:\nlast month; quarters: last complete quarter). Default is off."
@@ -1844,6 +1854,10 @@
                             "parentFieldId": {
                                 "type": "string",
                                 "description": "父级筛选器的字段 id（跨作用域绑定时仍指向父级字段）"
+                            },
+                            "hideTilesWhenEmpty": {
+                                "type": "boolean",
+                                "description": "查看模式下，该筛选器无确定值时隐藏它作用到的图表。\n作用范围 = 该筛选器「应用图表」(tileTargets) 中勾选的图表。\n「任何值」(disabled) 按当前链下是否有候选值判定：有候选不隐藏，无候选隐藏；\n候选探测未完成 / 失败时视为未知，不隐藏。\n默认关闭。"
                             },
                             "categoryLevel": {
                                 "type": "number",
@@ -9579,19 +9593,6 @@
                                                         "type": "string",
                                                         "enum": ["error"],
                                                         "nullable": false
-                                                    }
-                                                },
-                                                "required": ["status"],
-                                                "type": "object"
-                                            },
-                                            {
-                                                "properties": {
-                                                    "status": {
-                                                        "type": "string",
-                                                        "enum": [
-                                                            "error",
-                                                            "success"
-                                                        ]
                                                     }
                                                 },
                                                 "required": ["status"],
@@ -17453,6 +17454,20 @@
                 "required": ["results", "status"],
                 "type": "object"
             },
+            "ApiExportChartImageResponse": {
+                "properties": {
+                    "results": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": ["ok"],
+                        "nullable": false
+                    }
+                },
+                "required": ["results", "status"],
+                "type": "object"
+            },
             "RenameType": {
                 "enum": ["model", "field"],
                 "type": "string"
@@ -20619,6 +20634,16 @@
                             "readOnly": {
                                 "type": "boolean"
                             },
+                            "dataAvailableFromDay": {
+                                "type": "number",
+                                "format": "double",
+                                "description": "Rule-level override of the day-of-month data cutoff (default 4,\nDATA_MONTH_AVAILABLE_FROM_DAY): before this day only the month before\nlast is considered available. Consumed by the dynamic latest-month\nbound (month granularity constraints) and the single-date\n`lastAvailableMonth` preset — frontend pickers/clamps/validation and\nbackend scheduled resolution (the rule carries the value). Different\nrules may point at data sources with different availability days."
+                            },
+                            "rollingMinAllowedMonths": {
+                                "type": "number",
+                                "format": "double",
+                                "description": "Rolling lower bound for month-granularity filters, expressed\nas the number N of complete months in the selectable window:\nmin = start of the month of the resolved latest selectable month,\nminus (N - 1) months. The window rolls forward automatically as the\nlatest selectable month advances (dynamic max) or stays static when\nanchored to a fixed maxAllowedDate.\nundefined = not enabled. Consumed when operator is IN_BETWEEN with\nMONTH dateRangeGranularity, or single-value EQUALS on a month field\nwith a dynamic singleDate default; other operators/granularities\nshort-circuit it. Save-time validation should reject the combination\n\"rolling without any latest selectable month\" (no maxAllowedDate and\nenableDynamicMaxAllowedDate off)."
+                            },
                             "enableDynamicMaxAllowedDate": {
                                 "type": "boolean",
                                 "description": "When true and maxAllowedDate is empty, month/quarter pickers use a\nrolling latest date (before the 4th: two months ago; from the 4th:\nlast month; quarters: last complete quarter). Default is off."
@@ -20656,6 +20681,10 @@
                             "parentFieldId": {
                                 "type": "string",
                                 "description": "父级筛选器的字段 id（跨作用域绑定时仍指向父级字段）"
+                            },
+                            "hideTilesWhenEmpty": {
+                                "type": "boolean",
+                                "description": "查看模式下，该筛选器无确定值时隐藏它作用到的图表。\n作用范围 = 该筛选器「应用图表」(tileTargets) 中勾选的图表。\n「任何值」(disabled) 按当前链下是否有候选值判定：有候选不隐藏，无候选隐藏；\n候选探测未完成 / 失败时视为未知，不隐藏。\n默认关闭。"
                             },
                             "categoryLevel": {
                                 "type": "number",
@@ -20738,6 +20767,10 @@
                         "type": "number",
                         "enum": [1, 2, 3, 4]
                     },
+                    "hideTilesWhenEmpty": {
+                        "type": "boolean",
+                        "description": "查看模式下，该筛选器无确定值时隐藏它作用到的图表。\n作用范围 = 该筛选器「应用图表」(tileTargets) 中勾选的图表。\n「任何值」(disabled) 按当前链下是否有候选值判定：有候选不隐藏，无候选隐藏；\n候选探测未完成 / 失败时视为未知，不隐藏。\n默认关闭。"
+                    },
                     "parentFieldId": {
                         "type": "string",
                         "description": "父级筛选器的字段 id（跨作用域绑定时仍指向父级字段）"
@@ -20775,6 +20808,16 @@
                     "enableDynamicMaxAllowedDate": {
                         "type": "boolean",
                         "description": "When true and maxAllowedDate is empty, month/quarter pickers use a\nrolling latest date (before the 4th: two months ago; from the 4th:\nlast month; quarters: last complete quarter). Default is off."
+                    },
+                    "rollingMinAllowedMonths": {
+                        "type": "number",
+                        "format": "double",
+                        "description": "Rolling lower bound for month-granularity filters, expressed\nas the number N of complete months in the selectable window:\nmin = start of the month of the resolved latest selectable month,\nminus (N - 1) months. The window rolls forward automatically as the\nlatest selectable month advances (dynamic max) or stays static when\nanchored to a fixed maxAllowedDate.\nundefined = not enabled. Consumed when operator is IN_BETWEEN with\nMONTH dateRangeGranularity, or single-value EQUALS on a month field\nwith a dynamic singleDate default; other operators/granularities\nshort-circuit it. Save-time validation should reject the combination\n\"rolling without any latest selectable month\" (no maxAllowedDate and\nenableDynamicMaxAllowedDate off)."
+                    },
+                    "dataAvailableFromDay": {
+                        "type": "number",
+                        "format": "double",
+                        "description": "Rule-level override of the day-of-month data cutoff (default 4,\nDATA_MONTH_AVAILABLE_FROM_DAY): before this day only the month before\nlast is considered available. Consumed by the dynamic latest-month\nbound (month granularity constraints) and the single-date\n`lastAvailableMonth` preset — frontend pickers/clamps/validation and\nbackend scheduled resolution (the rule carries the value). Different\nrules may point at data sources with different availability days."
                     },
                     "readOnly": {
                         "type": "boolean"
@@ -27524,7 +27567,7 @@
     },
     "info": {
         "title": "Lightdash API",
-        "version": "2.6.3",
+        "version": "2.7.2",
         "description": "Open API documentation for all public Lightdash API endpoints. # Authentication Before you get started, you might need to create a Personal Access Token to authenticate via the API. You can create a token by following this guide: https://docs.lightdash.com/references/personal_tokens\n",
         "license": {
             "name": "MIT"
@@ -32574,6 +32617,57 @@
                         }
                     }
                 }
+            }
+        },
+        "/api/v1/saved/{chartUuid}/export": {
+            "post": {
+                "operationId": "exportSavedChartImage",
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiExportChartImageResponse"
+                                }
+                            }
+                        }
+                    },
+                    "default": {
+                        "description": "Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ApiErrorPayload"
+                                }
+                            }
+                        }
+                    }
+                },
+                "description": "Export a saved chart as a PNG image",
+                "summary": "Export chart image",
+                "tags": ["Charts"],
+                "security": [],
+                "parameters": [
+                    {
+                        "description": "chartUuid for the chart to export",
+                        "in": "path",
+                        "name": "chartUuid",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "description": "project uuid, required when chartUuidOrSlug is a slug",
+                        "in": "query",
+                        "name": "projectUuid",
+                        "required": false,
+                        "schema": {
+                            "$ref": "#/components/schemas/UUID"
+                        }
+                    }
+                ]
             }
         },
         "/api/v1/projects/{projectUuid}/rename": {

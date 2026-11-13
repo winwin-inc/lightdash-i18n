@@ -581,4 +581,102 @@ describe('resolveLastAvailableMonth / resolveSingleDateValue', () => {
             }),
         ).toBe(false);
     });
+
+    it('honors a rule-level dataAvailableFromDay cutoff', () => {
+        const dynamicRule = {
+            values: ['2020-01'],
+            dataAvailableFromDay: 10,
+            settings: {
+                singleDate: {
+                    mode: 'dynamic' as const,
+                    preset: 'lastAvailableMonth' as const,
+                },
+            },
+        };
+        // 2026-07-04 < 10 号 → 上上月；默认 4 号口径下本应是上月
+        expect(
+            resolveSingleDateValue(dynamicRule, new Date('2026-07-04')),
+        ).toBe('2026-05');
+        // 2026-07-10 ≥ 10 号 → 上月
+        expect(
+            resolveSingleDateValue(dynamicRule, new Date('2026-07-10')),
+        ).toBe('2026-06');
+
+        // cutoff=2：2026-07-02 已过 → 上月（默认口径下是上上月）
+        expect(
+            resolveSingleDateValue(
+                { ...dynamicRule, dataAvailableFromDay: 2 },
+                new Date('2026-07-02'),
+            ),
+        ).toBe('2026-06');
+    });
+
+    it('falls back to the default cutoff for invalid dataAvailableFromDay', () => {
+        const dynamicRule = {
+            values: ['2020-01'],
+            settings: {
+                singleDate: {
+                    mode: 'dynamic' as const,
+                    preset: 'lastAvailableMonth' as const,
+                },
+            },
+        };
+        // 0 / 31 / 1.5 非法 → 回退默认 4 号：2026-07-03（4 号前）→ 上上月
+        for (const invalid of [0, 31, 1.5, Number.NaN]) {
+            expect(
+                resolveSingleDateValue(
+                    { ...dynamicRule, dataAvailableFromDay: invalid },
+                    new Date('2026-07-03'),
+                ),
+            ).toBe('2026-05');
+        }
+    });
+
+    it('resolveLastAvailableMonth honors a custom cutoff', () => {
+        const result = resolveLastAvailableMonth(
+            new Date('2026-03-03'),
+            undefined,
+            2,
+        );
+        expect([
+            result.getFullYear(),
+            result.getMonth(),
+            result.getDate(),
+        ]).toEqual([2026, 1, 1]);
+    });
+
+    it('count N resolves to the N-th available month back', () => {
+        const base = {
+            values: ['2020-01'],
+            settings: {
+                singleDate: {
+                    mode: 'dynamic' as const,
+                    preset: 'lastAvailableMonth' as const,
+                    count: 2,
+                },
+            },
+        };
+        // 2026-07-10（4 号已过）：最近可用月 2026-06，再往前 1 个 → 2026-05
+        expect(
+            resolveSingleDateValue(base, new Date('2026-07-10')),
+        ).toBe('2026-05');
+        // 2026-07-03（4 号前）：最近可用月 2026-05，再往前 1 个 → 2026-04
+        expect(
+            resolveSingleDateValue(base, new Date('2026-07-03')),
+        ).toBe('2026-04');
+        // 非法 count（0 / 负数 / 小数）回退 1
+        for (const invalid of [0, -1, 1.5]) {
+            expect(
+                resolveSingleDateValue(
+                    {
+                        ...base,
+                        settings: {
+                            singleDate: { ...base.settings.singleDate, count: invalid },
+                        },
+                    },
+                    new Date('2026-07-10'),
+                ),
+            ).toBe('2026-06');
+        }
+    });
 });

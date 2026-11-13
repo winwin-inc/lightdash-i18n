@@ -4,18 +4,14 @@ import {
     formatDate,
     isDateRangeDynamic,
     parseDate,
-    resolveDateRangeValues,
     type BaseFilterRule,
     type DateRangeBoundSetting,
-    type DateRangeMode,
     type DateRangeSetting,
     type FilterRule,
 } from '@lightdash/common';
 import {
     Flex,
     NumberInput,
-    Radio,
-    Select,
     Stack,
     Text,
     type PopoverProps,
@@ -30,6 +26,16 @@ import FilterDateRangePicker from './FilterDateRangePicker';
 import FilterMonthAndYearPicker from './FilterMonthAndYearPicker';
 import FilterQuarterPicker from './FilterQuarterPicker';
 import FilterYearPicker from './FilterYearPicker';
+import {
+    DYNAMIC_DATE_RANGE_DEFAULT_END,
+    DYNAMIC_DATE_RANGE_DEFAULT_START,
+    getLockedDynamicUnit,
+    isDynamicDateRangeAllowed,
+    normalizeDateRangeSetting,
+    parseDateRangeCount,
+    resolveDateRangeMode,
+    resolveDynamicDateRangeValues,
+} from './dateRangeMode';
 import { getDateRangeRuleWithFixedValues, resolveDisplayValues } from './utils';
 
 dayjs.extend(quarterOfYear);
@@ -52,55 +58,6 @@ type Props = {
     /** true = 编辑模式（配置默认值），false / undefined = 查看模式 */
     isEditMode?: boolean;
     popoverProps?: Omit<PopoverProps, 'children'>;
-};
-
-const DEFAULT_START: Required<DateRangeBoundSetting> = {
-    direction: 'ago',
-    count: 12,
-    unit: UnitOfTime.months,
-};
-const DEFAULT_END: Required<DateRangeBoundSetting> = {
-    direction: 'ago',
-    count: 1,
-    unit: UnitOfTime.months,
-};
-
-const isMode = (value: string | null): value is DateRangeMode =>
-    value === 'fixed' || value === 'dynamic';
-
-const unitOfTimeOptions: Array<{ value: UnitOfTime; labelKey: string }> = [
-    { value: UnitOfTime.months, labelKey: 'months' },
-    { value: UnitOfTime.quarters, labelKey: 'quarters' },
-];
-
-/**
- * Dynamic date range is only enabled for month / quarter granularity.
- * Day / year granularities hide the "Dynamic Date" radio entirely and use
- * fixed dates only.
- */
-const isDynamicAllowed = (granularity: TimeFrames): boolean =>
-    granularity === TimeFrames.MONTH || granularity === TimeFrames.QUARTER;
-
-/**
- * Map the picker's date-range granularity to the dynamic unit it must use.
- * Month granularity → months, Quarter granularity → quarters, and the user
- * cannot change it.
- */
-const getLockedDynamicUnit = (
-    granularity: TimeFrames,
-): UnitOfTime | undefined => {
-    if (granularity === TimeFrames.MONTH) return UnitOfTime.months;
-    if (granularity === TimeFrames.QUARTER) return UnitOfTime.quarters;
-    return undefined;
-};
-
-const parseCount = (raw: unknown): number => {
-    if (typeof raw === 'number' && Number.isFinite(raw)) return raw;
-    if (typeof raw === 'string') {
-        const n = Number(raw);
-        return Number.isFinite(n) ? n : 1;
-    }
-    return 1;
 };
 
 const parseValueAsDate = (
@@ -142,22 +99,6 @@ const formatValueFromDate = (
     return formatDate(date, TimeFrames.DAY);
 };
 
-/**
- * Resolve a dynamic DateRangeSetting into [startStr, endStr] so that the
- * `values` array always reflects the current dynamic configuration. The SQL
- * compiler re-resolves from `settings.dateRange` at query time (so dates stay
- * fresh), but `values` must also be populated for validation
- * (`hasFilterValueSet`) and for any code path that reads `values` directly.
- */
-const resolveDynamicValues = (
-    dateRange: DateRangeSetting,
-    granularity: TimeFrames,
-): string[] =>
-    resolveDateRangeValues(
-        { settings: { dateRange }, values: [] },
-        granularity,
-    ).filter((value): value is string => value !== null);
-
 const FilterDynamicDateRangePicker: FC<Props> = ({
     rule,
     onChange,
@@ -171,17 +112,16 @@ const FilterDynamicDateRangePicker: FC<Props> = ({
 }) => {
     const { t } = useTranslation();
 
-    const dynamicAllowed = isDynamicAllowed(granularity);
+    const dynamicAllowed = isDynamicDateRangeAllowed(granularity);
     const lockedUnit = getLockedDynamicUnit(granularity);
 
     const dateRangeSetting: DateRangeSetting = rule.settings?.dateRange ?? {};
     // If dynamic mode is not allowed but the rule somehow carries a dynamic
-    // config, treat it as fixed so the UI never shows the dynamic radio.
-    const mode: DateRangeMode = !dynamicAllowed
-        ? 'fixed'
-        : isMode(dateRangeSetting.mode ?? null)
-        ? (dateRangeSetting.mode as DateRangeMode)
-        : 'fixed';
+    // config, treat it as fixed so the UI never shows the dynamic branch.
+    // The fixed ↔ dynamic mode switch itself lives in the dashboard filter
+    // settings card (Radio at the top of the value section) for edit mode;
+    // this component only renders the current mode's input body.
+    const mode = resolveDateRangeMode(dateRangeSetting, granularity);
 
     // Force unit to the locked value based on granularity (months for month
     // granularity, quarters for quarter granularity). Users cannot change
@@ -193,13 +133,19 @@ const FilterDynamicDateRangePicker: FC<Props> = ({
 
     const startSetting: DateRangeBoundSetting = {
         direction: 'ago',
-        count: parseCount(dateRangeSetting.start?.count),
-        unit: coerceUnit(dateRangeSetting.start?.unit, DEFAULT_START.unit),
+        count: parseDateRangeCount(dateRangeSetting.start?.count),
+        unit: coerceUnit(
+            dateRangeSetting.start?.unit,
+            DYNAMIC_DATE_RANGE_DEFAULT_START.unit,
+        ),
     };
     const endSetting: DateRangeBoundSetting = {
         direction: 'ago',
-        count: parseCount(dateRangeSetting.end?.count),
-        unit: coerceUnit(dateRangeSetting.end?.unit, DEFAULT_END.unit),
+        count: parseDateRangeCount(dateRangeSetting.end?.count),
+        unit: coerceUnit(
+            dateRangeSetting.end?.unit,
+            DYNAMIC_DATE_RANGE_DEFAULT_END.unit,
+        ),
     };
 
     const writeDateRangeSetting = useCallback(
@@ -207,27 +153,11 @@ const FilterDynamicDateRangePicker: FC<Props> = ({
             // Coerce units FIRST, then resolve values with the coerced
             // settings. This ensures that when the granularity changes
             // (e.g. month → quarter), the stored unit is corrected before
-            // resolveDynamicValues computes the dates.
-            const coercedNext: DateRangeSetting = {
-                ...next,
-                start: next.start
-                    ? {
-                          ...next.start,
-                          direction: 'ago',
-                          unit: coerceUnit(next.start.unit, DEFAULT_START.unit),
-                      }
-                    : next.start,
-                end: next.end
-                    ? {
-                          ...next.end,
-                          direction: 'ago',
-                          unit: coerceUnit(next.end.unit, DEFAULT_END.unit),
-                      }
-                    : next.end,
-            };
+            // resolveDynamicDateRangeValues computes the dates.
+            const coercedNext = normalizeDateRangeSetting(next, lockedUnit);
             const nextValues =
                 coercedNext.mode === 'dynamic'
-                    ? resolveDynamicValues(coercedNext, granularity)
+                    ? resolveDynamicDateRangeValues(coercedNext, granularity)
                     : rule.values;
             onChange({
                 ...rule,
@@ -238,32 +168,8 @@ const FilterDynamicDateRangePicker: FC<Props> = ({
                 },
             });
         },
-        // eslint-disable-next-line react-hooks/exhaustive-deps
         [onChange, rule, granularity, lockedUnit],
     );
-
-    const handleModeChange = (nextMode: DateRangeMode) => {
-        if (nextMode === mode) return;
-        if (!dynamicAllowed && nextMode === 'dynamic') return;
-        if (nextMode === 'dynamic') {
-            // Switching to dynamic: seed defaults so the user has a
-            // sensible starting point (last 12 months -> last 1 month).
-            writeDateRangeSetting({
-                mode: 'dynamic',
-                start: { ...startSetting },
-                end: { ...endSetting },
-            });
-        } else {
-            // Switching to fixed: drop the dynamic config. Existing
-            // `values` (if any) continue to drive the fixed pickers.
-            const { dateRange: _drop, ...restSettings } =
-                (rule.settings as DateRangeRule['settings']) ?? {};
-            onChange({
-                ...rule,
-                settings: restSettings,
-            });
-        }
-    };
 
     const handleBoundChange = (
         bound: 'start' | 'end',
@@ -289,14 +195,8 @@ const FilterDynamicDateRangePicker: FC<Props> = ({
         });
     };
 
-    const unitOptions = unitOfTimeOptions.map((opt) => ({
-        value: opt.value,
-        label: t(
-            `components_common_filters_inputs.date_range.dynamic.unit.${opt.labelKey}`,
-        ),
-    }));
-    const unitDisabled = lockedUnit != null;
-
+    // 单位被粒度锁死（月粒度→月、季粒度→季度），展示为静态后缀文本，
+    // 与单值「取值 [N] 个可用月前」行的格式统一，不再是 disabled 下拉
     const renderBoundRow = (
         bound: 'start' | 'end',
         labelKey: string,
@@ -324,25 +224,11 @@ const FilterDynamicDateRangePicker: FC<Props> = ({
                     });
                 }}
             />
-            <Select
-                size="xs"
-                data={unitOptions}
-                value={setting.unit ?? DEFAULT_START.unit}
-                onChange={(value) => {
-                    if (
-                        value === UnitOfTime.months ||
-                        value === UnitOfTime.quarters
-                    ) {
-                        handleBoundChange(bound, { unit: value });
-                    }
-                }}
-                disabled={disabled || unitDisabled}
-                allowDeselect={false}
-                w={88}
-            />
             <Text size="xs" c="dimmed">
                 {t(
-                    'components_common_filters_inputs.date_range.dynamic.direction.ago',
+                    lockedUnit === UnitOfTime.quarters
+                        ? 'components_common_filters_inputs.date_range.dynamic.unit_suffix.quarters'
+                        : 'components_common_filters_inputs.date_range.dynamic.unit_suffix.months',
                 )}
             </Text>
         </Flex>
@@ -506,63 +392,30 @@ const FilterDynamicDateRangePicker: FC<Props> = ({
         );
     };
 
-    // Day / year granularity OR view mode: no dynamic option, just render
-    // the fixed pickers. Dynamic vs fixed is an edit-mode default only;
-    // view mode can change the current dates without rewriting that default.
-    if (!dynamicAllowed || !isEditMode) {
+    // The mode Radio lives in the dashboard filter settings card; this
+    // component renders only the current mode's input body. View mode (and
+    // day / year granularity) always renders fixed pickers — for dynamic
+    // rules in view mode the resolved display values are shown.
+    const showDynamicRows = isEditMode && dynamicAllowed && mode === 'dynamic';
+    if (showDynamicRows) {
         return (
-            <Stack spacing="xs" w="100%">
-                {renderFixedPicker()}
+            <Stack spacing={4} w="100%">
+                {renderBoundRow(
+                    'start',
+                    'components_common_filters_inputs.date_range.dynamic.start_label',
+                    startSetting,
+                )}
+                {renderBoundRow(
+                    'end',
+                    'components_common_filters_inputs.date_range.dynamic.end_label',
+                    endSetting,
+                )}
             </Stack>
         );
     }
-
     return (
         <Stack spacing="xs" w="100%">
-            <Radio.Group
-                value={mode}
-                onChange={(value) => {
-                    if (isMode(value)) handleModeChange(value);
-                }}
-            >
-                <Stack spacing={4}>
-                    <Radio
-                        value="dynamic"
-                        size="xs"
-                        disabled={disabled}
-                        label={t(
-                            'components_common_filters_inputs.date_range.dynamic.custom_label',
-                        )}
-                    />
-                    {mode === 'dynamic' && (
-                        <Stack spacing={4} pl="lg">
-                            {renderBoundRow(
-                                'start',
-                                'components_common_filters_inputs.date_range.dynamic.start_label',
-                                startSetting,
-                            )}
-                            {renderBoundRow(
-                                'end',
-                                'components_common_filters_inputs.date_range.dynamic.end_label',
-                                endSetting,
-                            )}
-                        </Stack>
-                    )}
-                    <Radio
-                        value="fixed"
-                        size="xs"
-                        disabled={disabled}
-                        label={t(
-                            'components_common_filters_inputs.date_range.dynamic.fixed_label',
-                        )}
-                    />
-                    {mode === 'fixed' && (
-                        <Stack spacing={4} pl="lg">
-                            {renderFixedPicker()}
-                        </Stack>
-                    )}
-                </Stack>
-            </Radio.Group>
+            {renderFixedPicker()}
         </Stack>
     );
 };
