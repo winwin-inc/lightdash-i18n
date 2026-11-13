@@ -110,6 +110,7 @@ import {
     dedupeZipEntryNames,
     sanitizeGenericFileName,
 } from '../utils/FileDownloadUtils/FileDownloadUtils';
+import { getCsvZipEntryNames } from '../utils/FileDownloadUtils/csvEntryNames';
 import { WorkbookExportHelper } from '../services/ExcelService/WorkbookExportHelper';
 import { ExportRowBudget } from '../utils/FileDownloadUtils/exportBudget';
 import slackifyMarkdown from 'slackify-markdown';
@@ -3802,6 +3803,12 @@ export default class SchedulerTask {
                         ? payload.options
                         : { formatted: true, limit: 'table' as const };
 
+                    const csvTileFailures: Array<{
+                        kind: 'chart' | 'sqlChart';
+                        chartUuid: string;
+                        reason: string;
+                    }> = [];
+
                     const csvFiles = await this.csvService
                         .getCsvsForDashboard({
                             jobId,
@@ -3819,6 +3826,10 @@ export default class SchedulerTask {
                             tabFilters: payload.tabFilters,
                             // 一次性导出才启用累计行数预算（交付任务保持旧行为）
                             enforceRowBudget: true,
+                            // 单图失败不再静默丢弃：收集成失败清单随结果返回
+                            onTileFailed: (failure) => {
+                                csvTileFailures.push(failure);
+                            },
                             // 与 XLSX 一样把「正在导哪个 Tab 的哪张图」写进任务详情
                             onProgress: (progress) => {
                                 void this.reportExportProgress(
@@ -3850,6 +3861,28 @@ export default class SchedulerTask {
                         );
                     }
 
+                    // 失败清单：尽量取图表名，查不到退化为 uuid 前缀
+                    const csvFailedExports: Array<{
+                        filename: string;
+                        reason: string;
+                    }> = [];
+                    // eslint-disable-next-line no-restricted-syntax
+                    for (const failure of csvTileFailures) {
+                        // eslint-disable-next-line no-await-in-loop
+                        const failureName = await this.getFailedTileName(
+                            failure.kind,
+                            failure.chartUuid,
+                            payload.projectUuid,
+                        );
+                        Logger.warn(
+                            `Failed to export dashboard ${failure.kind} tile "${failureName}" (${failure.chartUuid}) as CSV: ${failure.reason}`,
+                        );
+                        csvFailedExports.push({
+                            filename: failureName,
+                            reason: failure.reason,
+                        });
+                    }
+
                     const anyCsvTruncated = csvFiles.some(
                         (file) => file.truncated,
                     );
@@ -3857,26 +3890,34 @@ export default class SchedulerTask {
                     // 只有一张图有数据时直接给 csv，不套 zip（「导出这一页」）
                     if (csvFiles.length === 1) {
                         const [singleFile] = csvFiles;
-                        return {
-                            url: singleFile.path,
-                            fileType: DownloadFileType.CSV,
-                            truncated: anyCsvTruncated,
-                        };
+                        return SchedulerTask.withFailedExports(
+                            {
+                                url: singleFile.path,
+                                fileType: DownloadFileType.CSV,
+                                truncated: anyCsvTruncated,
+                            },
+                            csvFailedExports,
+                        );
                     }
 
+                    // 多 Tab 导出时条目名加 `<Tab名>__` 前缀，避免同名图分不清来源
+                    const entryNames = getCsvZipEntryNames(csvFiles);
                     const url = await this.createExportZipDownloadUrl({
-                        files: csvFiles.map((file) => ({
-                            entryNameBase: file.filename,
+                        files: csvFiles.map((file, index) => ({
+                            entryNameBase: entryNames[index],
                             localPath: file.localPath,
                         })),
                         fileExtension: 'csv',
                         zipNameBase: dashboard.name,
                     });
-                    return {
-                        url,
-                        fileType: 'zip',
-                        truncated: anyCsvTruncated,
-                    };
+                    return SchedulerTask.withFailedExports(
+                        {
+                            url,
+                            fileType: 'zip',
+                            truncated: anyCsvTruncated,
+                        },
+                        csvFailedExports,
+                    );
                 }
 
                 if (payload.format === SchedulerFormat.XLSX) {

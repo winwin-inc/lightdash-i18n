@@ -211,6 +211,7 @@
     "success": "成功！",
     "success_export": "成功！{{name}} 已导出。",
     "export_truncated": "导出完成，但部分图表超过行数上限已被截断",
+    "export_partial_failed": "导出完成，但 {{count}} 张图失败（{{names}}）",
     "export_progress": "{{done}}/{{total}}",
     "export_progress_tab": "{{name}}",
     "export_progress_chart": "{{name}}",

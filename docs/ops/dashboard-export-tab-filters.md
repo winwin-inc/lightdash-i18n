@@ -123,6 +123,9 @@ DownloadAsyncQueryResultsPayload.leadingColumns?: ExportFilterColumn[];
 - `SchedulerCsvOptions` 删除 `xlsxFileLayout`；`DEFAULT_XLSX_FILE_LAYOUT` / `normalizeXlsxFileLayout` / `XlsxFileLayout` 一并删除。
 - `SchedulerTask.getNotificationPageData`：`keepTempFile` 固定为 true（每张图先落 `/tmp`），
   查完之后无条件走 `buildPerTabWorkbookCsvUrls`（每 Tab 一个 xlsx）。
+- CSV 没有 sheet 概念：一张图一个 `.csv`（不按 Tab 合并）；
+  **跨 >1 个 Tab 导出时 zip 条目名加 `<Tab名>__` 前缀**（如 `集团分析__销售额.csv`），
+  只导一页时仍是图表名；重名仍按大小写不敏感去重；单图失败不再静默丢弃，随结果返回失败清单。
 - **单份产物不套 zip**：只有一份工作簿时（看板没有 Tab，或只选了 1 个 Tab）直接返回该 `.xlsx`；
   ≥2 个 Tab 才打成 zip。CSV 的判据是「只有一张图有数据」（CSV 不按 Tab 合并，只能按文件数判断），
   否则打 zip。

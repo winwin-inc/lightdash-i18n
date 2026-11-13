@@ -413,15 +413,39 @@ export const useExportDashboardContent = () => {
                             document.body.appendChild(link);
                             link.click();
                             link.remove();
+                            // 成功后把「被截断」「部分图表失败」这类不完整信息一起提示
+                            const failedExports = Array.isArray(
+                                details.failedExports,
+                            )
+                                ? (details.failedExports as Array<{
+                                      filename: string;
+                                  }>)
+                                : [];
+                            const subtitleParts: string[] = [];
+                            if (details.truncated === true) {
+                                subtitleParts.push(
+                                    t('hooks_dashboard.export_truncated'),
+                                );
+                            }
+                            if (failedExports.length > 0) {
+                                subtitleParts.push(
+                                    t('hooks_dashboard.export_partial_failed', {
+                                        count: failedExports.length,
+                                        names: failedExports
+                                            .slice(0, 3)
+                                            .map((file) => file.filename)
+                                            .join('、'),
+                                    }),
+                                );
+                            }
                             showToastSuccess({
                                 key: 'dashboard_export_toast',
                                 title: t('hooks_dashboard.success_export', {
                                     name: data.dashboard.name,
                                 }),
-                                // 任一图触顶时产物不完整，成功提示里补一句
                                 subtitle:
-                                    details.truncated === true
-                                        ? t('hooks_dashboard.export_truncated')
+                                    subtitleParts.length > 0
+                                        ? subtitleParts.join('；')
                                         : undefined,
                             });
                         } else {

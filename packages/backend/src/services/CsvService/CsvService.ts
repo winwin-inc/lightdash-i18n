@@ -71,6 +71,7 @@ import {
 import { pipeline as pipelineAsync } from 'stream/promises';
 import { Worker } from 'worker_threads';
 import { ExportRowBudget } from '../../utils/FileDownloadUtils/exportBudget';
+import { getCsvZipEntryNames } from '../../utils/FileDownloadUtils/csvEntryNames';
 import { mapWithConcurrencyLimit } from '../../utils/mapWithConcurrencyLimit';
 import {
     DownloadCsv,
@@ -91,6 +92,7 @@ import { UserModel } from '../../models/UserModel';
 import { SchedulerClient } from '../../scheduler/SchedulerClient';
 import { runWorkerThread } from '../../utils';
 import {
+    dedupeZipEntryNames,
     generateGenericFileId,
     isRowValueDate,
     isRowValueTimestamp,
@@ -152,6 +154,18 @@ export const convertSqlToCsv = (
             },
         );
     });
+};
+
+/** 看板导出的单个 CSV 产物（含 Tab 上下文，供 zip 条目命名） */
+export type CsvDashboardFile = AttachmentUrl & {
+    tabUuid?: string | null;
+    tabName?: string;
+};
+
+export type CsvTileExportFailure = {
+    kind: 'chart' | 'sqlChart';
+    chartUuid: string;
+    reason: string;
 };
 
 export const getSchedulerCsvLimit = (
@@ -1059,6 +1073,7 @@ export class CsvService extends BaseService {
         schedulerParameters,
         tabFilters,
         onProgress,
+        onTileFailed,
         enforceRowBudget = false,
     }: {
         user: SessionUser;
@@ -1075,12 +1090,14 @@ export class CsvService extends BaseService {
         tabFilters?: Record<string, DashboardFilters>;
         /** 进度回调（一次性导出写进 job details；定时交付不传） */
         onProgress?: (progress: ExportJobProgress) => void;
+        /** 单张图导出失败（不再静默丢弃，调用方聚合成失败清单） */
+        onTileFailed?: (failure: CsvTileExportFailure) => void;
         /**
          * 是否启用「整次导出累计行数」预算：只有用户主动点击的一键导出开启，
          * 定时交付沿用旧的截断语义。
          */
         enforceRowBudget?: boolean;
-    }): Promise<AttachmentUrl[]> {
+    }): Promise<CsvDashboardFile[]> {
         const dashboard = await this.dashboardModel.getByIdOrSlug(
             dashboardUuid,
         );
@@ -1221,10 +1238,17 @@ export class CsvService extends BaseService {
                                   reportProgress(tabName, chartName),
                           });
 
-                return { csv, tabName };
+                return { csv, tabName, tabUuid: tile.tabUuid };
             },
             (result) => {
                 settledTiles += 1;
+                if (result.status === 'rejected') {
+                    onTileFailed?.({
+                        kind: result.item.kind,
+                        chartUuid: result.item.chartUuid,
+                        reason: getErrorMessage(result.reason),
+                    });
+                }
                 if (result.status === 'fulfilled') {
                     // onSettled 的异常会被限流器吞掉，超预算在整批结束后统一抛
                     try {
@@ -1243,8 +1267,17 @@ export class CsvService extends BaseService {
 
         rowBudget?.assertWithinLimit();
 
+        // 带上 Tab 上下文：多 Tab 导出的 zip 条目名要加 Tab 前缀
         return settledResults.flatMap((result) =>
-            result.status === 'fulfilled' ? [result.value.csv] : [],
+            result.status === 'fulfilled'
+                ? [
+                      {
+                          ...result.value.csv,
+                          tabUuid: result.value.tabUuid,
+                          tabName: result.value.tabName,
+                      },
+                  ]
+                : [],
         );
     }
 
@@ -1689,9 +1722,14 @@ export class CsvService extends BaseService {
             // 先挂空 catch，避免迟到 rejection 变成 unhandled（Node 默认结束进程）
             void zipDone.catch(() => undefined);
 
-            files.forEach((file) => {
+            // 与一键导出同一套命名：多 Tab 时加 `<Tab名>__` 前缀并去重
+            const entryNames = dedupeZipEntryNames(
+                getCsvZipEntryNames(files),
+                'csv',
+            );
+            files.forEach((file, index) => {
                 archive.file(file.localPath, {
-                    name: `${file.filename}.csv`,
+                    name: entryNames[index],
                 });
             });
             archive.pipe(output);

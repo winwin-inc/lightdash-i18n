@@ -217,6 +217,7 @@
     "success": "Success!",
     "success_export": "Success! {{name}} was exported.",
     "export_truncated": "Export finished, but some charts were truncated at the row limit",
+    "export_partial_failed": "Export finished, but {{count}} charts failed ({{names}})",
     "export_progress": "{{done}}/{{total}}",
     "export_progress_tab": "{{name}}",
     "export_progress_chart": "{{name}}",
