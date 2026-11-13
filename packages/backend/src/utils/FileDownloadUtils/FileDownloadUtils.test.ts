@@ -1,6 +1,7 @@
 import { Readable } from 'stream';
 import {
     createContentDispositionHeader,
+    dedupeZipEntryNames,
     processFieldsForExport,
     sanitizeGenericFileName,
     streamJsonlData,
@@ -336,5 +337,27 @@ describe('FileDownloadUtils', () => {
             expect(results).toHaveLength(3);
             expect(readStream.destroyed).toBe(true);
         });
+    });
+});
+
+describe('dedupeZipEntryNames', () => {
+    it('keeps the original casing and appends suffixes for duplicates', () => {
+        expect(
+            dedupeZipEntryNames(['Sales', 'Sales', 'Sales'], 'xlsx'),
+        ).toEqual(['Sales.xlsx', 'Sales_2.xlsx', 'Sales_3.xlsx']);
+    });
+
+    it('de-duplicates case-insensitively, matching extractor behaviour', () => {
+        expect(dedupeZipEntryNames(['Sales', 'sales'], 'xlsx')).toEqual([
+            'Sales.xlsx',
+            'sales_2.xlsx',
+        ]);
+    });
+
+    it('sanitizes path separators and empty names', () => {
+        expect(dedupeZipEntryNames(['a/b:c', ''], 'xlsx')).toEqual([
+            'a_b_c.xlsx',
+            'download.xlsx',
+        ]);
     });
 });

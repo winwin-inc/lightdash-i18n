@@ -333,12 +333,17 @@ export class MicrosoftTeamsClient {
                                 type: 'TextBlock',
                                 text: 'Download results:',
                             },
-                            ...csvUrls.map((csvUrl) => ({
-                                type: 'TextBlock',
-                                text: `- [${csvUrl.filename}](${csvUrl.path})`,
-                                isSubtle: true,
-                                spacing: 'none',
-                            })),
+                            // 空图表（#no-results）没有可下载内容，与 Slack/Email 一致地跳过
+                            ...csvUrls
+                                .filter(
+                                    (csvUrl) => csvUrl.path !== '#no-results',
+                                )
+                                .map((csvUrl) => ({
+                                    type: 'TextBlock',
+                                    text: `- [${csvUrl.filename}](${csvUrl.path})`,
+                                    isSubtle: true,
+                                    spacing: 'none',
+                                })),
                             ...(failedExportsText
                                 ? [
                                       {

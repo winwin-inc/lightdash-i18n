@@ -39,12 +39,14 @@ import {
     ItemsMap,
     MetricQuery,
     MissingConfigError,
+    NO_CHARTS_TO_EXPORT_MESSAGE,
     ParametersValuesMap,
     QueryExecutionContext,
     SCHEDULER_TASKS,
     SchedulerCsvOptions,
     SchedulerFormat,
     SessionUser,
+    UnexpectedServerError,
     validateSelectedTabs,
     type ExportFilterColumn,
     type RunQueryTags,
@@ -1594,11 +1596,6 @@ export class CsvService extends BaseService {
             tabFilters,
         }).then((urls) => urls.filter((url) => url.path !== '#no-results'));
 
-        this.logger.info(
-            `Writing ${csvFiles.length} CSV files to zip file for dashboard ${dashboardUuid}`,
-        );
-        const zipFile = await writeZipFile(csvFiles);
-
         this.analytics.track({
             event: 'download_results.completed',
             userId: user.userUuid,
@@ -1607,6 +1604,24 @@ export class CsvService extends BaseService {
                 numCharts: csvFiles.length,
             },
         });
+
+        if (csvFiles.length === 0) {
+            throw new UnexpectedServerError(NO_CHARTS_TO_EXPORT_MESSAGE);
+        }
+
+        // 只有一张图有数据（看板没有 Tab / 只选了 1 个 Tab）时直接给 csv，不套 zip
+        if (csvFiles.length === 1) {
+            const [singleFile] = csvFiles;
+            this.logger.info(
+                `Returning single CSV for dashboard ${dashboardUuid}: ${singleFile.path}`,
+            );
+            return singleFile.path;
+        }
+
+        this.logger.info(
+            `Writing ${csvFiles.length} CSV files to zip file for dashboard ${dashboardUuid}`,
+        );
+        const zipFile = await writeZipFile(csvFiles);
         const zipFileName = `${sanitizeGenericFileName(
             dashboard.name,
         )}-${moment().format('YYYY-MM-DD-HH-mm-ss-SSSS')}.zip`;

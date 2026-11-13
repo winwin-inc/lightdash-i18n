@@ -260,7 +260,7 @@ const XlsxExport: FC<XlsxExportProps & Pick<ModalProps, 'onClose'>> = ({
     tabFilters,
     onClose,
 }) => {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const exportContentMutation = useExportDashboardContent();
     const dashboardFilters = useDashboardContext((c) => c.allFilters);
     const dateZoomGranularity = useDashboardContext(
@@ -276,6 +276,10 @@ const XlsxExport: FC<XlsxExportProps & Pick<ModalProps, 'onClose'>> = ({
                 options: {
                     formatted: true,
                     limit: 'table',
+                    // 后端按 locale 命名「未分组」这类兜底文案
+                    locale: i18n.language?.toLowerCase().startsWith('zh')
+                        ? 'zh'
+                        : 'en',
                 },
                 dashboardFilters,
                 dateZoomGranularity,

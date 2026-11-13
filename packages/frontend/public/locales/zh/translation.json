@@ -210,6 +210,7 @@
     "is_being_exported": "{{name}} 正在导出。这可能需要几秒钟。",
     "success": "成功！",
     "success_export": "成功！{{name}} 已导出。",
+    "export_truncated": "导出完成，但部分图表超过行数上限已被截断",
     "failed_export": "导出 {{name}} 失败",
     "failed_preview": "生成 {{name}} 预览失败",
     "missing_file_url": "{{name}} 缺少文件 URL",
@@ -4264,7 +4265,7 @@
     "alert_title": "已启用日期缩放",
     "alert": "您的 CSV 导出将包括所选日期缩放粒度的数据。",
     "tooltip": {
-      "label": "以 zip 文件形式导出所有图表的表格结果",
+      "label": "导出所选选项卡下图表的表格数据（单页为 csv，多页打成 zip）",
       "button": "导出 CSV",
       "button_xlsx": "导出 XLSX"
     },

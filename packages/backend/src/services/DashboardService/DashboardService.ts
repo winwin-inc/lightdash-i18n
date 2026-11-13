@@ -2719,6 +2719,7 @@ export class DashboardService
         const options: SchedulerCsvOptions = {
             formatted: data.options?.formatted ?? true,
             limit: data.options?.limit ?? 'table',
+            locale: data.options?.locale,
         };
 
         const payload: ExportContentPayload = {
@@ -2729,7 +2730,11 @@ export class DashboardService
             dashboardFilters: data.dashboardFilters,
             dateZoomGranularity: data.dateZoomGranularity,
             customViewportWidth: data.customViewportWidth,
-            selectedTabs: data.selectedTabs ?? null,
+            // 空数组与 null 同义：导出全部 Tab（与 CSV 入口一致）
+            selectedTabs:
+                data.selectedTabs && data.selectedTabs.length > 0
+                    ? data.selectedTabs
+                    : null,
             parameters: data.parameters,
             tabFilters: data.tabFilters,
             organizationUuid: dashboard.organizationUuid,

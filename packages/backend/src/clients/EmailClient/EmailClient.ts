@@ -610,8 +610,13 @@ export default class EmailClient {
             (attachment) => attachment.truncated,
         );
 
+        // 附件从「所有有产物的条目」构建，不只取未截断的那批：
+        // 合并后的看板产物只有一条（每 Tab 一个 xlsx / 一个 zip），
+        // 任意一张图触顶就会把它整体标成 truncated，若按 truncated 过滤
+        // 就会出现「勾了作为附件却一个附件都没有」。截断仍由模板的
+        // truncated 区块提示。
         const emailAttachments = asAttachment
-            ? csvUrls
+            ? attachments
                   .filter(
                       (attachment) =>
                           (attachment.localPath || attachment.path) &&

@@ -216,6 +216,7 @@
     "is_being_exported": "{{name}} is being exported. This might take a few seconds.",
     "success": "Success!",
     "success_export": "Success! {{name}} was exported.",
+    "export_truncated": "Export finished, but some charts were truncated at the row limit",
     "failed_export": "Failed to export {{name}}",
     "failed_preview": "Failed to generate preview for {{name}}",
     "missing_file_url": "Missing file url for {{name}}",
@@ -4241,7 +4242,7 @@
     "alert_title": "Date zoom is enabled",
     "alert": "Your CSV export will include data for the selected date zoom granularity.",
     "tooltip": {
-      "label": "Export results in table for all charts in a zip file",
+      "label": "Export the table results of the selected tabs (csv for a single page, zip for several)",
       "button": "Export CSV",
       "button_xlsx": "Export XLSX"
     },

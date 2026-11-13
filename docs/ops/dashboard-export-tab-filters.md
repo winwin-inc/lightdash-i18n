@@ -113,11 +113,19 @@ DownloadAsyncQueryResultsPayload.leadingColumns?: ExportFilterColumn[];
 透视表的表头是多行，**统一做法：每个前置列在第 1 行写列名，其余所有行（含次级表头行）写取值**，
 不做合并单元格。CSV/XLSX 保持同一份值。
 
-### 3.3 布局收口（只留一种产物）
+### 3.3 产物形态收口（只留一种布局，单份产物不再套 zip）
 
 - `SchedulerCsvOptions` 删除 `xlsxFileLayout`；`DEFAULT_XLSX_FILE_LAYOUT` / `normalizeXlsxFileLayout` / `XlsxFileLayout` 一并删除。
 - `SchedulerTask.getNotificationPageData`：`keepTempFile` 固定为 true（每张图先落 `/tmp`），
-  查完之后无条件走 `buildPerTabWorkbookCsvUrls`（每 Tab 一个 xlsx → zip）。
+  查完之后无条件走 `buildPerTabWorkbookCsvUrls`（每 Tab 一个 xlsx）。
+- **单份产物不套 zip**：只有一份工作簿时（看板没有 Tab，或只选了 1 个 Tab）直接返回该 `.xlsx`；
+  ≥2 个 Tab 才打成 zip。CSV 的判据是「只有一张图有数据」（CSV 不按 Tab 合并，只能按文件数判断），
+  否则打 zip。
+- 空产物（筛选后无任何数据 / 所有 Tab 都合不出 sheet）统一抛 `No charts to export in the selected tabs`，
+  不再产出空 zip；CSV 与 XLSX 前端都会把它映射成可读文案。
+- **无 Tab 的看板**：产物文件名为看板名（不是「未分组 / Ungrouped」），因为这时候「一页 = 整个看板」；
+  多 Tab 看板里混入无归属图时仍叫「未分组」以便区分。
+- 空产物直接报 `No charts to export in the selected tabs`（前端映射成可读文案），不再产出空 zip。
 - `SchedulerTask.exportContent`：不再按布局分支，直接把 `page.csvUrls[0]`（zip）透传。
 - 删除死代码：单文件多工作表布局的合并入口 `buildWorkbookCsvUrls`（`WorkbookExportHelper.createWorkbookFile`
   仍在用，服务 per-tab 合并）、`generate-api` 里 `SchedulerCsvOptions` 的 `xlsxFileLayout` 定义。
@@ -160,6 +168,7 @@ DownloadAsyncQueryResultsPayload.leadingColumns?: ExportFilterColumn[];
 | 布局收口：布局字段与 `zip` / `workbook` 分支整体删除，产物固定「每 Tab 一个 xlsx → zip」 | `SchedulerTask.exportContent` / `getNotificationPageData` / `buildPerTabWorkbookCsvUrls`、`DashboardService.scheduleExportContent`、`common/src/types/scheduler.ts` |
 | 前端布局选项移除，`tabFilters` 随 CSV / XLSX 请求带上 | `DashboardExportModal.tsx`、`SchedulerForm.tsx`、`useDashboard.ts`、`dashboardRouter.ts` |
 | `tabFilterEnabled` 在看板加载时回填（页面与交付/导出口径一致） | `providers/Dashboard/DashboardProvider.tsx` |
+| 单份产物直接给 xlsx / csv，多份才 zip；无 Tab 看板用看板名 | `SchedulerTask.buildPerTabWorkbookZipUrl` / `exportContent`、`CsvService.runScheduledExportCsvDashboard` |
 
 实际执行的验证命令与结果（backend 三份 jest 在文档核对时复跑确认）：
 
@@ -190,3 +199,10 @@ DownloadAsyncQueryResultsPayload.leadingColumns?: ExportFilterColumn[];
   接进 `getCsvForSqlChart` / 让 SQL 图支持绑定筛选器列。
 - `worksheet` 左侧新增列会影响列号（A、B… 变为第 N+1 列起）；依赖固定列号的下游脚本需要按列名取数。
 - 旧 JSON 里残留的 `xlsxFileLayout` 键不再读取（该选项从未上线，没有历史交付需要兼容）。
+- 产物类型由 URL 对象键后缀判断（`.zip` → zip，否则 xlsx/csv），与邮件附件同一判据；
+  job `details` 里同时带 `fileType` 与 `truncated`，前端下载名按 `fileType` 补扩展名（以前是无扩展名，
+  取决于浏览器推断），`truncated` 为真时成功 toast 追加提示。
+- 邮件「作为附件」改为从所有有产物的条目构建：合并后的产物只有一条，任意一张图触顶就会把整条标成
+  `truncated`，若按 truncated 过滤会出现「勾了附件却没有附件」；截断仍由模板的 truncated 区块提示。
+- zip 条目名去重改为大小写不敏感（Windows/macOS 解压会互相覆盖），非法字符与空名仍走
+  `sanitizeGenericFileName`（空名 → `download`）。

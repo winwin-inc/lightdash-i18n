@@ -259,6 +259,25 @@ export const useExportDashboard = () => {
     );
 };
 
+/**
+ * 导出产物可能是单个文件（xlsx/csv）或多文件 zip，后端在 job details 里
+ * 用 fileType 标出真实类型；下载链接的 download 属性必须带上扩展名，
+ * 否则保存下来的文件名取决于浏览器推断。
+ */
+const getExportDownloadFileName = (
+    dashboardName: string,
+    details: Record<string, unknown> | null | undefined,
+    fallbackExtension: 'csv' | 'xlsx',
+): string => {
+    const fileType =
+        typeof details?.fileType === 'string' ? details.fileType : undefined;
+    const extension =
+        fileType === 'zip' || fileType === 'csv' || fileType === 'xlsx'
+            ? fileType
+            : fallbackExtension;
+    return `${dashboardName}-${formatDate(Date.now())}.${extension}`;
+};
+
 const exportCsvDashboard = async (
     id: string,
     filters: DashboardFilters,
@@ -326,9 +345,11 @@ export const useExportCsvDashboard = () => {
                             link.href = details.url;
                             link.setAttribute(
                                 'download',
-                                `${data.dashboard.name}-${formatDate(
-                                    Date.now(),
-                                )}`,
+                                getExportDownloadFileName(
+                                    data.dashboard.name,
+                                    details,
+                                    'csv',
+                                ),
                             );
                             document.body.appendChild(link);
                             link.click();
@@ -352,12 +373,19 @@ export const useExportCsvDashboard = () => {
                         }
                     })
                     .catch((error: Error) => {
+                        // 后端「所选 Tab 下没有可导出图表」是英文硬编码错误，
+                        // 这里换成可读文案（与 XLSX 导出一致）
+                        const isNoChartsToExport = error.message.includes(
+                            NO_CHARTS_TO_EXPORT_MESSAGE,
+                        );
                         showToastError({
                             key: 'dashboard_export_toast',
                             title: t('hooks_dashboard.failed_export', {
                                 name: data.dashboard.name,
                             }),
-                            subtitle: error.message,
+                            subtitle: isNoChartsToExport
+                                ? t('hooks_dashboard.no_charts_to_export')
+                                : error.message,
                         });
                     });
             },
@@ -422,9 +450,11 @@ export const useExportDashboardContent = () => {
                             link.href = details.url;
                             link.setAttribute(
                                 'download',
-                                `${data.dashboard.name}-${formatDate(
-                                    Date.now(),
-                                )}`,
+                                getExportDownloadFileName(
+                                    data.dashboard.name,
+                                    details,
+                                    'xlsx',
+                                ),
                             );
                             document.body.appendChild(link);
                             link.click();
@@ -434,6 +464,11 @@ export const useExportDashboardContent = () => {
                                 title: t('hooks_dashboard.success_export', {
                                     name: data.dashboard.name,
                                 }),
+                                // 任一图触顶时产物不完整，成功提示里补一句
+                                subtitle:
+                                    details.truncated === true
+                                        ? t('hooks_dashboard.export_truncated')
+                                        : undefined,
                             });
                         } else {
                             showToastError({

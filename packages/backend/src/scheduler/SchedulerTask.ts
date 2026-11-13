@@ -105,7 +105,10 @@ import fsSync from 'fs';
 import fs from 'fs/promises';
 import { nanoid } from 'nanoid';
 import { Readable } from 'stream';
-import { sanitizeGenericFileName } from '../utils/FileDownloadUtils/FileDownloadUtils';
+import {
+    dedupeZipEntryNames,
+    sanitizeGenericFileName,
+} from '../utils/FileDownloadUtils/FileDownloadUtils';
 import { WorkbookExportHelper } from '../services/ExcelService/WorkbookExportHelper';
 import slackifyMarkdown from 'slackify-markdown';
 import {
@@ -1969,7 +1972,8 @@ export default class SchedulerTask {
         onTabSkipped?: (tabName: string, filenames: string[]) => void;
     }): Promise<string> {
         if (files.length === 0) {
-            throw new UnexpectedServerError('No files to include in workbook');
+            // 有筛选器但一条数据都没有时走这里；用可本地化的统一文案
+            throw new UnexpectedServerError(NO_CHARTS_TO_EXPORT_MESSAGE);
         }
 
         // 文件名不能后端硬编码中文：英文界面应得到 "Ungrouped"
@@ -1977,12 +1981,13 @@ export default class SchedulerTask {
         const ungroupedTabName = (locale ?? 'zh').startsWith('zh')
             ? '未分组'
             : 'Ungrouped';
+        const NO_TAB_KEY = '__no_tab__';
         const groups = new Map<
             string,
             { tabName: string; files: typeof files }
         >();
         files.forEach((file) => {
-            const key = file.tabUuid ?? '__no_tab__';
+            const key = file.tabUuid ?? NO_TAB_KEY;
             const existing = groups.get(key);
             const tabName = file.tabName ?? ungroupedTabName;
             if (existing) {
@@ -1991,6 +1996,10 @@ export default class SchedulerTask {
                 groups.set(key, { tabName, files: [file] });
             }
         });
+        // 看板没有 Tab（全部图都在 __no_tab__）时，产物就是看板这一页，
+        // 文件名用看板名，而不是「未分组」；混合场景仍保留「未分组」以便区分
+        const isSingleNoTabGroup =
+            groups.size === 1 && groups.has(NO_TAB_KEY);
 
         const workbooks: Array<{ entryNameBase: string; localPath: string }> =
             [];
@@ -2062,8 +2071,19 @@ export default class SchedulerTask {
             }
 
             if (workbooks.length === 0) {
-                throw new UnexpectedServerError(
-                    'Dashboard workbook export failed for every tab',
+                throw new UnexpectedServerError(NO_CHARTS_TO_EXPORT_MESSAGE);
+            }
+
+            // 只有一份工作簿（看板没有 Tab，或只选了 1 个 Tab）时，直接给 xlsx，
+            // 不再套一层 zip：客户要的就是「导出这一页」
+            if (workbooks.length === 1) {
+                const [{ entryNameBase, localPath }] = workbooks;
+                const singleFileName = `${sanitizeGenericFileName(
+                    isSingleNoTabGroup ? dashboardName : entryNameBase,
+                )}-${new Date().toISOString().replace(/[:.]/g, '-')}.xlsx`;
+                return await this.s3Client.uploadExcel(
+                    fsSync.createReadStream(localPath),
+                    singleFileName,
                 );
             }
 
@@ -3622,7 +3642,9 @@ export default class SchedulerTask {
         payload: ExportContentPayload,
     ) {
         await this.logWrapper<
-            string | NonNullable<NotificationPayloadBase['page']['failedExports']>
+            | string
+            | boolean
+            | NonNullable<NotificationPayloadBase['page']['failedExports']>
         >(
             {
                 task: SCHEDULER_TASKS.EXPORT_CONTENT,
@@ -3677,6 +3699,21 @@ export default class SchedulerTask {
                             payload.resourceUuid,
                         );
 
+                    if (csvFiles.length === 0) {
+                        throw new UnexpectedServerError(
+                            NO_CHARTS_TO_EXPORT_MESSAGE,
+                        );
+                    }
+
+                    // 只有一张图有数据时直接给 csv，不套 zip（「导出这一页」）
+                    if (csvFiles.length === 1) {
+                        const [singleFile] = csvFiles;
+                        return {
+                            url: singleFile.path,
+                            fileType: DownloadFileType.CSV,
+                        };
+                    }
+
                     const url = await this.createExportZipDownloadUrl({
                         files: csvFiles.map((file) => ({
                             entryNameBase: file.filename,
@@ -3725,17 +3762,27 @@ export default class SchedulerTask {
                         );
                     }
 
-                    // getNotificationPageData 已收口成单条 zip URL
-                    // （每 Tab 一个 xlsx；每图 /tmp 中间文件也已清理），直接透传
+                    // getNotificationPageData 已收口成单条产物 URL：
+                    // 只有一份工作簿时是 .xlsx，多 Tab 时是 zip（每图 /tmp
+                    // 中间文件也已清理），直接透传
                     try {
-                        const zipUrl = page.csvUrls[0]?.path;
-                        if (!zipUrl) {
+                        const exportUrl = page.csvUrls[0]?.path;
+                        if (!exportUrl) {
                             throw new UnexpectedServerError(
                                 'Dashboard per-tab workbook export failed',
                             );
                         }
                         return SchedulerTask.withFailedExports(
-                            { url: zipUrl, fileType: 'zip' },
+                            {
+                                url: exportUrl,
+                                fileType: SchedulerTask.getExportFileType(
+                                    exportUrl,
+                                    DownloadFileType.XLSX,
+                                ),
+                                // 任一图触顶时产物是不完整的，前端要提示
+                                truncated:
+                                    page.csvUrls[0]?.truncated === true,
+                            },
                             page.failedExports,
                         );
                     } finally {
@@ -3771,6 +3818,17 @@ export default class SchedulerTask {
                 )}`,
             );
         }
+    }
+
+    /**
+     * 导出产物的真实文件类型：单份产物可能是 xlsx/csv，多份是 zip。
+     * 以 URL 里的对象键后缀为准（与邮件附件同一判据）。
+     */
+    private static getExportFileType(
+        url: string,
+        singleFileType: DownloadFileType,
+    ): DownloadFileType | 'zip' {
+        return /\.zip(\?|$)/i.test(url) ? 'zip' : singleFileType;
     }
 
     /**
@@ -4003,23 +4061,9 @@ export default class SchedulerTask {
         try {
             // entryName 分配必须同步、按输入顺序完成：并发下载的响应到达
             // 顺序不确定，若在 mapper 里分配，同名文件的 _2 后缀会随竞态漂移
-            const usedNames = new Set<string>();
-            const dedupeName = (baseName: string) => {
-                const extension = `.${fileExtension}`;
-                const base = sanitizeGenericFileName(baseName);
-                let name = `${base}${extension}`;
-                if (usedNames.has(name)) {
-                    let suffix = 2;
-                    while (usedNames.has(`${base}_${suffix}${extension}`)) {
-                        suffix += 1;
-                    }
-                    name = `${base}_${suffix}${extension}`;
-                }
-                usedNames.add(name);
-                return name;
-            };
-            const entryNames = files.map((file) =>
-                dedupeName(file.entryNameBase),
+            const entryNames = dedupeZipEntryNames(
+                files.map((file) => file.entryNameBase),
+                fileExtension,
             );
 
             // http 分支流式 append（Readable.fromWeb），不再 arrayBuffer() 全量
