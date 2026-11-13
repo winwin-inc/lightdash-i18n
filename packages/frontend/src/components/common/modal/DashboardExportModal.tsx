@@ -13,7 +13,6 @@ import {
     Input,
     Modal,
     MultiSelect,
-    Paper,
     SegmentedControl,
     Stack,
     Text,
@@ -23,7 +22,6 @@ import {
 import {
     IconFileExport,
     IconHelpCircle,
-    IconLayoutDashboard,
     IconScreenshot,
 } from '@tabler/icons-react';
 import { useCallback, useEffect, useMemo, useState, type FC } from 'react';
@@ -293,7 +291,6 @@ const DataExport: FC<DataExportProps & Pick<ModalProps, 'onClose'>> = ({
                 <Button
                     onClick={handleExport}
                     disabled={!hasTilesInSelectedTabs}
-                    leftIcon={<MantineIcon icon={IconFileExport} />}
                 >
                     {t('components_export_results.download')}
                 </Button>
@@ -624,16 +621,11 @@ export const DashboardExportModal: FC<Props & ModalProps> = ({
                         padding: theme.spacing.sm,
                     })}
                 >
-                    <Group spacing="xs">
-                        <Paper p="xs" withBorder radius="sm">
-                            <MantineIcon icon={IconLayoutDashboard} size="sm" />
-                        </Paper>
-                        <Text color="dark.7" fw={700} fz="md">
-                            {t(
-                                'components_common_modal_dashboard_export.export_dashboard',
-                            )}
-                        </Text>
-                    </Group>
+                    <Text color="dark.7" fw={700} fz="md">
+                        {t(
+                            'components_common_modal_dashboard_export.export_dashboard',
+                        )}
+                    </Text>
                     <Modal.CloseButton />
                 </Modal.Header>
 
