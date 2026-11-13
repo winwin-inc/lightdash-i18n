@@ -539,6 +539,21 @@ export type ApiJobStatusResponse = {
 
 export type SchedulerCronUpdate = { schedulerUuid: string; cron: string };
 
+/**
+ * 看板导出的进度（写在 scheduler_log.details.progress 里，跑动中就能读到）。
+ * 前端据 currentTabName / currentChartName 展示「正在导出哪一页的哪张图」。
+ */
+export type ExportJobProgress = {
+    /** 已完成的图数 */
+    done: number;
+    /** 本次要导出的图数 */
+    total: number;
+    /** 正在处理的 Tab 名（看板没有 Tab 时为 undefined） */
+    currentTabName?: string;
+    /** 正在处理的图表名 */
+    currentChartName?: string;
+};
+
 export type ExportCsvDashboardPayload = TraceTaskBase & {
     dashboardUuid: string;
     dashboardFilters: DashboardFilters;

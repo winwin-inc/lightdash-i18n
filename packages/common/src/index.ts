@@ -757,6 +757,11 @@ export type ApiDownloadAsyncQueryResultsAsXlsx = {
      * 由调用方负责删除。
      */
     localPath?: string;
+    /**
+     * 实际写入的行数：看板一键导出用它累计「单次导出总行数」预算。
+     * 仅进程内调用会拿到，HTTP 接口不返回。
+     */
+    rowCount?: number;
 };
 
 export type ApiChartAndResults = {
@@ -1272,6 +1277,8 @@ export type HealthState = {
         defaultLimit: number;
         csvCellsLimit: number;
         maxPageSize: number;
+        /** 看板一键导出允许的累计行数（跨所有图表），用于导出弹窗提示 */
+        dashboardExportMaxTotalRows: number;
     };
     pivotTable: {
         maxColumnLimit: number;

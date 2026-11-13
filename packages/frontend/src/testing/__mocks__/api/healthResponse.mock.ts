@@ -41,6 +41,7 @@ export default function mockHealthResponse(
             maxLimit: 1000000,
             defaultLimit: 500,
             csvCellsLimit: 100,
+            dashboardExportMaxTotalRows: 200000,
         },
         pivotTable: {
             maxColumnLimit: 100,

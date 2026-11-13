@@ -95,6 +95,7 @@ import {
     pivotResultsAsCsv,
     setUuidParam,
     type DateGranularity,
+    type ExportJobProgress,
     type Account as QueryAccount,
     type ExportFilterColumn,
     type ItemsMap,
@@ -110,6 +111,7 @@ import {
     sanitizeGenericFileName,
 } from '../utils/FileDownloadUtils/FileDownloadUtils';
 import { WorkbookExportHelper } from '../services/ExcelService/WorkbookExportHelper';
+import { ExportRowBudget } from '../utils/FileDownloadUtils/exportBudget';
 import slackifyMarkdown from 'slackify-markdown';
 import {
     DownloadCsv,
@@ -334,6 +336,11 @@ export default class SchedulerTask {
         jobId: string,
         /** 每 Tab 实际生效的筛选器（一次性导出时由前端带上来；交付任务缺省） */
         tabFilters?: Record<string, DashboardFilters>,
+        /**
+         * 是否启用「整次导出累计行数」预算。只有用户主动点击的一键导出开启；
+         * 定时交付保持旧行为（超出单图上限就截断并给失败清单）。
+         */
+        enforceRowBudget = false,
     ): Promise<NotificationPayloadBase['page']> {
         const {
             createdBy: userUuid,
@@ -650,17 +657,76 @@ export default class SchedulerTask {
                             );
                         }
                         let settledExportTiles = 0;
-                        const onTileSettled = () => {
-                            settledExportTiles += 1;
-                            void this.reportExportProgress(jobId, {
-                                createdByUserUuid: userUuid,
-                                projectUuid,
-                                organizationUuid,
-                                progress: {
-                                    done: settledExportTiles,
-                                    total: totalExportTiles,
+                        // 一次性导出的累计行数预算：单图各自有限，但十几张图叠加没有边界。
+                        // 定时交付不传预算（沿用「截断 + 部分失败」的旧行为），
+                        // 只有 EXPORT_CONTENT（用户点「导出」）才受限。
+                        const rowBudget = enforceRowBudget
+                            ? new ExportRowBudget(
+                                  this.lightdashConfig.query
+                                      .dashboardExportMaxTotalRows,
+                              )
+                            : undefined;
+                        const reportProgress = (
+                            progress: Omit<ExportJobProgress, 'total'> & {
+                                total?: number;
+                            },
+                            force = false,
+                        ) =>
+                            this.reportExportProgress(
+                                jobId,
+                                {
+                                    createdByUserUuid: userUuid,
+                                    projectUuid,
+                                    organizationUuid,
+                                    progress: {
+                                        done: progress.done,
+                                        total:
+                                            progress.total ?? totalExportTiles,
+                                        ...(progress.currentTabName
+                                            ? {
+                                                  currentTabName:
+                                                      progress.currentTabName,
+                                              }
+                                            : {}),
+                                        ...(progress.currentChartName
+                                            ? {
+                                                  currentChartName:
+                                                      progress.currentChartName,
+                                              }
+                                            : {}),
+                                    },
                                 },
+                                force,
+                            );
+                        const onTileStart = (tile: {
+                            tabName: string | undefined;
+                            chartName: string;
+                        }) => {
+                            void reportProgress({
+                                done: settledExportTiles,
+                                currentTabName: tile.tabName,
+                                currentChartName: tile.chartName,
                             });
+                        };
+                        const onTileSettled = (
+                            rows: number,
+                            tile: { tabName: string | undefined },
+                        ) => {
+                            settledExportTiles += 1;
+                            // onSettled 的异常会被限流器吞掉（它只用于上报进度），
+                            // 这里只累加，超预算在整批结束后统一抛出
+                            try {
+                                rowBudget?.add(rows);
+                            } catch {
+                                // 记录在 budget.used 里，稍后 assertWithinLimit 抛
+                            }
+                            void reportProgress(
+                                {
+                                    done: settledExportTiles,
+                                    currentTabName: tile.tabName,
+                                },
+                                settledExportTiles >= totalExportTiles,
+                            );
                         };
                         // 控制并发：看板一次几十张图，不能同时打满数仓
                         const exportConcurrency = Math.min(
@@ -691,6 +757,9 @@ export default class SchedulerTask {
                                 await this.schedulerService.savedChartModel.get(
                                     chartUuid,
                                 );
+                            // 起跑前先看预算：已经超了就别再打数仓
+                            rowBudget?.assertWithinLimit();
+                            onTileStart({ tabName, chartName: chart.name });
                             const tileFilters = getDashboardFiltersForTile({
                                 filters: getFiltersForTab(tabUuid),
                                 tileUuid,
@@ -767,6 +836,10 @@ export default class SchedulerTask {
                                     'truncated' in downloadResult
                                         ? downloadResult.truncated
                                         : false,
+                                rowCount:
+                                    'rowCount' in downloadResult
+                                        ? (downloadResult.rowCount ?? 0)
+                                        : 0,
                                 tabUuid,
                                 tabName,
                             };
@@ -779,6 +852,15 @@ export default class SchedulerTask {
                             tabName,
                         }: DashboardExportTile) => {
                             const sqlLimit = getSchedulerCsvLimit(csvOptions);
+                            const chart =
+                                await this.asyncQueryService.savedSqlModel.getByUuid(
+                                    chartUuid,
+                                    {
+                                        projectUuid,
+                                    },
+                                );
+                            rowBudget?.assertWithinLimit();
+                            onTileStart({ tabName, chartName: chart.name });
                             // SQL 图不接收看板筛选器（查询侧要求 tileTargets 显式绑定 SQL 列，
                             // 一般都不满足），所以不写筛选器列，避免导出的列与实际过滤不符
                             const tileFilters = getFiltersForTab(tabUuid);
@@ -801,13 +883,6 @@ export default class SchedulerTask {
                                             sqlLimit === null
                                                 ? MAX_SAFE_INTEGER
                                                 : sqlLimit,
-                                    },
-                                );
-                            const chart =
-                                await this.asyncQueryService.savedSqlModel.getByUuid(
-                                    chartUuid,
-                                    {
-                                        projectUuid,
                                     },
                                 );
                             const downloadResult =
@@ -853,6 +928,10 @@ export default class SchedulerTask {
                                     'truncated' in downloadResult
                                         ? downloadResult.truncated
                                         : false,
+                                rowCount:
+                                    'rowCount' in downloadResult
+                                        ? (downloadResult.rowCount ?? 0)
+                                        : 0,
                                 tabUuid,
                                 tabName,
                             };
@@ -882,8 +961,29 @@ export default class SchedulerTask {
                                 work.kind === 'chart'
                                     ? exportChartTile(work.tile)
                                     : exportSqlChartTile(work.tile),
-                            onTileSettled,
+                            (result) =>
+                                onTileSettled(
+                                    result.status === 'fulfilled'
+                                        ? result.value.rowCount
+                                        : 0,
+                                    { tabName: result.item.tile.tabName },
+                                ),
                         );
+                        // 超预算时整次导出失败（不产出半截文件）。
+                        // getNotificationPageData 没有统一 finally，
+                        // 这里必须自己把已落盘的 /tmp 中间文件删掉，否则每次重试都漏一份
+                        try {
+                            rowBudget?.assertWithinLimit();
+                        } catch (budgetError) {
+                            await this.cleanupLocalExportFiles(
+                                exportResults.flatMap((result) =>
+                                    result.status === 'fulfilled'
+                                        ? [result.value]
+                                        : [],
+                                ),
+                            );
+                            throw budgetError;
+                        }
                         csvUrls = exportResults.flatMap((result) =>
                             result.status === 'fulfilled' ? [result.value] : [],
                         );
@@ -3717,6 +3817,23 @@ export default class SchedulerTask {
                             invalidateCache: true,
                             schedulerParameters: payload.parameters,
                             tabFilters: payload.tabFilters,
+                            // 一次性导出才启用累计行数预算（交付任务保持旧行为）
+                            enforceRowBudget: true,
+                            // 与 XLSX 一样把「正在导哪个 Tab 的哪张图」写进任务详情
+                            onProgress: (progress) => {
+                                void this.reportExportProgress(
+                                    jobId,
+                                    {
+                                        createdByUserUuid: payload.userUuid,
+                                        projectUuid: payload.projectUuid,
+                                        organizationUuid:
+                                            payload.organizationUuid,
+                                        progress,
+                                    },
+                                    // 收尾那次强制落库，否则 toast 会停在上一条
+                                    progress.done >= progress.total,
+                                );
+                            },
                         })
                         .then((urls) =>
                             urls.filter((url) => url.path !== '#no-results'),
@@ -3733,12 +3850,17 @@ export default class SchedulerTask {
                         );
                     }
 
+                    const anyCsvTruncated = csvFiles.some(
+                        (file) => file.truncated,
+                    );
+
                     // 只有一张图有数据时直接给 csv，不套 zip（「导出这一页」）
                     if (csvFiles.length === 1) {
                         const [singleFile] = csvFiles;
                         return {
                             url: singleFile.path,
                             fileType: DownloadFileType.CSV,
+                            truncated: anyCsvTruncated,
                         };
                     }
 
@@ -3750,7 +3872,11 @@ export default class SchedulerTask {
                         fileExtension: 'csv',
                         zipNameBase: dashboard.name,
                     });
-                    return { url, fileType: 'zip' };
+                    return {
+                        url,
+                        fileType: 'zip',
+                        truncated: anyCsvTruncated,
+                    };
                 }
 
                 if (payload.format === SchedulerFormat.XLSX) {
@@ -3782,6 +3908,7 @@ export default class SchedulerTask {
                         scheduler,
                         jobId,
                         payload.tabFilters,
+                        true,
                     );
 
                     if (!page.csvUrls || page.csvUrls.length === 0) {
@@ -3826,16 +3953,17 @@ export default class SchedulerTask {
         );
     }
 
-    /** 导出过程中上报进度（节流：最多每 1.5s 写一次库，最后一并写） */
+    /** 导出过程中上报进度（节流：最多每 1.5s 写一次库；最后一次用 force 落库） */
     private lastProgressReportAt = 0;
 
     private async reportExportProgress(
         jobId: string | undefined,
         details: Record<string, unknown>,
+        force = false,
     ): Promise<void> {
         if (!jobId) return;
         const now = Date.now();
-        if (now - this.lastProgressReportAt < 1500) return;
+        if (!force && now - this.lastProgressReportAt < 1500) return;
         this.lastProgressReportAt = now;
         try {
             await this.schedulerService.updateJobDetails(jobId, details);

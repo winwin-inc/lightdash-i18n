@@ -463,6 +463,7 @@ export const lightdashConfigWithNoSMTP: Pick<
         useSqlPivotResults: false,
         exportMaxRows: 1000000,
         exportMaxPivotCells: 2000000,
+        dashboardExportMaxTotalRows: 200000,
     },
 };
 

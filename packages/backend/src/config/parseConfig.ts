@@ -833,6 +833,12 @@ export type LightdashConfig = {
          * the pod. See `utils/FileDownloadUtils/exportLimits.ts`.
          */
         exportMaxPivotCells: number;
+        /**
+         * 看板一键导出（CSV/XLSX）的累计行数上限：一次导出所有图写入的总行数
+         * 超过它就直接失败并提示缩小范围，避免几十张图 × 1M 行把 /tmp、
+         * S3 体积和任务时长同时打爆。
+         */
+        dashboardExportMaxTotalRows: number;
     };
     pivotTable: {
         maxColumnLimit: number;
@@ -867,6 +873,12 @@ export type LightdashConfig = {
         enabled: boolean;
         concurrency: number;
         jobTimeout: number;
+        /**
+         * 看板导出任务（EXPORT_CONTENT / EXPORT_CSV_DASHBOARD）单独的超时：
+         * 一张大看板要在每个 Tab 里合并多个 xlsx，10 分钟的默认值不够。
+         * 注意超时只中止等待、不中止后台执行（见 docs/ops）。
+         */
+        exportJobTimeout: number;
         screenshotTimeout?: number;
         tasks: Array<SchedulerTaskName>;
         queryHistory: {
@@ -1452,6 +1464,7 @@ export type SmtpConfig = {
 };
 
 const DEFAULT_JOB_TIMEOUT = 1000 * 60 * 10; // 10 minutes
+const DEFAULT_EXPORT_JOB_TIMEOUT = 1000 * 60 * 30; // dashboard exports: 30 minutes
 
 const parseSandboxProvider = (
     value: string | undefined,
@@ -2077,6 +2090,10 @@ export const parseConfig = (): LightdashConfig => {
                 getIntegerFromEnvironmentVariable(
                     'EXPORT_MAX_PIVOT_CELLS',
                 ) || 2000000,
+            dashboardExportMaxTotalRows:
+                getIntegerFromEnvironmentVariable(
+                    'DASHBOARD_EXPORT_MAX_TOTAL_ROWS',
+                ) || 200000,
         },
         chart: {
             versionHistory: {
@@ -2133,6 +2150,9 @@ export const parseConfig = (): LightdashConfig => {
             jobTimeout: process.env.SCHEDULER_JOB_TIMEOUT
                 ? parseInt(process.env.SCHEDULER_JOB_TIMEOUT, 10)
                 : DEFAULT_JOB_TIMEOUT,
+            exportJobTimeout: process.env.SCHEDULER_EXPORT_JOB_TIMEOUT
+                ? parseInt(process.env.SCHEDULER_EXPORT_JOB_TIMEOUT, 10)
+                : DEFAULT_EXPORT_JOB_TIMEOUT,
             screenshotTimeout: process.env.SCHEDULER_SCREENSHOT_TIMEOUT
                 ? parseInt(process.env.SCHEDULER_SCREENSHOT_TIMEOUT, 10)
                 : undefined,

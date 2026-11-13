@@ -23,7 +23,6 @@ import {
     getDashboardFiltersForTileAndTables,
     getErrorMessage,
     getExportFilterColumns,
-    getFulfilledValues,
     getHiddenTableFields,
     getItemLabel,
     getItemLabelWithoutTableName,
@@ -49,6 +48,7 @@ import {
     UnexpectedServerError,
     validateSelectedTabs,
     type ExportFilterColumn,
+    type ExportJobProgress,
     type RunQueryTags,
 } from '@lightdash/common';
 import archiver from 'archiver';
@@ -70,6 +70,8 @@ import {
 } from 'stream';
 import { pipeline as pipelineAsync } from 'stream/promises';
 import { Worker } from 'worker_threads';
+import { ExportRowBudget } from '../../utils/FileDownloadUtils/exportBudget';
+import { mapWithConcurrencyLimit } from '../../utils/mapWithConcurrencyLimit';
 import {
     DownloadCsv,
     LightdashAnalytics,
@@ -719,6 +721,7 @@ export class CsvService extends BaseService {
         invalidateCache,
         schedulerParameters,
         locale,
+        onTileStart,
     }: {
         user: SessionUser;
         chartUuid: string;
@@ -733,8 +736,11 @@ export class CsvService extends BaseService {
         schedulerParameters?: ParametersValuesMap;
         /** UI 语言：筛选器列名与取值用词（缺省中文） */
         locale?: string;
-    }): Promise<AttachmentUrl> {
+        /** 真正开始导出这张图（拿得到图表名）时回调，用于进度展示 */
+        onTileStart?: (chartName: string) => void;
+    }): Promise<AttachmentUrl & { rowCount?: number }> {
         const chart = await this.savedChartModel.get(chartUuid);
+        onTileStart?.(chart.name);
         const {
             metricQuery,
             chartConfig: { config },
@@ -825,6 +831,7 @@ export class CsvService extends BaseService {
                 filename: `${chart.name} (empty)`,
                 localPath: '',
                 truncated: false,
+                rowCount: 0,
             };
 
         const truncated = this.couldBeTruncated(rows);
@@ -888,7 +895,7 @@ export class CsvService extends BaseService {
                 });
             }
 
-            return downloadUrl;
+            return { ...(await downloadUrl), rowCount: numberRows };
         }
 
         const fileId = await CsvService.writeRowsToFile(
@@ -917,12 +924,14 @@ export class CsvService extends BaseService {
             encoding: 'utf-8',
         });
 
-        return this.downloadCsvFile({
+        const csvAttachment = await this.downloadCsvFile({
             csvContent,
             fileName: chart.name,
             projectUuid: chart.projectUuid,
             truncated,
         });
+        // 行数用于看板导出的累计预算与截断提示
+        return { ...csvAttachment, rowCount: numberRows };
     }
 
     async getCsvForSqlChart({
@@ -930,16 +939,25 @@ export class CsvService extends BaseService {
         sqlChartUuid,
         projectUuid,
         jobId,
+        onTileStart,
     }: {
         user: SessionUser;
         sqlChartUuid: string;
         projectUuid: string;
         jobId?: string;
-    }): Promise<AttachmentUrl> {
+        /** 真正开始导出这张图时回调，用于进度展示 */
+        onTileStart?: (chartName: string) => void;
+    }): Promise<AttachmentUrl & { rowCount?: number }> {
         const [sqlChart] = await this.savedSqlModel.find({
             uuid: sqlChartUuid,
             projectUuid,
         });
+        if (!sqlChart) {
+            throw new UnexpectedServerError(
+                `SQL chart ${sqlChartUuid} not found in project ${projectUuid}`,
+            );
+        }
+        onTileStart?.(sqlChart.name);
 
         const analyticProperties: DownloadCsv['properties'] | undefined = jobId
             ? {
@@ -1020,11 +1038,12 @@ export class CsvService extends BaseService {
             });
         }
 
-        return this.downloadCsvFile({
+        const csvAttachment = await this.downloadCsvFile({
             csvContent,
             fileName: sqlChart.name,
             projectUuid,
         });
+        return { ...csvAttachment, rowCount: resultsFileUrl.rows.length };
     }
 
     async getCsvsForDashboard({
@@ -1039,6 +1058,8 @@ export class CsvService extends BaseService {
         invalidateCache,
         schedulerParameters,
         tabFilters,
+        onProgress,
+        enforceRowBudget = false,
     }: {
         user: SessionUser;
         dashboardUuid: string;
@@ -1052,6 +1073,13 @@ export class CsvService extends BaseService {
         schedulerParameters?: ParametersValuesMap;
         /** 每 Tab 实际生效的筛选器（一次性导出由前端带上；缺省按看板保存值合并） */
         tabFilters?: Record<string, DashboardFilters>;
+        /** 进度回调（一次性导出写进 job details；定时交付不传） */
+        onProgress?: (progress: ExportJobProgress) => void;
+        /**
+         * 是否启用「整次导出累计行数」预算：只有用户主动点击的一键导出开启，
+         * 定时交付沿用旧的截断语义。
+         */
+        enforceRowBudget?: boolean;
     }): Promise<AttachmentUrl[]> {
         const dashboard = await this.dashboardModel.getByIdOrSlug(
             dashboardUuid,
@@ -1111,42 +1139,113 @@ export class CsvService extends BaseService {
                 dashboard.uuid,
             );
 
-        const csvForChartPromises = chartTileUuidsWithChartUuids.map(
-            ({ tileUuid, chartUuid, tabUuid }) =>
-                this.getCsvForChart({
-                    user,
-                    chartUuid,
-                    options,
-                    jobId,
-                    tileUuid,
-                    dashboardFilters: getDashboardFiltersForTile({
-                        filters: getFiltersForTab(tabUuid),
-                        tileUuid,
-                    }),
-                    dashboardContext,
-                    dateZoomGranularity,
-                    invalidateCache,
-                    schedulerParameters,
-                    locale: options?.locale,
-                }),
-        );
         this.logger.info(
             `Downloading ${sqlChartTileUuids.length} sql chart CSVs for dashboard ${dashboardUuid}`,
         );
-        const csvForSqlChartPromises = sqlChartTileUuids.map(({ chartUuid }) =>
-            this.getCsvForSqlChart({
-                user,
-                sqlChartUuid: chartUuid,
-                projectUuid: dashboard.projectUuid,
-                jobId,
-            }),
+
+        // 与 XLSX 导出同一套保护：并发限流（一次几十张图不能同时打满数仓）
+        // + 整次导出的累计行数预算 + 带 Tab/图表名的进度
+        const totalTiles =
+            chartTileUuidsWithChartUuids.length + sqlChartTileUuids.length;
+        const rowBudget = enforceRowBudget
+            ? new ExportRowBudget(
+                  this.lightdashConfig.query.dashboardExportMaxTotalRows,
+              )
+            : undefined;
+        let settledTiles = 0;
+        const reportProgress = (
+            currentTabName: string | undefined,
+            currentChartName?: string,
+        ) => {
+            // 最后一条也照常上报；SchedulerTask 的节流在收尾时用 force 落库
+            onProgress?.({
+                done: settledTiles,
+                total: totalTiles,
+                ...(currentTabName ? { currentTabName } : {}),
+                ...(currentChartName ? { currentChartName } : {}),
+            });
+        };
+
+        const work: Array<{
+            kind: 'chart' | 'sqlChart';
+            chartUuid: string;
+            tileUuid: string;
+            tabUuid: string | null;
+        }> = [
+            ...chartTileUuidsWithChartUuids.map((tile) => ({
+                kind: 'chart' as const,
+                ...tile,
+            })),
+            ...sqlChartTileUuids.map((tile) => ({
+                kind: 'sqlChart' as const,
+                ...tile,
+            })),
+        ];
+
+        const settledResults = await mapWithConcurrencyLimit(
+            work,
+            Math.min(3, Math.max(1, totalTiles)),
+            async (tile) => {
+                rowBudget?.assertWithinLimit();
+                const tabName = tile.tabUuid
+                    ? dashboard.tabs?.find((tab) => tab.uuid === tile.tabUuid)
+                          ?.name
+                    : undefined;
+
+                const csv =
+                    tile.kind === 'chart'
+                        ? await this.getCsvForChart({
+                              user,
+                              chartUuid: tile.chartUuid,
+                              options,
+                              jobId,
+                              tileUuid: tile.tileUuid,
+                              dashboardFilters: getDashboardFiltersForTile({
+                                  filters: getFiltersForTab(tile.tabUuid),
+                                  tileUuid: tile.tileUuid,
+                              }),
+                              dashboardContext,
+                              dateZoomGranularity,
+                              invalidateCache,
+                              schedulerParameters,
+                              locale: options?.locale,
+                              onTileStart: (chartName) =>
+                                  reportProgress(tabName, chartName),
+                          })
+                        : await this.getCsvForSqlChart({
+                              user,
+                              sqlChartUuid: tile.chartUuid,
+                              projectUuid: dashboard.projectUuid,
+                              jobId,
+                              onTileStart: (chartName) =>
+                                  reportProgress(tabName, chartName),
+                          });
+
+                return { csv, tabName };
+            },
+            (result) => {
+                settledTiles += 1;
+                if (result.status === 'fulfilled') {
+                    // onSettled 的异常会被限流器吞掉，超预算在整批结束后统一抛
+                    try {
+                        rowBudget?.add(result.value.csv.rowCount ?? 0);
+                    } catch {
+                        // 记录在 budget.used 里，稍后 assertWithinLimit 抛
+                    }
+                }
+                reportProgress(
+                    result.status === 'fulfilled'
+                        ? result.value.tabName
+                        : undefined,
+                );
+            },
         );
 
-        const csvUrls = await Promise.allSettled([
-            ...csvForChartPromises,
-            ...csvForSqlChartPromises,
-        ]).then(getFulfilledValues);
-        return csvUrls;
+        rowBudget?.assertWithinLimit();
+
+        return settledResults.flatMap((result) =>
+            result.status === 'fulfilled' ? [result.value.csv] : [],
+        );
     }
 
     /**

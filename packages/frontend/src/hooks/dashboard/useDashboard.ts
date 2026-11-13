@@ -1,5 +1,6 @@
 import {
     formatDate,
+    DASHBOARD_EXPORT_ROW_LIMIT_MESSAGE,
     NO_CHARTS_TO_EXPORT_MESSAGE,
     type ApiError,
     type ApiJobScheduledResponse,
@@ -7,10 +8,9 @@ import {
     type CreateDashboardWithCharts,
     type Dashboard,
     type DashboardAvailableFilters,
-    type DashboardFilters,
     type DashboardTile,
-    type DateGranularity,
     type ExportContentRequest,
+    type ExportJobProgress,
     type SavedChartsInfoForDashboardAvailableFilters,
     type UpdateDashboard,
 } from '@lightdash/common';
@@ -25,7 +25,10 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router';
 
 import { lightdashApi } from '../../api';
-import { pollJobStatus } from '../../features/scheduler/hooks/useScheduler';
+import {
+    JobPollTimeoutError,
+    pollJobStatus,
+} from '../../features/scheduler/hooks/useScheduler';
 import useToaster from '../toaster/useToaster';
 import useQueryError from '../useQueryError';
 import useDashboardStorage from './useDashboardStorage';
@@ -278,134 +281,6 @@ const getExportDownloadFileName = (
     return `${dashboardName}-${formatDate(Date.now())}.${extension}`;
 };
 
-const exportCsvDashboard = async (
-    id: string,
-    filters: DashboardFilters,
-    dateZoomGranularity: DateGranularity | undefined,
-    selectedTabs: string[] | null,
-    tabFilters: Record<string, DashboardFilters>,
-    locale: string,
-) =>
-    lightdashApi<ApiJobScheduledResponse['results']>({
-        url: `/dashboards/${id}/exportCsv`,
-        method: 'POST',
-        body: JSON.stringify({
-            filters,
-            dateZoomGranularity,
-            selectedTabs,
-            tabFilters,
-            locale,
-        }),
-    });
-
-export const useExportCsvDashboard = () => {
-    const {
-        showToastSuccess,
-        showToastError,
-        showToastApiError,
-        showToastInfo,
-    } = useToaster();
-    const { t } = useTranslation();
-
-    return useMutation<
-        ApiJobScheduledResponse['results'],
-        ApiError,
-        {
-            dashboard: Dashboard;
-            filters: DashboardFilters;
-            dateZoomGranularity: DateGranularity | undefined;
-            selectedTabs: string[] | null;
-            tabFilters: Record<string, DashboardFilters>;
-            locale: string;
-        }
-    >(
-        (data) =>
-            exportCsvDashboard(
-                data.dashboard.uuid,
-                data.filters,
-                data.dateZoomGranularity,
-                data.selectedTabs,
-                data.tabFilters,
-                data.locale,
-            ),
-        {
-            mutationKey: ['export_csv_dashboard'],
-            onMutate: (data) => {
-                showToastInfo({
-                    key: 'dashboard_export_toast',
-                    title: t('hooks_dashboard.is_being_exported', {
-                        name: data.dashboard.name,
-                    }),
-                    autoClose: false,
-                    loading: true,
-                });
-            },
-            onSuccess: async (job, data) => {
-                // Wait until validation is complete
-                pollJobStatus(job.jobId)
-                    .then(async (details) => {
-                        if (details?.url) {
-                            const link = document.createElement('a');
-                            link.href = details.url;
-                            link.setAttribute(
-                                'download',
-                                getExportDownloadFileName(
-                                    data.dashboard.name,
-                                    details,
-                                    'csv',
-                                ),
-                            );
-                            document.body.appendChild(link);
-                            link.click();
-                            link.remove(); // Remove the link from the DOM
-                            showToastSuccess({
-                                key: 'dashboard_export_toast',
-                                title: t('hooks_dashboard.success_export', {
-                                    name: data.dashboard.name,
-                                }),
-                            });
-                        } else {
-                            showToastError({
-                                key: 'dashboard_export_toast',
-                                title: t('hooks_dashboard.missing_file_url', {
-                                    name: data.dashboard.name,
-                                }),
-                                subtitle: t(
-                                    'hooks_dashboard.something_went_wrong',
-                                ),
-                            });
-                        }
-                    })
-                    .catch((error: Error) => {
-                        // 后端「所选 Tab 下没有可导出图表」是英文硬编码错误，
-                        // 这里换成可读文案（与 XLSX 导出一致）
-                        const isNoChartsToExport = error.message.includes(
-                            NO_CHARTS_TO_EXPORT_MESSAGE,
-                        );
-                        showToastError({
-                            key: 'dashboard_export_toast',
-                            title: t('hooks_dashboard.failed_export', {
-                                name: data.dashboard.name,
-                            }),
-                            subtitle: isNoChartsToExport
-                                ? t('hooks_dashboard.no_charts_to_export')
-                                : error.message,
-                        });
-                    });
-            },
-            onError: ({ error }, data) => {
-                showToastApiError({
-                    key: 'dashboard_export_toast',
-                    title: t('hooks_dashboard.failed_export', {
-                        name: data.dashboard.name,
-                    }),
-                    apiError: error,
-                });
-            },
-        },
-    );
-};
-
 const exportDashboardContent = async (
     id: string,
     body: ExportContentRequest,
@@ -415,6 +290,38 @@ const exportDashboardContent = async (
         method: 'POST',
         body: JSON.stringify(body),
     });
+
+/**
+ * 看板导出可能比通用任务慢（每个 Tab 每张图都要跑查询），
+ * 轮询时长放宽到 35 分钟（通用任务仍是 20 分钟）。
+ * 注意 pollJobStatus 的 deadlineMs 是绝对时间戳，不是时长。
+ */
+const DASHBOARD_EXPORT_POLL_TIMEOUT_MS = 35 * 60 * 1000;
+
+/** 把轮询/任务错误换成可读文案；未识别的错误原样透出 */
+const getDashboardExportErrorSubtitle = (
+    error: Error,
+    t: (key: string, options?: Record<string, unknown>) => string,
+): string => {
+    if (error instanceof JobPollTimeoutError) {
+        return t('hooks_dashboard.export_timeout');
+    }
+    // 后端行数上限错误带 "(N rows, limit M)" 后缀，解析成数字给本地化文案
+    if (error.message.includes(DASHBOARD_EXPORT_ROW_LIMIT_MESSAGE)) {
+        const match = error.message.match(/\((\d+) rows, limit (\d+)\)/);
+        if (match) {
+            return t('hooks_dashboard.export_row_limit_exceeded', {
+                rows: Number(match[1]).toLocaleString(),
+                limit: Number(match[2]).toLocaleString(),
+            });
+        }
+    }
+    // 后端「所选 Tab 下没有可导出图表」是英文硬编码错误，换成可读文案
+    if (error.message.includes(NO_CHARTS_TO_EXPORT_MESSAGE)) {
+        return t('hooks_dashboard.no_charts_to_export');
+    }
+    return error.message;
+};
 
 export const useExportDashboardContent = () => {
     const {
@@ -447,7 +354,50 @@ export const useExportDashboardContent = () => {
                 });
             },
             onSuccess: async (job, data) => {
-                pollJobStatus(job.jobId)
+                // Wait until validation is complete；跑动中用 details.progress 刷新同一个 toast
+                pollJobStatus(job.jobId, {
+                    deadlineMs: Date.now() + DASHBOARD_EXPORT_POLL_TIMEOUT_MS,
+                    onProgress: (details) => {
+                        const progress = details?.progress as
+                            | ExportJobProgress
+                            | undefined;
+                        if (
+                            !progress ||
+                            typeof progress.done !== 'number' ||
+                            typeof progress.total !== 'number'
+                        )
+                            return;
+                        const subtitleParts = [
+                            t('hooks_dashboard.export_progress', {
+                                done: progress.done,
+                                total: progress.total,
+                            }),
+                        ];
+                        if (progress.currentTabName) {
+                            subtitleParts.push(
+                                t('hooks_dashboard.export_progress_tab', {
+                                    name: progress.currentTabName,
+                                }),
+                            );
+                        }
+                        if (progress.currentChartName) {
+                            subtitleParts.push(
+                                t('hooks_dashboard.export_progress_chart', {
+                                    name: progress.currentChartName,
+                                }),
+                            );
+                        }
+                        showToastInfo({
+                            key: 'dashboard_export_toast',
+                            title: t('hooks_dashboard.is_being_exported', {
+                                name: data.dashboard.name,
+                            }),
+                            subtitle: subtitleParts.join(' · '),
+                            loading: true,
+                            autoClose: false,
+                        });
+                    },
+                })
                     .then(async (details) => {
                         if (details?.url) {
                             const link = document.createElement('a');
@@ -487,19 +437,15 @@ export const useExportDashboardContent = () => {
                         }
                     })
                     .catch((error: Error) => {
-                        // 后端「所选 Tab 下没有可导出图表」是英文硬编码错误，
-                        // 这里换成可读文案（与 showToastApiError 的既有做法一致）
-                        const isNoChartsToExport = error.message.includes(
-                            NO_CHARTS_TO_EXPORT_MESSAGE,
-                        );
                         showToastError({
                             key: 'dashboard_export_toast',
                             title: t('hooks_dashboard.failed_export', {
                                 name: data.dashboard.name,
                             }),
-                            subtitle: isNoChartsToExport
-                                ? t('hooks_dashboard.no_charts_to_export')
-                                : error.message,
+                            subtitle: getDashboardExportErrorSubtitle(
+                                error,
+                                t,
+                            ),
                         });
                     });
             },

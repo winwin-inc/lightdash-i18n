@@ -435,7 +435,12 @@ export class ExcelService {
             /** 透视矩阵左侧前置的筛选器常量列（看板导出） */
             leadingColumns?: ExportFilterColumn[];
         };
-    }): Promise<{ fileUrl: string; truncated: boolean; localPath?: string }> {
+    }): Promise<{
+        fileUrl: string;
+        truncated: boolean;
+        localPath?: string;
+        rowCount: number;
+    }> {
         const { onlyRaw, customLabels, pivotConfig } = options;
 
         // Load rows from the results file using shared streaming utility
@@ -529,6 +534,8 @@ export class ExcelService {
             return {
                 ...result,
                 ...(options.keepTempFile ? { localPath: filePath } : {}),
+                // 透视按输入行数计入导出行数预算
+                rowCount: rows.length,
             };
         } catch (error) {
             // 上传/转换失败时本地文件不会被调用方用到，直接清掉
@@ -572,7 +579,7 @@ export class ExcelService {
         displayTimezone?: string,
         /** 工作表最左侧的筛选器常量列（看板导出） */
         leadingColumns: ExportFilterColumn[] = [],
-    ): Promise<{ truncated: boolean }> {
+    ): Promise<{ truncated: boolean; rowCount: number }> {
         // Use the same approach as our working tests - direct filename instead of stream
         const workbook = new Excel.stream.xlsx.WorkbookWriter({
             filename: tempFilePath,
@@ -671,7 +678,7 @@ export class ExcelService {
         worksheet.commit();
         await workbook.commit();
 
-        return { truncated };
+        return { truncated, rowCount: actualRowCount };
     }
 
     /**
@@ -698,7 +705,12 @@ export class ExcelService {
             /** 工作表最左侧的筛选器常量列（看板导出） */
             leadingColumns?: ExportFilterColumn[];
         } = {},
-    ): Promise<{ fileUrl: string; truncated: boolean; localPath?: string }> {
+    ): Promise<{
+        fileUrl: string;
+        truncated: boolean;
+        localPath?: string;
+        rowCount: number;
+    }> {
         // Handle column ordering and filtering
         const {
             onlyRaw = false,
@@ -731,16 +743,17 @@ export class ExcelService {
             );
 
             // Step 2: Stream JSONL data to Excel temp file
-            const { truncated } = await ExcelService.streamJsonlToExcelFile(
-                resultsStream,
-                tempFilePath,
-                headers,
-                fields,
-                onlyRaw,
-                sortedFieldIds,
-                displayTimezone,
-                leadingColumns,
-            );
+            const { truncated, rowCount } =
+                await ExcelService.streamJsonlToExcelFile(
+                    resultsStream,
+                    tempFilePath,
+                    headers,
+                    fields,
+                    onlyRaw,
+                    sortedFieldIds,
+                    displayTimezone,
+                    leadingColumns,
+                );
 
             // Generate filename with truncated flag
             const formattedFileName = ExcelService.generateFileId(
@@ -765,6 +778,7 @@ export class ExcelService {
                 fileUrl,
                 truncated,
                 ...(keepTempFile ? { localPath: tempFilePath } : {}),
+                rowCount,
             };
         } catch (error) {
             Logger.error(

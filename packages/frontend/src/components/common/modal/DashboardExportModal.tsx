@@ -1,4 +1,5 @@
 import {
+    DownloadFileType,
     SchedulerFormat,
     type Dashboard,
     type DashboardFilters,
@@ -20,24 +21,24 @@ import {
     type ModalProps,
 } from '@mantine/core';
 import {
-    IconCsv,
     IconFileExport,
-    IconFileTypeXls,
     IconHelpCircle,
     IconLayoutDashboard,
     IconScreenshot,
 } from '@tabler/icons-react';
-import { useCallback, useMemo, useState, type FC } from 'react';
+import { useCallback, useEffect, useMemo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router';
 
 import { prepareDashboardFilterRuleForQuery } from '../Filters/FilterInputs/utils';
 
+import ExportOptions from '../../ExportResults/ExportOptions';
+import { Limit, Values } from '../../ExportResults/types';
 import { PreviewAndCustomizeScreenshot } from '../../../features/preview';
+import { useExportLimitDefaults } from '../../ExportResults/useExportLimitDefaults';
 import { useCustomWidthOptions } from '../../../features/scheduler/constants';
 import useHealth from '../../../hooks/health/useHealth';
 import {
-    useExportCsvDashboard,
     useExportDashboard,
     useExportDashboardContent,
 } from '../../../hooks/dashboard/useDashboard';
@@ -56,16 +57,7 @@ type ExportTabsSelection = {
     setSelectedTabs: (value: string[]) => void;
 };
 
-type CsvExportProps = {
-    dashboard: Dashboard;
-    /** null 表示导出全部 Tab */
-    selectedTabs: string[] | null;
-    hasTilesInSelectedTabs: boolean;
-    /** 每个 Tab 实际生效的筛选器（已合并全局 + Tab），键为 tabUuid */
-    tabFilters: Record<string, DashboardFilters>;
-};
-
-type XlsxExportProps = {
+type DataExportProps = {
     dashboard: Dashboard;
     /** null 表示导出全部 Tab */
     selectedTabs: string[] | null;
@@ -100,7 +92,7 @@ const hasTilesInTabs = (
     );
 };
 
-/** 看板导出的 Tab 选择；CSV / XLSX 共用，默认全选 */
+/** 看板导出的 Tab 选择；数据导出共用，默认全选 */
 const ExportTabsPicker: FC<{
     dashboard: Dashboard;
     selection: ExportTabsSelection;
@@ -188,77 +180,8 @@ const ExportTabsPicker: FC<{
     );
 };
 
-const CsvExport: FC<CsvExportProps & Pick<ModalProps, 'onClose'>> = ({
-    dashboard,
-    selectedTabs,
-    hasTilesInSelectedTabs,
-    tabFilters,
-    onClose,
-}) => {
-    const { t, i18n } = useTranslation();
-    const exportCsvDashboardMutation = useExportCsvDashboard();
-    const dashboardFilters = useDashboardContext((c) => c.allFilters);
-    const dateZoomGranularity = useDashboardContext(
-        (c) => c.dateZoomGranularity,
-    );
-
-    return (
-        <Stack p="md" pt="sm" spacing="md">
-            {!!dateZoomGranularity && (
-                <Alert
-                    title={t(
-                        'components_common_modal_dashboard_export.alert_title',
-                    )}
-                    color="blue"
-                >
-                    {t('components_common_modal_dashboard_export.alert')}
-                </Alert>
-            )}
-            <Text size="xs" color="dimmed">
-                {t('components_common_modal_dashboard_export.csv_hint')}
-            </Text>
-            <Group position="right" spacing="sm" pt="xs">
-                <Button variant="outline" onClick={onClose}>
-                    {t('components_common_modal_dashboard_export.cancel')}
-                </Button>
-                <Tooltip
-                    withinPortal
-                    position="bottom"
-                    label={t(
-                        'components_common_modal_dashboard_export.tooltip.label',
-                    )}
-                >
-                    <Button
-                        disabled={!hasTilesInSelectedTabs}
-                        onClick={() => {
-                            exportCsvDashboardMutation.mutate({
-                                dashboard,
-                                filters: dashboardFilters,
-                                dateZoomGranularity: dateZoomGranularity,
-                                selectedTabs,
-                                tabFilters,
-                                // 后端按 locale 决定筛选器列的用词
-                                locale: i18n.language
-                                    ?.toLowerCase()
-                                    .startsWith('zh')
-                                    ? 'zh'
-                                    : 'en',
-                            });
-                            onClose();
-                        }}
-                        leftIcon={<MantineIcon icon={IconCsv} />}
-                    >
-                        {t(
-                            'components_common_modal_dashboard_export.tooltip.button',
-                        )}
-                    </Button>
-                </Tooltip>
-            </Group>
-        </Stack>
-    );
-};
-
-const XlsxExport: FC<XlsxExportProps & Pick<ModalProps, 'onClose'>> = ({
+/** 数据导出：选 Tab → 选格式/值/限制 → 取消/下载；CSV 与 XLSX 都走 /dashboards/:uuid/exports */
+const DataExport: FC<DataExportProps & Pick<ModalProps, 'onClose'>> = ({
     dashboard,
     selectedTabs,
     hasTilesInSelectedTabs,
@@ -272,16 +195,43 @@ const XlsxExport: FC<XlsxExportProps & Pick<ModalProps, 'onClose'>> = ({
         (c) => c.dateZoomGranularity,
     );
     const parameterValues = useDashboardContext((c) => c.parameterValues);
+    const health = useHealth();
+
+    const [fileType, setFileType] = useState<DownloadFileType>(
+        DownloadFileType.XLSX,
+    );
+    const [values, setValues] = useState<Values>(Values.FORMATTED);
+    // 默认限制与「导出数据」一致：client-use 且无 ChangeCsvResults 权限时为全部结果
+    const { defaultLimit } = useExportLimitDefaults(dashboard.projectUuid);
+    const [limit, setLimit] = useState<Limit>(defaultLimit);
+    const [customLimit, setCustomLimit] = useState<number>(1);
+
+    useEffect(() => {
+        setLimit(defaultLimit);
+    }, [defaultLimit]);
+
+    const csvCellsLimit = health.data?.query?.csvCellsLimit || 100000;
+    // 整次导出的累计行数上限（来自后端配置），「所有结果」提示里要说清楚
+    const dashboardExportMaxTotalRows =
+        health.data?.query?.dashboardExportMaxTotalRows;
 
     const handleExport = () => {
         exportContentMutation.mutate({
             dashboard,
             request: {
-                format: SchedulerFormat.XLSX,
+                format:
+                    fileType === DownloadFileType.CSV
+                        ? SchedulerFormat.CSV
+                        : SchedulerFormat.XLSX,
                 options: {
-                    formatted: true,
-                    limit: 'table',
-                    // 后端按 locale 命名「未分组」这类兜底文案
+                    formatted: values === Values.FORMATTED,
+                    limit:
+                        limit === Limit.TABLE
+                            ? 'table'
+                            : limit === Limit.ALL
+                              ? 'all'
+                              : customLimit,
+                    // 后端按 locale 决定筛选器列的用词与兜底文案
                     locale: i18n.language?.toLowerCase().startsWith('zh')
                         ? 'zh'
                         : 'en',
@@ -298,9 +248,44 @@ const XlsxExport: FC<XlsxExportProps & Pick<ModalProps, 'onClose'>> = ({
 
     return (
         <Stack p="md" pt="sm" spacing="md">
-            <Text size="xs" color="dimmed">
-                {t('components_common_modal_dashboard_export.xlsx_hint')}
-            </Text>
+            {!!dateZoomGranularity && (
+                <Alert
+                    title={t(
+                        'components_common_modal_dashboard_export.alert_title',
+                    )}
+                    color="blue"
+                >
+                    {t('components_common_modal_dashboard_export.alert')}
+                </Alert>
+            )}
+            <ExportOptions
+                projectUuid={dashboard.projectUuid}
+                fileType={fileType}
+                onFileTypeChange={setFileType}
+                values={values}
+                onValuesChange={setValues}
+                limit={limit}
+                onLimitChange={setLimit}
+                customLimit={customLimit}
+                onCustomLimitChange={setCustomLimit}
+            />
+            <Alert color="gray" p="xs">
+                <Text size="xs">
+                    {limit === Limit.TABLE
+                        ? t(
+                              'components_common_modal_dashboard_export.table_limit_hint',
+                          )
+                        : t(
+                              'components_common_modal_dashboard_export.total_row_limit_hint',
+                              {
+                                  rows: (
+                                      dashboardExportMaxTotalRows ?? 200000
+                                  ).toLocaleString(),
+                                  csvCellsLimit: csvCellsLimit.toLocaleString(),
+                              },
+                          )}
+                </Text>
+            </Alert>
             <Group position="right" spacing="sm" pt="xs">
                 <Button variant="outline" onClick={onClose}>
                     {t('components_common_modal_dashboard_export.cancel')}
@@ -308,11 +293,9 @@ const XlsxExport: FC<XlsxExportProps & Pick<ModalProps, 'onClose'>> = ({
                 <Button
                     onClick={handleExport}
                     disabled={!hasTilesInSelectedTabs}
-                    leftIcon={<MantineIcon icon={IconFileTypeXls} />}
+                    leftIcon={<MantineIcon icon={IconFileExport} />}
                 >
-                    {t(
-                        'components_common_modal_dashboard_export.tooltip.button_xlsx',
-                    )}
+                    {t('components_export_results.download')}
                 </Button>
             </Group>
         </Stack>
@@ -576,11 +559,11 @@ export const DashboardExportModal: FC<Props & ModalProps> = ({
 }) => {
     const { t } = useTranslation();
     const health = useHealth();
-    // 图片 / PDF 导出依赖 headless browser；实例未启用时直接不展示该页签
+    // 图片 / PDF 导出依赖 headless browser；实例未启用时直接展示数据导出，不要顶层页签
     const hasHeadlessBrowser = health.data?.hasHeadlessBrowser ?? false;
-    const [exportType, setExportType] = useState<string>('xlsx');
+    const [exportType, setExportType] = useState<string>('data');
 
-    // Tab 选择在弹窗层维护，CSV / XLSX 共用，默认全选
+    // Tab 选择在弹窗层维护，数据导出共用，默认全选
     const [allTabsSelected, setAllTabsSelected] = useState(true);
     const [selectedTabs, setSelectedTabs] = useState<string[]>(
         dashboard?.tabs?.map((tab) => tab.uuid) || [],
@@ -598,7 +581,7 @@ export const DashboardExportModal: FC<Props & ModalProps> = ({
         selectedTabs,
     );
 
-    // 每个 Tab 实际生效的筛选器（已合并全局 + Tab，含临时改动），CSV / XLSX 导出共用；
+    // 每个 Tab 实际生效的筛选器（已合并全局 + Tab，含临时改动），数据导出共用；
     // 规则在导出前解析动态日期并钳制固定区间。
     // 只带本次要导出的 Tab，避免整份筛选器（含 tileTargets）白占任务载荷
     const getMergedFiltersForTab = useDashboardContext(
@@ -654,74 +637,58 @@ export const DashboardExportModal: FC<Props & ModalProps> = ({
                     <Modal.CloseButton />
                 </Modal.Header>
 
-                <SegmentedControl
-                    mx="md"
-                    mt="sm"
-                    data={[
-                        ...(hasHeadlessBrowser
-                            ? [
-                                  {
-                                      label: t(
-                                          'components_common_modal_dashboard_export.tabs.image',
-                                      ),
-                                      value: 'image',
-                                  },
-                              ]
-                            : []),
-                        {
-                            label: t(
-                                'components_common_modal_dashboard_export.tabs.csv',
-                            ),
-                            value: 'csv',
-                        },
-                        {
-                            label: t(
-                                'components_common_modal_dashboard_export.tabs.xlsx',
-                            ),
-                            value: 'xlsx',
-                        },
-                    ]}
-                    w="min-content"
-                    value={exportType}
-                    onChange={(value) => setExportType(value ?? 'xlsx')}
-                />
-                {exportType !== 'image' && isDashboardTabsAvailable && (
-                    <Box px="md" pt="md">
-                        <ExportTabsPicker
-                            dashboard={dashboard}
-                            selection={{
-                                allTabsSelected,
-                                setAllTabsSelected,
-                                selectedTabs,
-                                setSelectedTabs,
-                            }}
-                        />
-                    </Box>
-                )}
-                {exportType === 'csv' && (
-                    <CsvExport
-                        dashboard={dashboard}
-                        selectedTabs={resolvedSelectedTabs}
-                        hasTilesInSelectedTabs={hasTilesInSelectedTabs}
-                        tabFilters={tabFilters}
-                        onClose={onClose}
+                {hasHeadlessBrowser && (
+                    <SegmentedControl
+                        mx="md"
+                        mt="sm"
+                        data={[
+                            {
+                                label: t(
+                                    'components_common_modal_dashboard_export.tabs.image',
+                                ),
+                                value: 'image',
+                            },
+                            {
+                                label: t(
+                                    'components_common_modal_dashboard_export.tabs.data',
+                                ),
+                                value: 'data',
+                            },
+                        ]}
+                        w="min-content"
+                        value={exportType}
+                        onChange={(value) => setExportType(value ?? 'data')}
                     />
                 )}
-                {exportType === 'xlsx' && (
-                    <XlsxExport
-                        dashboard={dashboard}
-                        selectedTabs={resolvedSelectedTabs}
-                        hasTilesInSelectedTabs={hasTilesInSelectedTabs}
-                        tabFilters={tabFilters}
-                        onClose={onClose}
-                    />
-                )}
-                {exportType === 'image' && hasHeadlessBrowser && (
+                {exportType === 'image' && hasHeadlessBrowser ? (
                     <ImageExport
                         dashboard={dashboard}
                         onClose={onClose}
                         gridWidth={gridWidth}
                     />
+                ) : (
+                    <>
+                        {isDashboardTabsAvailable && (
+                            <Box px="md" pt="md">
+                                <ExportTabsPicker
+                                    dashboard={dashboard}
+                                    selection={{
+                                        allTabsSelected,
+                                        setAllTabsSelected,
+                                        selectedTabs,
+                                        setSelectedTabs,
+                                    }}
+                                />
+                            </Box>
+                        )}
+                        <DataExport
+                            dashboard={dashboard}
+                            selectedTabs={resolvedSelectedTabs}
+                            hasTilesInSelectedTabs={hasTilesInSelectedTabs}
+                            tabFilters={tabFilters}
+                            onClose={onClose}
+                        />
+                    </>
                 )}
             </Modal.Content>
         </Modal.Root>

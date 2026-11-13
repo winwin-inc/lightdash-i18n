@@ -141,6 +141,7 @@ export const lightdashConfigMock: LightdashConfig = {
         concurrency: 0,
         enabled: false,
         jobTimeout: 0,
+        exportJobTimeout: 1800000,
         tasks: ALL_TASK_NAMES,
         queryHistory: {
             cleanup: {
@@ -194,6 +195,7 @@ export const lightdashConfigMock: LightdashConfig = {
         useSqlPivotResults: false,
         exportMaxRows: 1000000,
         exportMaxPivotCells: 2000000,
+        dashboardExportMaxTotalRows: 200000,
     },
     ai: {
         copilot: {

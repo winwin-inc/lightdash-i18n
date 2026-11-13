@@ -217,6 +217,11 @@
     "success": "Success!",
     "success_export": "Success! {{name}} was exported.",
     "export_truncated": "Export finished, but some charts were truncated at the row limit",
+    "export_progress": "{{done}}/{{total}}",
+    "export_progress_tab": "{{name}}",
+    "export_progress_chart": "{{name}}",
+    "export_row_limit_exceeded": "Dashboard export exceeded the row limit ({{rows}} rows exported, limit {{limit}}); the export is incomplete",
+    "export_timeout": "Export timed out; the job may still be running in the background. Check the task log for the result or narrow the range and retry.",
     "failed_export": "Failed to export {{name}}",
     "failed_preview": "Failed to generate preview for {{name}}",
     "missing_file_url": "Missing file url for {{name}}",
@@ -4240,26 +4245,19 @@
   },
   "components_common_modal_dashboard_export": {
     "alert_title": "Date zoom is enabled",
-    "alert": "Your CSV export will include data for the selected date zoom granularity.",
-    "tooltip": {
-      "label": "Export the table results of the selected tabs (csv for a single page, zip for several)",
-      "button": "Export CSV",
-      "button_xlsx": "Export XLSX"
-    },
+    "alert": "Your export will include data for the selected date zoom granularity.",
+    "table_limit_hint": "Each chart exports the rows currently shown in its table view",
+    "total_row_limit_hint": "One dashboard export is capped at {{rows}} rows across all charts; each chart is still capped by the {{csvCellsLimit}}-cell limit.",
     "tabs_label": "Tabs",
     "select_all_tabs_tooltip": "Select all tabs to include all tabs in the export. If you don't select this option, only selected tabs will be included.",
     "include_all_tabs": "Include all tabs",
-    "xlsx_hint": "One Excel file per tab; multiple tabs are packed into a ZIP.",
-    "csv_hint": "One CSV file per chart; several files are packed into a ZIP.",
-
     "select_tabs": "Select tabs to include in the export",
     "no_tiles_in_selected_tabs": "There are no tiles in the selected tab(s)",
     "cancel": "Cancel",
     "export_dashboard": "Export dashboard",
     "tabs": {
       "image": "Image",
-      "csv": ".csv",
-      "xlsx": ".xlsx"
+      "data": "Data"
     }
   },
   "components_common_modal_dashboard_update": {

@@ -211,6 +211,11 @@
     "success": "成功！",
     "success_export": "成功！{{name}} 已导出。",
     "export_truncated": "导出完成，但部分图表超过行数上限已被截断",
+    "export_progress": "{{done}}/{{total}}",
+    "export_progress_tab": "{{name}}",
+    "export_progress_chart": "{{name}}",
+    "export_row_limit_exceeded": "看板导出超过行数上限（已导出 {{rows}} 行，上限 {{limit}} 行），导出结果不完整",
+    "export_timeout": "导出超时，任务可能仍在后台执行，请到任务日志查看结果或缩小范围重试",
     "failed_export": "导出 {{name}} 失败",
     "failed_preview": "生成 {{name}} 预览失败",
     "missing_file_url": "{{name}} 缺少文件 URL",
@@ -4263,26 +4268,19 @@
   },
   "components_common_modal_dashboard_export": {
     "alert_title": "已启用日期缩放",
-    "alert": "您的 CSV 导出将包括所选日期缩放粒度的数据。",
-    "tooltip": {
-      "label": "导出所选选项卡下图表的表格数据（单页为 csv，多页打成 zip）",
-      "button": "导出 CSV",
-      "button_xlsx": "导出 XLSX"
-    },
+    "alert": "您的导出将包括所选日期缩放粒度的数据。",
+    "table_limit_hint": "每个图表按当前表格展示的行数导出",
+    "total_row_limit_hint": "单次看板导出最多 {{rows}} 行（跨所有图表累计）；单图仍受 {{csvCellsLimit}} 格上限约束。",
     "tabs_label": "选项卡",
     "select_all_tabs_tooltip": "选择所有选项卡以包含所有选项卡。如果您不选择此选项，则仅选择选项卡将被包含。",
     "include_all_tabs": "包含所有选项卡",
-    "xlsx_hint": "每个选项卡导出为一个 Excel 文件；多个选项卡会打包成 ZIP。",
-    "csv_hint": "每张图导出为一个 CSV 文件；多于一份时打包成 ZIP。",
-
     "select_tabs": "选择要包含的选项卡",
     "no_tiles_in_selected_tabs": "所选选项卡中没有图块",
     "cancel": "取消",
     "export_dashboard": "导出看板",
     "tabs": {
       "image": "图片",
-      "csv": ".csv",
-      "xlsx": ".xlsx"
+      "data": "数据"
     }
   },
   "components_common_modal_dashboard_update": {

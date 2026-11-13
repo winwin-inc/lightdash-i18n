@@ -286,8 +286,10 @@ const getJobStatus = async (
     jobId: string,
     onComplete: (response: Record<string, AnyType> | null) => void,
     onError: (error: Error) => void,
-    deadlineMs: number = Date.now() + JOB_POLL_TIMEOUT_MS,
+    options: PollJobStatusOptions = {},
+    startedAt: number = Date.now(),
 ) => {
+    const deadlineMs = options.deadlineMs ?? startedAt + JOB_POLL_TIMEOUT_MS;
     getSchedulerJobStatus(jobId)
         .then((data) => {
             if (data.status === SchedulerJobStatus.COMPLETED) {
@@ -298,13 +300,22 @@ const getJobStatus = async (
                     new Error(data.details?.error || 'Job failed'),
                 );
             }
+            // 任务仍在跑动中：把 details（含 progress）透给调用方刷新进度提示
+            options.onProgress?.(data.details);
             if (Date.now() > deadlineMs) {
                 return onError(
-                    new JobPollTimeoutError(jobId, JOB_POLL_TIMEOUT_MS),
+                    new JobPollTimeoutError(jobId, deadlineMs - startedAt),
                 );
             }
             return setTimeout(
-                () => getJobStatus(jobId, onComplete, onError, deadlineMs),
+                () =>
+                    getJobStatus(
+                        jobId,
+                        onComplete,
+                        onError,
+                        options,
+                        startedAt,
+                    ),
                 JOB_POLL_INTERVAL_MS,
             );
         })
@@ -313,12 +324,25 @@ const getJobStatus = async (
         });
 };
 
-export const pollJobStatus = async (jobId: string) => {
+export type PollJobStatusOptions = {
+    /** 任务仍在跑动时回调，透传 job details（看板导出用 details.progress 刷新进度） */
+    onProgress?: (details: Record<string, AnyType> | null) => void;
+    /** 自定义轮询截止时间（毫秒），缺省 JOB_POLL_TIMEOUT_MS（20 分钟） */
+    deadlineMs?: number;
+};
+
+export const pollJobStatus = async (
+    jobId: string,
+    options: PollJobStatusOptions = {},
+) => {
+    const startedAt = Date.now();
     return new Promise<Record<string, AnyType> | null>((resolve, reject) =>
         getJobStatus(
             jobId,
             (details) => resolve(details),
             (error) => reject(error),
+            options,
+            startedAt,
         ),
     );
 };

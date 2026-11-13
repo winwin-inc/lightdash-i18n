@@ -1,26 +1,16 @@
-import { subject } from '@casl/ability';
 import {
     DownloadFileType,
     formatDate,
     type DownloadOptions,
     type PivotConfig,
 } from '@lightdash/common';
-import {
-    Alert,
-    Box,
-    Button,
-    NumberInput,
-    SegmentedControl,
-    Stack,
-    Text,
-} from '@mantine/core';
+import { Alert, Box, Button, Stack, Text } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { IconTableExport } from '@tabler/icons-react';
 import { useMutation } from '@tanstack/react-query';
 import {
     memo,
     useEffect,
-    useMemo,
     useRef,
     useState,
     type FC,
@@ -34,22 +24,16 @@ import {
 } from '../../features/scheduler/hooks/useScheduler';
 import useHealth from '../../hooks/health/useHealth';
 import useToaster from '../../hooks/toaster/useToaster';
-import { useProject } from '../../hooks/useProject';
 import { scheduleDownloadQuery } from '../../hooks/useQueryResults';
-import useUser from '../../hooks/user/useUser';
-import { Can } from '../../providers/Ability';
 import MantineIcon from '../common/MantineIcon';
-import { Limit } from './types';
+import ExportOptions from './ExportOptions';
+import { Limit, Values } from './types';
+import { useExportLimitDefaults } from './useExportLimitDefaults';
 
 type ExportCsvRenderProps = {
     onExport: () => Promise<unknown>;
     isExporting: boolean;
 };
-
-enum Values {
-    FORMATTED = 'formatted',
-    RAW = 'raw',
-}
 
 export type ExportResultsProps = {
     projectUuid: string;
@@ -89,9 +73,8 @@ const ExportResults: FC<ExportResultsProps> = memo(
         const { showToastError, showToastInfo, showToastWarning } =
             useToaster();
 
-        const user = useUser(true);
         const health = useHealth();
-        const { data: project } = useProject(projectUuid);
+        const { defaultLimit } = useExportLimitDefaults(projectUuid);
 
         const exportProgressTimer = useRef<number | null>(null);
 
@@ -104,32 +87,9 @@ const ExportResults: FC<ExportResultsProps> = memo(
             [],
         );
 
-        // Check if user has permission to change CSV results limit
-        const canChangeCsvResults =
-            user.data?.ability?.can(
-                'manage',
-                subject('ChangeCsvResults', {
-                    organizationUuid: user.data?.organizationUuid,
-                    projectUuid: projectUuid,
-                }),
-            ) ?? false;
-
-        // Determine default limit based on isClientUse and permissions
-        // If isClientUse and user doesn't have permission to see limit options, default to ALL
-        // Otherwise, default to TABLE
-        const isClientUse = project?.isClientUse ?? false;
-        const defaultLimit = useMemo(() => {
-            if (isClientUse && !canChangeCsvResults) {
-                // User mode without permission to see limit options, default to all results
-                return Limit.ALL;
-            }
-            // User can see limit options, default to table results
-            return Limit.TABLE;
-        }, [isClientUse, canChangeCsvResults]);
-
         const [limit, setLimit] = useState<Limit>(defaultLimit);
         const [customLimit, setCustomLimit] = useState<number>(1);
-        const [format, setFormat] = useState<string>(Values.FORMATTED);
+        const [format, setFormat] = useState<Values>(Values.FORMATTED);
         const [fileType, setFileType] = useState<DownloadFileType>(
             DownloadFileType.CSV,
         );
@@ -294,100 +254,18 @@ const ExportResults: FC<ExportResultsProps> = memo(
             <Box>
                 <Stack spacing={0} miw={300}>
                     <Stack p={renderDialogActions ? 'md' : 0}>
-                        <Stack spacing="xs">
-                            <Text fw={500}>
-                                {t('components_export_results.file_format')}
-                            </Text>
-                            <SegmentedControl
-                                size={'xs'}
-                                value={fileType}
-                                onChange={(value) =>
-                                    setFileType(value as DownloadFileType)
-                                }
-                                data={[
-                                    {
-                                        label: 'CSV',
-                                        value: DownloadFileType.CSV,
-                                    },
-                                    {
-                                        label: 'XLSX',
-                                        value: DownloadFileType.XLSX,
-                                    },
-                                ]}
-                            />
-                        </Stack>
-
-                        <Stack spacing="xs">
-                            <Text fw={500}>
-                                {t('components_export_results.tabs.values')}
-                            </Text>
-                            <SegmentedControl
-                                size={'xs'}
-                                value={format}
-                                onChange={(value) => setFormat(value)}
-                                data={[
-                                    {
-                                        label: t(
-                                            'components_export_results.radio_groups_values.part_1',
-                                        ),
-                                        value: Values.FORMATTED,
-                                    },
-                                    {
-                                        label: t(
-                                            'components_export_results.radio_groups_values.part_2',
-                                        ),
-                                        value: Values.RAW,
-                                    },
-                                ]}
-                            />
-                        </Stack>
-                        <Stack spacing="xs">
-                            <Can
-                                I="manage"
-                                this={subject('ChangeCsvResults', {
-                                    organizationUuid:
-                                        user.data?.organizationUuid,
-                                    projectUuid: projectUuid,
-                                })}
-                            >
-                                {!hideLimitSelection ? (
-                                    <Stack spacing="xs">
-                                        <Text fw={500}>
-                                            {t(
-                                                'components_export_results.tabs.limit',
-                                            )}
-                                        </Text>
-                                        <SegmentedControl
-                                            size={'xs'}
-                                            value={limit}
-                                            onChange={(value) =>
-                                                setLimit(value as Limit)
-                                            }
-                                            data={[
-                                                {
-                                                    label: t(
-                                                        'components_export_results.radio_groups_limit.part_1',
-                                                    ),
-                                                    value: Limit.TABLE,
-                                                },
-                                                {
-                                                    label: t(
-                                                        'components_export_results.radio_groups_limit.part_2',
-                                                    ),
-                                                    value: Limit.ALL,
-                                                },
-                                                {
-                                                    label: t(
-                                                        'components_export_results.radio_groups_limit.part_3',
-                                                    ),
-                                                    value: Limit.CUSTOM,
-                                                },
-                                            ]}
-                                        />
-                                    </Stack>
-                                ) : null}
-                            </Can>
-
+                        <ExportOptions
+                            projectUuid={projectUuid}
+                            fileType={fileType}
+                            onFileTypeChange={setFileType}
+                            values={format}
+                            onValuesChange={setFormat}
+                            limit={limit}
+                            onLimitChange={setLimit}
+                            customLimit={customLimit}
+                            onCustomLimitChange={setCustomLimit}
+                            hideLimitSelection={hideLimitSelection}
+                        >
                             {limit === Limit.TABLE && (
                                 <Alert color="gray" p="xs">
                                     <Text size="xs">
@@ -418,19 +296,6 @@ const ExportResults: FC<ExportResultsProps> = memo(
                                         </Text>
                                     </Alert>
                                 )}
-                            {limit === Limit.CUSTOM && (
-                                <NumberInput
-                                    w="100%"
-                                    size="xs"
-                                    min={1}
-                                    precision={0}
-                                    required
-                                    value={customLimit}
-                                    onChange={(value) =>
-                                        setCustomLimit(Number(value))
-                                    }
-                                />
-                            )}
                             {/* Pivot table specific warnings */}
                             {isPivotTable && (
                                 <Alert color="gray" p="xs">
@@ -446,7 +311,7 @@ const ExportResults: FC<ExportResultsProps> = memo(
                                     </Text>
                                 </Alert>
                             )}
-                        </Stack>
+                        </ExportOptions>
                     </Stack>
 
                     {!renderDialogActions ? (

@@ -136,29 +136,54 @@ DownloadAsyncQueryResultsPayload.leadingColumns?: ExportFilterColumn[];
   仍在用，服务 per-tab 合并）、`generate-api` 里 `SchedulerCsvOptions` 的 `xlsxFileLayout` 定义。
 - `DashboardService.scheduleExportContent` 把 `data.tabFilters` 写进 payload，options 不再带布局字段。
 
+### 3.4 批量全量导出加固（额度 / 超时 / 进度）
+
+单张图有自己的上限（CSV 受 `csvCellsLimit`、XLSX 受 `EXCEL_ROW_LIMIT`、透视受 `exportMaxPivotCells`），
+但一个看板十几张图叠加没有边界，所以一键导出额外加了三道保护：
+
+| 项 | 做法 | 配置 |
+|---|---|---|
+| 累计行数额度 | `ExportRowBudget`：每张图写完统计真实行数（XLSX 用 `streamJsonlToExcelFile` 的计数、透视按输入行数、CSV 用实际行数），累计超限即整次导出失败（不产出半截文件，已落盘的 `/tmp` 中间文件会被清理），前端把错误换成本地化文案并带出「已导出 N 行 / 上限 M 行」 | `DASHBOARD_EXPORT_MAX_TOTAL_ROWS`（默认 200000，`/health` 会透出给弹窗提示） |
+| 任务超时 | 仅 `EXPORT_CONTENT` 与 `EXPORT_CSV_DASHBOARD` 用更长的超时；前端轮询这两个任务放宽到 35 分钟 | `SCHEDULER_EXPORT_JOB_TIMEOUT`（默认 30 分钟） |
+| 进度 | `scheduler_log.details.progress = { done, total, currentTabName, currentChartName }`，XLSX 与 CSV 两条链路都上报；前端导出 toast 实时显示「3/14 · Tab 名 · 图表名」 | — |
+
+超时仍然是 `Promise.race`：只中止等待并标记失败，**不会中断后台正在跑的导出**（与本轮之前一致，属已知取舍）。
+CSV 一键导出也补了并发限流（3）与同样的额度/进度，避免几十张图同时打满数仓。
+
+**额度只对「用户点导出」生效**：定时交付（邮箱/Slack/Teams）走同一个 `getNotificationPageData` /
+`getCsvsForDashboard`，但传 `enforceRowBudget: false`，保持原有的「按单图上限截断 + 失败清单」语义，
+不会让存量交付突然整体失败。
+
 ## 4. frontend 改动（packages/frontend/src）
 
-### 4.1 导出弹窗 `components/common/modal/DashboardExportModal.tsx`
+### 4.1 导出弹窗：复用「导出数据」的选项样式
 
-- 删掉 `XlsxExport` 里的 `Radio.Group`（三种布局）、`xlsxFileLayout` state、
-  `showPerTabWorkbookOption` / `isPerTabWorkbookDisabled` / `selectedTabCount` 及提示文案。
-- 请求只带 `options: { formatted: true, limit: 'table' }`（布局字段已从类型里删除）。
-- 「选项卡」选择器（含「包含所有选项卡」）保持不变。
-- CSV / XLSX 两个页签都要带上 `tabFilters`：用 `useDashboardContext((c) => c.getMergedFiltersForTab)`
-  对 `dashboard.tabs` 逐个取合并结果，并用
-  `prepareDashboardFilterRuleForQuery`（`components/common/Filters/FilterInputs/utils.ts`）处理每条规则，
-  生成 `Record<tabUuid, DashboardFilters>`；`useMemo` 缓存，依赖 `dashboard.tabs` / `getMergedFiltersForTab`。
+`components/common/modal/DashboardExportModal.tsx` 改成与图表「导出数据」同一套控件：
 
-### 4.2 定期交付表单 `features/scheduler/components/SchedulerForm.tsx`
+```
+导出看板
+[数据] [图片]                ← 仅当实例启用 headless browser 才出现顶层页签
+  选项卡（包含所有选项卡 / 多选）
+  文件格式：CSV | XLSX
+  值：格式化 | 原始
+  限制：表格结果 | 所有结果 | 自定义 (+ 行数输入)
+  灰底提示（按所选限制/格式给出口径）
+  [取消] [下载]
+```
 
-- 删掉 `xlsxFileLayout` 的 `Radio.Group` 整块、`showPerTabWorkbookOption`、默认值/回填/提交里的布局字段。
+- 选项控件抽成 `components/ExportResults/ExportOptions.tsx` + `useExportLimitDefaults`，
+  与图表导出共用（「限制」区域仍按 `ChangeCsvResults` 权限展示，默认值规则一致：
+  client-use 且无权限 → 全部结果）。
+- 两种格式都走同一个接口 `POST /dashboards/:uuid/exports`（`format: csv | xlsx`），
+  `options` 为 `{ formatted, limit: 'table' | 'all' | number, locale }`；
+  旧的一键 CSV 接口 `/dashboards/:uuid/exportCsv` 前端不再调用（后端保留）。
+- 导出中 toast 会实时刷新进度；`truncated` 提示、按 `fileType` 补扩展名的下载名逻辑保留。
 
-### 4.3 i18n
+### 4.2 i18n
 
-删除 `packages/frontend/public/locales/{zh,en}/translation.json` 中
-`features_scheduler_form.form.tabs_panel_setup` 下的：
-`xlsx_output`、`xlsx_output_help`、`xlsx_zip`、`xlsx_workbook`、`xlsx_per_tab_workbook`、`xlsx_per_tab_single_tab_hint`。
-`components_common_modal_dashboard_export.*` 的 key 全部保留。
+新增：`tabs.data`、`table_limit_hint`、`hooks_dashboard.export_progress*`、
+`export_row_limit_exceeded`、`export_timeout`；删除只属于旧弹窗的 `xlsx_hint` / `csv_hint` /
+`tooltip.*` / `tabs.csv` / `tabs.xlsx`，日期缩放提示不再写死「CSV」。
 
 ## 5. 已实施与验证
 
@@ -175,15 +200,19 @@ DownloadAsyncQueryResultsPayload.leadingColumns?: ExportFilterColumn[];
 | `tabFilterEnabled` 在看板加载时回填（页面与交付/导出口径一致） | `providers/Dashboard/DashboardProvider.tsx` |
 | 单份产物直接给 xlsx / csv，多份才 zip；无 Tab 看板用看板名 | `SchedulerTask.buildPerTabWorkbookZipUrl` / `exportContent`、`CsvService.runScheduledExportCsvDashboard` |
 | 筛选器列名加「筛选：」前缀、同字段不重复加列；取值用词按 locale | `common/utils/dashboardExportFilters.ts`、`SchedulerTask.getExportedFieldIds` |
+| 累计行数额度（超限整体失败） | `backend/utils/FileDownloadUtils/exportBudget.ts`、`SchedulerTask` / `CsvService` |
+| 导出任务专属超时 + 前端 35 分钟轮询 | `parseConfig.scheduler.exportJobTimeout`、`SchedulerWorker`、`useDashboard.ts` |
+| 进度带 Tab / 图表名 | `SchedulerTask.reportExportProgress`、`CsvService.getCsvsForDashboard(onProgress)`、`useScheduler.pollJobStatus(onProgress)` |
 
 实际执行的验证命令与结果（backend 三份 jest 在文档核对时复跑确认）：
 
 | 命令 | 结果 |
 |---|---|
-| `pnpm -F common test -- src/utils/dashboardExportFilters.test.ts` | 23 passed |
+| `pnpm -F common test -- src/utils/dashboardExportFilters.test.ts` | 25 passed |
 | `pnpm -F backend test -- src/services/CsvService/CsvService.stream.test.ts` | 7 passed |
 | `pnpm -F backend test -- src/services/ExcelService/ExcelService.stream.test.ts` | 1 passed |
 | `pnpm -F backend test -- src/services/PivotTableService/PivotTableService.csv.test.ts` | 5 passed |
+| `pnpm -F backend test -- src/utils/FileDownloadUtils/exportBudget.test.ts` | 4 passed（额度累计/超限抛错/文案数值） |
 | `NODE_OPTIONS=--max-old-space-size=8192 pnpm -F backend typecheck` | 通过，无错误 |
 | `NODE_OPTIONS=--max-old-space-size=8192 pnpm -F frontend typecheck` | 通过，无错误 |
 
@@ -194,6 +223,10 @@ DownloadAsyncQueryResultsPayload.leadingColumns?: ExportFilterColumn[];
 
 - 透视表的前置列不参与合并单元格，多行表头里列值会重复出现（可读性优先于版式）；
   透视 XLSX 与透视 CSV 的列位一致（第 1 行是筛选器列名）。
+- 「所有结果」在整看板导出里受两道约束：单图各自的硬上限（CSV `csvCellsLimit` / XLSX `EXCEL_ROW_LIMIT`）+
+  整次导出的累计行数额度（默认 20 万行）；超额度是整体失败，不会产出半截文件。
+- 导出任务超时只中止等待、不中断后台执行（后台仍会跑完并清理 `/tmp`）；
+  额度护栏的作用是让大导出更早失败，尽量不撞到超时。
 - 相对时间筛选器（近 N 个月 / 本月 / 未来 N 周）按查询侧口径解析成具体 `start ~ end` 再导出，
   不会输出裸数字；`fromStartToLatestMonth` 的「最新可用月」上界由查询侧按数据可用日动态决定，
   导出列只写解析出的起始侧区间，可能与查询上界差一个月（显示口径，不影响查询）。

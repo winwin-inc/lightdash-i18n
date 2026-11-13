@@ -190,6 +190,22 @@ export class UnexpectedServerError extends LightdashError {
 export const NO_CHARTS_TO_EXPORT_MESSAGE =
     'No charts to export in the selected tabs';
 
+/**
+ * 看板一键导出：累计写入行数超过单次上限。
+ * 前端按前缀匹配换成本地化文案，数值由后缀括号里带出；
+ * 改文案时必须两边一起改（所以抽成共享常量）。
+ */
+export const DASHBOARD_EXPORT_ROW_LIMIT_MESSAGE =
+    'Dashboard export exceeded the row limit';
+
+export const getDashboardExportRowLimitMessage = ({
+    rows,
+    limit,
+}: {
+    rows: number;
+    limit: number;
+}): string => `${DASHBOARD_EXPORT_ROW_LIMIT_MESSAGE} (${rows} rows, limit ${limit})`;
+
 export class UnexpectedIndexError extends LightdashError {
     constructor(
         message = 'Invalid index in array.',
