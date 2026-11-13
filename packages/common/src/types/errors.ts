@@ -198,26 +198,6 @@ export const NO_CHARTS_TO_EXPORT_MESSAGE =
 export const DASHBOARD_EXPORT_ROW_LIMIT_MESSAGE =
     'Dashboard export exceeded the row limit';
 
-/**
- * 看板一键导出：产物体积超过单次上限（按最终 xlsx / csv 文件累计）。
- * 与行数上限互补：宽表即便行数没超，也可能体积过大。
- */
-export const DASHBOARD_EXPORT_SIZE_LIMIT_MESSAGE =
-    'Dashboard export exceeded the size limit';
-
-export const getDashboardExportSizeLimitMessage = ({
-    bytes,
-    limitBytes,
-}: {
-    bytes: number;
-    limitBytes: number;
-}): string => {
-    const toMb = (value: number) => Math.ceil(value / (1024 * 1024));
-    return `${DASHBOARD_EXPORT_SIZE_LIMIT_MESSAGE} (${toMb(
-        bytes,
-    )} MB, limit ${toMb(limitBytes)} MB)`;
-};
-
 export const getDashboardExportRowLimitMessage = ({
     rows,
     limit,

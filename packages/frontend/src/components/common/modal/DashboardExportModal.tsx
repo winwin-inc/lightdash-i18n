@@ -214,8 +214,6 @@ const DataExport: FC<DataExportProps & Pick<ModalProps, 'onClose'>> = ({
     // 整次导出的累计行数上限（来自后端配置），「所有结果」提示里要说清楚
     const dashboardExportMaxTotalRows =
         health.data?.query?.dashboardExportMaxTotalRows;
-    const dashboardExportMaxTotalBytes =
-        health.data?.query?.dashboardExportMaxTotalBytes;
 
     const handleExport = () => {
         exportContentMutation.mutate({
@@ -283,11 +281,6 @@ const DataExport: FC<DataExportProps & Pick<ModalProps, 'onClose'>> = ({
                                   rows: (
                                       dashboardExportMaxTotalRows ?? 500000
                                   ).toLocaleString(),
-                                  maxMb: Math.ceil(
-                                      (dashboardExportMaxTotalBytes ??
-                                          300 * 1024 * 1024) /
-                                          (1024 * 1024),
-                                  ),
                                   csvCellsLimit: csvCellsLimit.toLocaleString(),
                               },
                           )}

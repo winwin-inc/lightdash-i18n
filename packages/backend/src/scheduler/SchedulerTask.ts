@@ -111,10 +111,7 @@ import {
     sanitizeGenericFileName,
 } from '../utils/FileDownloadUtils/FileDownloadUtils';
 import { WorkbookExportHelper } from '../services/ExcelService/WorkbookExportHelper';
-import {
-    ExportRowBudget,
-    ExportSizeBudget,
-} from '../utils/FileDownloadUtils/exportBudget';
+import { ExportRowBudget } from '../utils/FileDownloadUtils/exportBudget';
 import slackifyMarkdown from 'slackify-markdown';
 import {
     DownloadCsv,
@@ -669,13 +666,6 @@ export default class SchedulerTask {
                                       .dashboardExportMaxTotalRows,
                               )
                             : undefined;
-                        // 行数上限管不住宽表，另给产物体积（默认 300MB）一个边界
-                        const sizeBudget = enforceRowBudget
-                            ? new ExportSizeBudget(
-                                  this.lightdashConfig.query
-                                      .dashboardExportMaxTotalBytes,
-                              )
-                            : undefined;
                         const reportProgress = (
                             progress: Omit<ExportJobProgress, 'total'> & {
                                 total?: number;
@@ -1030,7 +1020,6 @@ export default class SchedulerTask {
                             files: csvUrls,
                             dashboardName: dashboard.name,
                             locale: csvOptions?.locale,
-                            sizeBudget,
                             onFileError: (filename, reason) => {
                                 failedExportList.push({ filename, reason });
                             },
@@ -2100,7 +2089,6 @@ export default class SchedulerTask {
         locale,
         onFileError,
         onTabSkipped,
-        sizeBudget,
     }: {
         files: NonNullable<NotificationPayloadBase['page']['csvUrls']>;
         dashboardName: string;
@@ -2110,8 +2098,6 @@ export default class SchedulerTask {
         onFileError?: (filename: string, reason: string) => void;
         /** 整 Tab 合并后无有效 sheet 被跳过时回调（带该 Tab 的全部文件名） */
         onTabSkipped?: (tabName: string, filenames: string[]) => void;
-        /** 产物体积预算：每合并完一个 Tab 就累加它的文件大小 */
-        sizeBudget?: ExportSizeBudget;
     }): Promise<string> {
         if (files.length === 0) {
             // 有筛选器但一条数据都没有时走这里；用可本地化的统一文案
@@ -2201,11 +2187,6 @@ export default class SchedulerTask {
                     await fs.unlink(workbookPath).catch(() => undefined);
                     continue;
                 }
-                // 产物大小按落盘文件累加；超限直接抛错，由 finally 清理
-                // eslint-disable-next-line no-await-in-loop
-                const workbookSize = (await fs.stat(workbookPath)).size;
-                sizeBudget?.add(workbookSize);
-
                 workbooks.push({
                     entryNameBase: tabName,
                     localPath: workbookPath,
@@ -2258,13 +2239,10 @@ export default class SchedulerTask {
         locale,
         onFileError,
         onTabSkipped,
-        sizeBudget,
     }: {
         files: NonNullable<NotificationPayloadBase['page']['csvUrls']>;
         dashboardName: string;
         locale?: string;
-        /** 一次性导出的产物体积预算（交付不传） */
-        sizeBudget?: ExportSizeBudget;
         /** 合并期单文件失败回调：透传给 WorkbookExportHelper 后向上收集 */
         onFileError?: (filename: string, reason: string) => void;
         /** 整 Tab 被跳过时回调：透传给 buildPerTabWorkbookZipUrl */
@@ -2285,7 +2263,6 @@ export default class SchedulerTask {
                 locale,
                 onFileError,
                 onTabSkipped,
-                sizeBudget,
             });
             return [
                 {
@@ -3876,22 +3853,6 @@ export default class SchedulerTask {
                     const anyCsvTruncated = csvFiles.some(
                         (file) => file.truncated,
                     );
-
-                    // 本分支只服务「用户点导出」，一律按未压缩 CSV 体积累计
-                    // （zip 会再压缩，用原始大小做上限偏保守）
-                    const sizeBudget = new ExportSizeBudget(
-                        this.lightdashConfig.query.dashboardExportMaxTotalBytes,
-                    );
-                    // eslint-disable-next-line no-restricted-syntax
-                    for (const file of csvFiles) {
-                        const localPath = file.localPath;
-                        if (!localPath || /^https?:\/\//.test(localPath)) {
-                            continue;
-                        }
-                        // eslint-disable-next-line no-await-in-loop
-                        const { size } = await fs.stat(localPath);
-                        sizeBudget.add(size);
-                    }
 
                     // 只有一张图有数据时直接给 csv，不套 zip（「导出这一页」）
                     if (csvFiles.length === 1) {

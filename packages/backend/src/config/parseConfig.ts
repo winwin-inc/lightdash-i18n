@@ -839,11 +839,6 @@ export type LightdashConfig = {
          * S3 体积和任务时长同时打爆。
          */
         dashboardExportMaxTotalRows: number;
-        /**
-         * 看板一键导出的产物体积上限（字节）：按最终 xlsx / 未压缩 csv 合计。
-         * 行数上限管不住宽表，这里给下载体积和 /tmp 一个确定的边界。
-         */
-        dashboardExportMaxTotalBytes: number;
     };
     pivotTable: {
         maxColumnLimit: number;
@@ -2099,10 +2094,6 @@ export const parseConfig = (): LightdashConfig => {
                 getIntegerFromEnvironmentVariable(
                     'DASHBOARD_EXPORT_MAX_TOTAL_ROWS',
                 ) || 500000,
-            dashboardExportMaxTotalBytes:
-                getIntegerFromEnvironmentVariable(
-                    'DASHBOARD_EXPORT_MAX_TOTAL_BYTES',
-                ) || 300 * 1024 * 1024,
         },
         chart: {
             versionHistory: {

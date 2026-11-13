@@ -25,7 +25,6 @@ export const lightdashConfigWithNoSMTP: Pick<
         exportMaxRows: 1000000,
         exportMaxPivotCells: 2000000,
         dashboardExportMaxTotalRows: 500000,
-        dashboardExportMaxTotalBytes: 314572800,
     },
 };
 
@@ -64,7 +63,6 @@ export const lightdashConfigWithBasicSMTP: Pick<
         exportMaxRows: 1000000,
         exportMaxPivotCells: 2000000,
         dashboardExportMaxTotalRows: 500000,
-        dashboardExportMaxTotalBytes: 314572800,
     },
 };
 
@@ -91,7 +89,6 @@ export const lightdashConfigWithOauth2SMTP: Pick<
         exportMaxRows: 1000000,
         exportMaxPivotCells: 2000000,
         dashboardExportMaxTotalRows: 500000,
-        dashboardExportMaxTotalBytes: 314572800,
     },
 };
 
@@ -114,7 +111,6 @@ export const lightdashConfigWithSecurePortSMTP: Pick<
         exportMaxRows: 1000000,
         exportMaxPivotCells: 2000000,
         dashboardExportMaxTotalRows: 500000,
-        dashboardExportMaxTotalBytes: 314572800,
     },
 };
 

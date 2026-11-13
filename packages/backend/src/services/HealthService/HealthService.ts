@@ -109,8 +109,6 @@ export class HealthService extends BaseService {
                 // 看板一键导出的累计行数上限，导出弹窗的「所有结果」提示要用
                 dashboardExportMaxTotalRows:
                     this.lightdashConfig.query.dashboardExportMaxTotalRows,
-                dashboardExportMaxTotalBytes:
-                    this.lightdashConfig.query.dashboardExportMaxTotalBytes,
             },
             pivotTable: this.lightdashConfig.pivotTable,
             hasSlack: this.hasSlackConfig(),

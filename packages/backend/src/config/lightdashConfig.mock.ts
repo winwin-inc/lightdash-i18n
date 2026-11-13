@@ -196,7 +196,6 @@ export const lightdashConfigMock: LightdashConfig = {
         exportMaxRows: 1000000,
         exportMaxPivotCells: 2000000,
         dashboardExportMaxTotalRows: 500000,
-        dashboardExportMaxTotalBytes: 314572800,
     },
     ai: {
         copilot: {
