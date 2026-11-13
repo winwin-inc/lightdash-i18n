@@ -72,6 +72,7 @@ export const BaseResponse: HealthState = {
     query: {
         csvCellsLimit: 100000,
         dashboardExportMaxTotalRows: 500000,
+        dashboardExportMaxTotalBytes: 314572800,
         maxLimit: 5000,
         maxPageSize: 2500,
         defaultLimit: 500,

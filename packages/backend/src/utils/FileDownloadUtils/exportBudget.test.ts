@@ -1,8 +1,9 @@
 import {
     DASHBOARD_EXPORT_ROW_LIMIT_MESSAGE,
+    DASHBOARD_EXPORT_SIZE_LIMIT_MESSAGE,
     UnexpectedServerError,
 } from '@lightdash/common';
-import { ExportRowBudget } from './exportBudget';
+import { ExportRowBudget, ExportSizeBudget } from './exportBudget';
 
 describe('ExportRowBudget', () => {
     it('accumulates rows while under the limit', () => {
@@ -45,5 +46,29 @@ describe('ExportRowBudget', () => {
         expect(() => budget.assertWithinLimit()).toThrow(
             DASHBOARD_EXPORT_ROW_LIMIT_MESSAGE,
         );
+    });
+});
+
+describe('ExportSizeBudget', () => {
+    const MB = 1024 * 1024;
+
+    it('accumulates bytes until the limit and then fails', () => {
+        const budget = new ExportSizeBudget(10 * MB);
+        budget.add(4 * MB);
+        budget.add(6 * MB);
+        expect(budget.exceeded).toBe(false);
+        expect(() => budget.add(1 * MB)).toThrow(
+            DASHBOARD_EXPORT_SIZE_LIMIT_MESSAGE,
+        );
+    });
+
+    it('reports MB numbers in the shared message', () => {
+        const budget = new ExportSizeBudget(2 * MB);
+        try {
+            budget.add(3 * MB);
+            throw new Error('expected to throw');
+        } catch (error) {
+            expect(String(error)).toContain('3 MB, limit 2 MB');
+        }
     });
 });

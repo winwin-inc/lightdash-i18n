@@ -1,5 +1,6 @@
 import {
     getDashboardExportRowLimitMessage,
+    getDashboardExportSizeLimitMessage,
     UnexpectedServerError,
 } from '@lightdash/common';
 
@@ -46,6 +47,51 @@ export class ExportRowBudget {
                 getDashboardExportRowLimitMessage({
                     rows: this.usedRows,
                     limit: this.maxRows,
+                }),
+            );
+        }
+    }
+}
+
+/**
+ * 看板一键导出的产物体积预算（按最终写出的 xlsx / 未压缩 csv 文件累计）。
+ *
+ * 行数上限管不住宽表：30 列 × 50 万行 ≈ 110 MB，100 列能到 400 MB+，
+ * 既拖慢下载也把 /tmp 顶满。这里给下载体积一个确定上限（默认 300 MB）。
+ * 超限与行数超限一样：整次导出失败、清理中间文件，前端提示缩小范围。
+ */
+export class ExportSizeBudget {
+    private usedBytes = 0;
+
+    constructor(private readonly maxBytes: number) {}
+
+    get used(): number {
+        return this.usedBytes;
+    }
+
+    get exceeded(): boolean {
+        return this.usedBytes > this.maxBytes;
+    }
+
+    add(bytes: number): void {
+        if (bytes <= 0) return;
+        this.usedBytes += bytes;
+        if (this.exceeded) {
+            throw new UnexpectedServerError(
+                getDashboardExportSizeLimitMessage({
+                    bytes: this.usedBytes,
+                    limitBytes: this.maxBytes,
+                }),
+            );
+        }
+    }
+
+    assertWithinLimit(): void {
+        if (this.exceeded) {
+            throw new UnexpectedServerError(
+                getDashboardExportSizeLimitMessage({
+                    bytes: this.usedBytes,
+                    limitBytes: this.maxBytes,
                 }),
             );
         }

@@ -1279,6 +1279,8 @@ export type HealthState = {
         maxPageSize: number;
         /** 看板一键导出允许的累计行数（跨所有图表），用于导出弹窗提示 */
         dashboardExportMaxTotalRows: number;
+        /** 看板一键导出允许的产物体积（字节），用于导出弹窗提示 */
+        dashboardExportMaxTotalBytes: number;
     };
     pivotTable: {
         maxColumnLimit: number;

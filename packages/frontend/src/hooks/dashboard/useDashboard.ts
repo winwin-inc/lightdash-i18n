@@ -1,6 +1,7 @@
 import {
     formatDate,
     DASHBOARD_EXPORT_ROW_LIMIT_MESSAGE,
+    DASHBOARD_EXPORT_SIZE_LIMIT_MESSAGE,
     NO_CHARTS_TO_EXPORT_MESSAGE,
     type ApiError,
     type ApiJobScheduledResponse,
@@ -313,6 +314,16 @@ const getDashboardExportErrorSubtitle = (
             return t('hooks_dashboard.export_row_limit_exceeded', {
                 rows: Number(match[1]).toLocaleString(),
                 limit: Number(match[2]).toLocaleString(),
+            });
+        }
+    }
+    // 产物体积超限：后端带 "(N MB, limit M MB)" 后缀
+    if (error.message.includes(DASHBOARD_EXPORT_SIZE_LIMIT_MESSAGE)) {
+        const match = error.message.match(/\((\d+) MB, limit (\d+) MB\)/);
+        if (match) {
+            return t('hooks_dashboard.export_size_limit_exceeded', {
+                size: match[1],
+                limit: match[2],
             });
         }
     }
