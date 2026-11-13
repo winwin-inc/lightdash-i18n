@@ -1,7 +1,7 @@
 import {
     SchedulerFormat,
     type Dashboard,
-    type SchedulerCsvOptions,
+    type DashboardFilters,
 } from '@lightdash/common';
 import {
     Alert,
@@ -13,7 +13,6 @@ import {
     Modal,
     MultiSelect,
     Paper,
-    Radio,
     SegmentedControl,
     Stack,
     Text,
@@ -28,9 +27,11 @@ import {
     IconLayoutDashboard,
     IconScreenshot,
 } from '@tabler/icons-react';
-import { useCallback, useState, type FC } from 'react';
+import { useCallback, useMemo, useState, type FC } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router';
+
+import { prepareDashboardFilterRuleForQuery } from '../Filters/FilterInputs/utils';
 
 import { PreviewAndCustomizeScreenshot } from '../../../features/preview';
 import { useCustomWidthOptions } from '../../../features/scheduler/constants';
@@ -60,16 +61,31 @@ type CsvExportProps = {
     /** null 表示导出全部 Tab */
     selectedTabs: string[] | null;
     hasTilesInSelectedTabs: boolean;
+    /** 每个 Tab 实际生效的筛选器（已合并全局 + Tab），键为 tabUuid */
+    tabFilters: Record<string, DashboardFilters>;
 };
-
-type XlsxFileLayout = NonNullable<SchedulerCsvOptions['xlsxFileLayout']>;
 
 type XlsxExportProps = {
     dashboard: Dashboard;
     /** null 表示导出全部 Tab */
     selectedTabs: string[] | null;
     hasTilesInSelectedTabs: boolean;
+    /** 每个 Tab 实际生效的筛选器（已合并全局 + Tab），键为 tabUuid */
+    tabFilters: Record<string, DashboardFilters>;
 };
+
+/** 导出前把筛选规则整理成查询可用形态：解析动态日期、钳制固定区间 */
+const prepareTabFilters = (merged: DashboardFilters): DashboardFilters => ({
+    dimensions: merged.dimensions.map((rule) =>
+        prepareDashboardFilterRuleForQuery(rule),
+    ),
+    metrics: merged.metrics.map((rule) =>
+        prepareDashboardFilterRuleForQuery(rule),
+    ),
+    tableCalculations: merged.tableCalculations.map((rule) =>
+        prepareDashboardFilterRuleForQuery(rule),
+    ),
+});
 
 const hasTilesInTabs = (
     dashboard: Dashboard,
@@ -176,6 +192,7 @@ const CsvExport: FC<CsvExportProps & Pick<ModalProps, 'onClose'>> = ({
     dashboard,
     selectedTabs,
     hasTilesInSelectedTabs,
+    tabFilters,
     onClose,
 }) => {
     const { t } = useTranslation();
@@ -219,6 +236,7 @@ const CsvExport: FC<CsvExportProps & Pick<ModalProps, 'onClose'>> = ({
                                     filters: dashboardFilters,
                                     dateZoomGranularity: dateZoomGranularity,
                                     selectedTabs,
+                                    tabFilters,
                                 });
                                 onClose();
                             }}
@@ -239,6 +257,7 @@ const XlsxExport: FC<XlsxExportProps & Pick<ModalProps, 'onClose'>> = ({
     dashboard,
     selectedTabs,
     hasTilesInSelectedTabs,
+    tabFilters,
     onClose,
 }) => {
     const { t } = useTranslation();
@@ -249,17 +268,6 @@ const XlsxExport: FC<XlsxExportProps & Pick<ModalProps, 'onClose'>> = ({
     );
     const parameterValues = useDashboardContext((c) => c.parameterValues);
 
-    const [xlsxFileLayout, setXlsxFileLayout] = useState<XlsxFileLayout>('zip');
-
-    // 与 SchedulerForm 同一判据：看板 Tab 数 > 1 或当前值已是历史布局 per-tab-workbook 时展示
-    const dashboardTabCount = dashboard.tabs?.length ?? 0;
-    const showPerTabWorkbookOption =
-        dashboardTabCount > 1 || xlsxFileLayout === 'per-tab-workbook';
-    // 本次选中的 Tab 数（null 表示全部 Tab）；只选 1 个 Tab 时该布局产物与「每张图一个文件」相同
-    const selectedTabCount = (selectedTabs ?? dashboard.tabs)?.length ?? 0;
-    const isPerTabWorkbookDisabled =
-        dashboardTabCount > 1 && selectedTabCount <= 1;
-
     const handleExport = () => {
         exportContentMutation.mutate({
             dashboard,
@@ -268,12 +276,12 @@ const XlsxExport: FC<XlsxExportProps & Pick<ModalProps, 'onClose'>> = ({
                 options: {
                     formatted: true,
                     limit: 'table',
-                    xlsxFileLayout,
                 },
                 dashboardFilters,
                 dateZoomGranularity,
                 selectedTabs,
                 parameters: parameterValues,
+                tabFilters,
             },
         });
         onClose();
@@ -281,58 +289,6 @@ const XlsxExport: FC<XlsxExportProps & Pick<ModalProps, 'onClose'>> = ({
 
     return (
         <Stack p="md" spacing="md">
-            <Radio.Group
-                label={t(
-                    'features_scheduler_form.form.tabs_panel_setup.xlsx_output',
-                )}
-                description={t(
-                    'features_scheduler_form.form.tabs_panel_setup.xlsx_output_help',
-                )}
-                value={xlsxFileLayout}
-                onChange={(value) =>
-                    setXlsxFileLayout(
-                        value as NonNullable<
-                            SchedulerCsvOptions['xlsxFileLayout']
-                        >,
-                    )
-                }
-            >
-                <Stack spacing="xxs" pt="xs">
-                    <Radio
-                        label={t(
-                            'features_scheduler_form.form.tabs_panel_setup.xlsx_zip',
-                        )}
-                        value="zip"
-                    />
-                    <Radio
-                        label={t(
-                            'features_scheduler_form.form.tabs_panel_setup.xlsx_workbook',
-                        )}
-                        value="workbook"
-                    />
-                    {/* 看板多 Tab 或当前值已是该布局（历史值）时展示，判据与 SchedulerForm 一致 */}
-                    {showPerTabWorkbookOption && (
-                        <Radio
-                            label={t(
-                                'features_scheduler_form.form.tabs_panel_setup.xlsx_per_tab_workbook',
-                            )}
-                            value="per-tab-workbook"
-                            disabled={isPerTabWorkbookDisabled}
-                        />
-                    )}
-                    {isPerTabWorkbookDisabled && (
-                        // i18n（key 由父任务补 locales JSON）:
-                        // zh: 当前只选了 1 个 Tab，导出结果与「每张图一个文件」相同
-                        // en: Only 1 tab selected — same result as one file per chart.
-                        <Text size="xs" color="gray.6">
-                            {t(
-                                'features_scheduler_form.form.tabs_panel_setup.xlsx_per_tab_single_tab_hint',
-                            )}
-                        </Text>
-                    )}
-                </Stack>
-            </Radio.Group>
-
             <Group position="right" spacing="lg">
                 <Button variant="outline" onClick={onClose}>
                     {t('components_common_modal_dashboard_export.cancel')}
@@ -630,6 +586,28 @@ export const DashboardExportModal: FC<Props & ModalProps> = ({
         selectedTabs,
     );
 
+    // 每个 Tab 实际生效的筛选器（已合并全局 + Tab，含临时改动），CSV / XLSX 导出共用；
+    // 规则在导出前解析动态日期并钳制固定区间。
+    // 只带本次要导出的 Tab，避免整份筛选器（含 tileTargets）白占任务载荷
+    const getMergedFiltersForTab = useDashboardContext(
+        (c) => c.getMergedFiltersForTab,
+    );
+    const tabFilters = useMemo(() => {
+        const result: Record<string, DashboardFilters> = {};
+        (dashboard.tabs ?? [])
+            .filter(
+                (tab) =>
+                    resolvedSelectedTabs === null ||
+                    resolvedSelectedTabs.includes(tab.uuid),
+            )
+            .forEach((tab) => {
+                result[tab.uuid] = prepareTabFilters(
+                    getMergedFiltersForTab(tab.uuid),
+                );
+            });
+        return result;
+    }, [dashboard.tabs, getMergedFiltersForTab, resolvedSelectedTabs]);
+
     return (
         <Modal.Root opened={opened} onClose={onClose} size="xl" yOffset={65}>
             <Modal.Overlay />
@@ -710,6 +688,7 @@ export const DashboardExportModal: FC<Props & ModalProps> = ({
                         dashboard={dashboard}
                         selectedTabs={resolvedSelectedTabs}
                         hasTilesInSelectedTabs={hasTilesInSelectedTabs}
+                        tabFilters={tabFilters}
                         onClose={onClose}
                     />
                 )}
@@ -718,6 +697,7 @@ export const DashboardExportModal: FC<Props & ModalProps> = ({
                         dashboard={dashboard}
                         selectedTabs={resolvedSelectedTabs}
                         hasTilesInSelectedTabs={hasTilesInSelectedTabs}
+                        tabFilters={tabFilters}
                         onClose={onClose}
                     />
                 )}

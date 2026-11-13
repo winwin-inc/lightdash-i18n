@@ -255,3 +255,56 @@ describe('CsvService.streamJsonlRowsToFile backpressure', () => {
         ).rejects.toThrow('upload failed');
     });
 });
+
+describe('CsvService.streamJsonlRowsToFile leading filter columns', () => {
+    const leadingColumns = [
+        { header: '时间', value: '2026-01 ~ 2026-06' },
+        { header: '类目', value: '饮料' },
+    ];
+
+    const renderWithLeading = async (
+        input: Readable,
+    ): Promise<string> => {
+        const chunks: Buffer[] = [];
+        const writeStream = new Writable({
+            write(chunk: Buffer, _encoding, callback) {
+                chunks.push(Buffer.from(chunk));
+                callback();
+            },
+        });
+
+        await CsvService.streamJsonlRowsToFile(
+            false,
+            itemMap,
+            sortedFieldIds,
+            headers,
+            { readStream: input, writeStream },
+            'Asia/Shanghai',
+            undefined,
+            leadingColumns,
+        );
+
+        return Buffer.concat(chunks)
+            .toString('utf8')
+            .replace(/^\uFEFF/, '');
+    };
+
+    it('prepends the header names once and the values on every row', async () => {
+        const csv = await renderWithLeading(
+            Readable.from([
+                Buffer.from(
+                    [
+                        JSON.stringify({ month: '2026-01', amount: 1, ratio: 0.1 }),
+                        JSON.stringify({ month: '2026-02', amount: 2, ratio: 0.2 }),
+                    ].join('\n'),
+                ),
+            ]),
+        );
+        const lines = csv.trim().split('\n');
+
+        expect(lines).toHaveLength(3);
+        expect(lines[0]).toBe('时间,类目,月份,销售额,占比');
+        expect(lines[1].startsWith('2026-01 ~ 2026-06,饮料,2026-01,')).toBe(true);
+        expect(lines[2].startsWith('2026-01 ~ 2026-06,饮料,2026-02,')).toBe(true);
+    });
+});

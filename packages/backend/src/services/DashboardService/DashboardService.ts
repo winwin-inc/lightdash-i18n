@@ -2719,7 +2719,6 @@ export class DashboardService
         const options: SchedulerCsvOptions = {
             formatted: data.options?.formatted ?? true,
             limit: data.options?.limit ?? 'table',
-            xlsxFileLayout: data.options?.xlsxFileLayout,
         };
 
         const payload: ExportContentPayload = {
@@ -2732,6 +2731,7 @@ export class DashboardService
             customViewportWidth: data.customViewportWidth,
             selectedTabs: data.selectedTabs ?? null,
             parameters: data.parameters,
+            tabFilters: data.tabFilters,
             organizationUuid: dashboard.organizationUuid,
             projectUuid: dashboard.projectUuid,
             userUuid: user.userUuid,

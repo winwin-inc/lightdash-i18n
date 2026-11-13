@@ -22,7 +22,6 @@ import {
     type ParameterDefinitions,
     type ParametersValuesMap,
     type SchedulerAndTargets,
-    type SchedulerCsvOptions,
 } from '@lightdash/common';
 import { getSchedulerFilterRequirements } from '../utils/filterRequirements';
 import {
@@ -105,9 +104,6 @@ const DEFAULT_VALUES = {
         customLimit: 1,
         withPdf: false,
         asAttachment: false,
-        xlsxFileLayout: 'zip' as NonNullable<
-            SchedulerCsvOptions['xlsxFileLayout']
-        >,
     },
     emailTargets: [] as string[],
     slackTargets: [] as string[],
@@ -173,7 +169,6 @@ const getFormValuesFromScheduler = (schedulerData: SchedulerAndTargets) => {
             formOptions.customLimit = options.limit as number;
         }
         formOptions.asAttachment = options.asAttachment || false;
-        formOptions.xlsxFileLayout = options.xlsxFileLayout ?? 'zip';
     } else if (isSchedulerImageOptions(options)) {
         formOptions.withPdf = options.withPdf || false;
     }
@@ -500,11 +495,6 @@ const SchedulerForm: FC<Props> = ({
                         values.emailTargets.length > 0
                             ? values.options.asAttachment
                             : false,
-                    xlsxFileLayout:
-                        values.format === SchedulerFormat.XLSX &&
-                        resource?.type === 'dashboard'
-                            ? values.options.xlsxFileLayout
-                            : undefined,
                     locale: i18n.language?.toLowerCase().startsWith('zh')
                         ? 'zh'
                         : 'en',
@@ -659,11 +649,6 @@ const SchedulerForm: FC<Props> = ({
     const isImageDisabled = !health.data?.hasHeadlessBrowser;
 
     const limit = form.values?.options?.limit;
-
-    // 与导出弹窗同一判据：看板 Tab 数 > 1 或当前值已是历史布局 per-tab-workbook 时展示
-    const showPerTabWorkbookOption =
-        (dashboard?.tabs.length ?? 0) > 1 ||
-        form.values.options.xlsxFileLayout === 'per-tab-workbook';
 
     const isThresholdAlertWithNoFields =
         isThresholdAlert && Object.keys(numericMetrics).length === 0;
@@ -1191,50 +1176,6 @@ const SchedulerForm: FC<Props> = ({
                                                     )}
                                                 </Stack>
                                             </Group>
-                                            {form.values.format ===
-                                                SchedulerFormat.XLSX &&
-                                                isDashboard && (
-                                                    <Radio.Group
-                                                        mt="sm"
-                                                        label={t(
-                                                            'features_scheduler_form.form.tabs_panel_setup.xlsx_output',
-                                                        )}
-                                                        description={t(
-                                                            'features_scheduler_form.form.tabs_panel_setup.xlsx_output_help',
-                                                        )}
-                                                        {...form.getInputProps(
-                                                            'options.xlsxFileLayout',
-                                                        )}
-                                                    >
-                                                        <Stack
-                                                            spacing="xxs"
-                                                            pt="xs"
-                                                        >
-                                                            <Radio
-                                                                label={t(
-                                                                    'features_scheduler_form.form.tabs_panel_setup.xlsx_zip',
-                                                                )}
-                                                                value="zip"
-                                                            />
-                                                            <Radio
-                                                                label={t(
-                                                                    'features_scheduler_form.form.tabs_panel_setup.xlsx_workbook',
-                                                                )}
-                                                                value="workbook"
-                                                            />
-                                                            {/* 已有交付可能存的是该布局（历史值），保留可见以避免单选组出现未选中状态；
-                                                                多 Tab 看板按 Tab 数展示，判据与导出弹窗保持一致 */}
-                                                            {showPerTabWorkbookOption && (
-                                                                <Radio
-                                                                    label={t(
-                                                                        'features_scheduler_form.form.tabs_panel_setup.xlsx_per_tab_workbook',
-                                                                    )}
-                                                                    value="per-tab-workbook"
-                                                                />
-                                                            )}
-                                                        </Stack>
-                                                    </Radio.Group>
-                                                )}
                                         </Collapse>
                                     </Stack>
                                 )}

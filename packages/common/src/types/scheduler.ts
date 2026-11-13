@@ -4,6 +4,7 @@ import { type ApiSuccess } from './api/success';
 import type { DownloadFileType } from './downloadFile';
 import { type Explore, type ExploreError } from './explore';
 import { type DashboardFilterRule, type DashboardFilters } from './filter';
+import { type ExportFilterColumn } from '../utils/dashboardExportFilters';
 import { type KnexPaginatedData } from './knex-paginate';
 import { type MetricQuery } from './metricQuery';
 import { type ParametersValuesMap } from './parameters';
@@ -15,13 +16,8 @@ export type SchedulerCsvOptions = {
     formatted: boolean;
     limit: 'table' | 'all' | number;
     asAttachment?: boolean;
-    /** Dashboard XLSX: zip of files (default) or one multi-sheet workbook */
-    /**
-     * zip：每张图一个 xlsx，打成一个包（默认）
-     * workbook：整个看板合成一个 xlsx，每张图一个 sheet
-     * per-tab-workbook：每个 Tab 一个 xlsx，包内每个 xlsx 里每张图一个 sheet
-     */
-    xlsxFileLayout?: 'zip' | 'workbook' | 'per-tab-workbook';
+    // 看板 XLSX 产物固定为「每个 Tab 一个 xlsx，包内每个 xlsx 里每张图一个 sheet」
+    // （旧的「每张图一个文件」/「单文件多工作表」布局已移除，不再有布局选项）
     /** UI language for delivery emails; missing => zh */
     locale?: string;
 };
@@ -549,6 +545,11 @@ export type ExportCsvDashboardPayload = TraceTaskBase & {
     dateZoomGranularity?: DateGranularity;
     /** null / undefined 表示导出全部 Tab */
     selectedTabs?: string[] | null;
+    /**
+     * 每个 Tab 实际生效的筛选器（已合并全局 + Tab），键为 tabUuid。
+     * 前端导出时带上页面当前取值；缺省时后端按看板保存的定义合并。
+     */
+    tabFilters?: Record<string, DashboardFilters>;
 };
 
 /** Dashboard one-click export (CSV/XLSX). Image stays on the legacy /export route. */
@@ -566,6 +567,8 @@ export type ExportContentPayload = TraceTaskBase & {
     customViewportWidth?: number;
     selectedTabs?: string[] | null;
     parameters?: ParametersValuesMap;
+    /** 每个 Tab 实际生效的筛选器（已合并全局 + Tab），键为 tabUuid */
+    tabFilters?: Record<string, DashboardFilters>;
 };
 
 export type ExportContentRequest = {
@@ -576,6 +579,8 @@ export type ExportContentRequest = {
     customViewportWidth?: number;
     selectedTabs?: string[] | null;
     parameters?: ParametersValuesMap;
+    /** 每个 Tab 实际生效的筛选器（已合并全局 + Tab），键为 tabUuid */
+    tabFilters?: Record<string, DashboardFilters>;
 };
 
 export type DownloadAsyncQueryResultsPayload = TraceTaskBase & {
@@ -589,4 +594,6 @@ export type DownloadAsyncQueryResultsPayload = TraceTaskBase & {
     pivotConfig?: PivotConfig;
     attachmentDownloadName?: string;
     encodedJwt?: string;
+    /** 导出文件左侧前置的「筛选器常量列」（看板导出用，普通下载不传） */
+    leadingColumns?: ExportFilterColumn[];
 };

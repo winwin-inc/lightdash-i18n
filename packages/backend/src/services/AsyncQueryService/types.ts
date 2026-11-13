@@ -11,6 +11,7 @@ import {
     type DashboardFilters,
     type DateZoom,
     type DownloadAsyncQueryResultsPayload,
+    type ExportFilterColumn,
     type Filters,
     type ItemsMap,
     type ParametersValuesMap,
@@ -56,6 +57,8 @@ export type DownloadAsyncQueryResultsArgs = Omit<
      * 调用方负责删除。
      */
     keepTempFile?: boolean;
+    /** 导出文件左侧前置的「筛选器常量列」（看板导出用） */
+    leadingColumns?: ExportFilterColumn[];
 };
 
 export type ScheduleDownloadAsyncQueryResultsArgs = Omit<

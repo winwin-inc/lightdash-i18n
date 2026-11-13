@@ -15174,13 +15174,6 @@ const models: TsoaRoute.Models = {
             dataType: 'nestedObjectLiteral',
             nestedProperties: {
                 locale: { dataType: 'string' },
-                xlsxFileLayout: {
-                    dataType: 'union',
-                    subSchemas: [
-                        { dataType: 'enum', enums: ['zip'] },
-                        { dataType: 'enum', enums: ['workbook'] },
-                    ],
-                },
                 asAttachment: { dataType: 'boolean' },
                 limit: {
                     dataType: 'union',

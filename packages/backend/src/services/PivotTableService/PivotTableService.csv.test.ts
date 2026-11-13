@@ -104,3 +104,28 @@ describe('PivotTableService.writeRowsToCsvFile', () => {
         await fs.unlink(filePath);
     });
 });
+
+describe('PivotTableService.prependLeadingColumns', () => {
+    const rows: string[][] = [
+        ['SPU', '2026-01', '销量'],
+        ['运动饮料', '1', '2'],
+        ['零食', '3', '4'],
+    ];
+
+    it('returns the matrix untouched when there are no leading columns', () => {
+        expect(PivotTableService.prependLeadingColumns(rows, [])).toBe(rows);
+    });
+
+    it('writes the header on the first row and the value on every other row', () => {
+        const result = PivotTableService.prependLeadingColumns(rows, [
+            { header: '时间', value: '2026-01 ~ 2026-06' },
+            { header: '类目', value: '饮料' },
+        ]);
+
+        expect(result).toEqual([
+            ['时间', '类目', 'SPU', '2026-01', '销量'],
+            ['2026-01 ~ 2026-06', '饮料', '运动饮料', '1', '2'],
+            ['2026-01 ~ 2026-06', '饮料', '零食', '3', '4'],
+        ]);
+    });
+});

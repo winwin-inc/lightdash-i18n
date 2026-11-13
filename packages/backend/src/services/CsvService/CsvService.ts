@@ -18,8 +18,11 @@ import {
     formatItemValue,
     friendlyName,
     getCustomLabelsFromTableConfig,
+    getDashboardFiltersForTab,
+    getDashboardFiltersForTile,
     getDashboardFiltersForTileAndTables,
     getErrorMessage,
+    getExportFilterColumns,
     getFulfilledValues,
     getHiddenTableFields,
     getItemLabel,
@@ -43,6 +46,7 @@ import {
     SchedulerFormat,
     SessionUser,
     validateSelectedTabs,
+    type ExportFilterColumn,
     type RunQueryTags,
 } from '@lightdash/common';
 import archiver from 'archiver';
@@ -319,6 +323,8 @@ export class CsvService extends BaseService {
             readStream: Readable;
             writeStream: Writable;
         },
+        /** 行首前置的常量值（看板导出的筛选器列） */
+        leadingValues: string[] = [],
     ): Promise<void> {
         // Create csv-stringify stringifier with clean configuration
         const stringifier = stringify({
@@ -342,7 +348,12 @@ export class CsvService extends BaseService {
                 );
 
                 // Pass data to next stream in pipeline (csv-stringify)
-                callback(null, csvRow);
+                callback(
+                    null,
+                    leadingValues.length > 0
+                        ? [...leadingValues, ...csvRow]
+                        : csvRow,
+                );
             },
         });
 
@@ -390,11 +401,18 @@ export class CsvService extends BaseService {
         }: { readStream: Readable; writeStream: Writable },
         displayTimezone?: string,
         maxLines?: number,
+        /** 行首前置的筛选器常量列（看板导出） */
+        leadingColumns: ExportFilterColumn[] = [],
     ): Promise<{ truncated: boolean }> {
+        const leadingHeaders = leadingColumns.map((column) => column.header);
+        const leadingValues = leadingColumns.map((column) => column.value);
         const stringifier = stringify({
             delimiter: ',',
             header: true,
-            columns: csvHeader,
+            columns:
+                leadingHeaders.length > 0
+                    ? [...leadingHeaders, ...csvHeader]
+                    : csvHeader,
             bom: true,
         });
 
@@ -457,7 +475,11 @@ export class CsvService extends BaseService {
                     }
 
                     if (csvRow) {
-                        if (!stringifier.write(csvRow)) {
+                        const rowWithLeadingValues =
+                            leadingValues.length > 0
+                                ? [...leadingValues, ...csvRow]
+                                : csvRow;
+                        if (!stringifier.write(rowWithLeadingValues)) {
                             // Stop pulling lines while the sink is full. `readline` keeps its
                             // own queue, so pausing the underlying read stream is what actually
                             // applies backpressure to the S3 response (pausing the interface
@@ -528,6 +550,8 @@ export class CsvService extends BaseService {
         customLabels: Record<string, string> = {},
         columnOrder: string[] = [],
         hiddenFields: string[] = [],
+        /** 行首前置的常量列（看板导出的筛选器列） */
+        leadingColumns: ExportFilterColumn[] = [],
     ): Promise<string> {
         // Ignore fields from results that are not selected in metrics or dimensions
         const selectedFieldIds = [
@@ -574,11 +598,12 @@ export class CsvService extends BaseService {
             onlyRaw,
             itemMap,
             sortedFieldIds,
-            csvHeader,
+            [...leadingColumns.map((column) => column.header), ...csvHeader],
             {
                 readStream,
                 writeStream,
             },
+            leadingColumns.map((column) => column.value),
         );
 
         return fileId;
@@ -799,14 +824,21 @@ export class CsvService extends BaseService {
 
         const truncated = this.couldBeTruncated(rows);
 
+        const itemMap = getItemMap(
+            explore,
+            metricQuery.additionalMetrics,
+            metricQuery.tableCalculations,
+            metricQuery.customDimensions,
+        );
+        // 行首常量列：这行数据属于哪个时间/类目，靠生效的筛选器写出来
+        const leadingColumns = getExportFilterColumns({
+            filters: dashboardFiltersForTile,
+            itemMap,
+            timezone: this.lightdashConfig.query.timezone,
+        });
+
         const pivotConfig = getPivotConfig(chart);
         if (pivotConfig && isTableChartConfig(config)) {
-            const itemMap = getItemMap(
-                explore,
-                metricQuery.additionalMetrics,
-                metricQuery.tableCalculations,
-                metricQuery.customDimensions,
-            );
             const customLabels = getCustomLabelsFromTableConfig(config);
 
             const downloadUrl = this.pivotTableService.downloadPivotTableCsv({
@@ -821,6 +853,7 @@ export class CsvService extends BaseService {
                 exploreId,
                 onlyRaw,
                 truncated,
+                leadingColumns,
             });
 
             if (analyticProperties) {
@@ -849,6 +882,7 @@ export class CsvService extends BaseService {
             getCustomLabelsFromTableConfig(config),
             chart.tableConfig.columnOrder,
             getHiddenTableFields(chart.chartConfig),
+            leadingColumns,
         );
 
         if (analyticProperties) {
@@ -984,6 +1018,7 @@ export class CsvService extends BaseService {
         dateZoomGranularity,
         invalidateCache,
         schedulerParameters,
+        tabFilters,
     }: {
         user: SessionUser;
         dashboardUuid: string;
@@ -995,6 +1030,8 @@ export class CsvService extends BaseService {
         dateZoomGranularity?: DateGranularity;
         invalidateCache?: boolean;
         schedulerParameters?: ParametersValuesMap;
+        /** 每 Tab 实际生效的筛选器（一次性导出由前端带上；缺省按看板保存值合并） */
+        tabFilters?: Record<string, DashboardFilters>;
     }): Promise<AttachmentUrl[]> {
         const dashboard = await this.dashboardModel.getByIdOrSlug(
             dashboardUuid,
@@ -1011,6 +1048,18 @@ export class CsvService extends BaseService {
             );
         }
 
+        /** 某个 Tab 实际生效的筛选器（与页面查询口径一致） */
+        const getFiltersForTab = (tabUuid: string | null): DashboardFilters => {
+            if (!tabUuid) return dashboardFilters;
+            const provided = tabFilters?.[tabUuid];
+            if (provided) return provided;
+            return getDashboardFiltersForTab({
+                dashboard,
+                tabUuid,
+                globalFilters: dashboardFilters,
+            });
+        };
+
         const chartTileUuidsWithChartUuids = dashboard.tiles
             .filter(isDashboardChartTileType)
             .filter((tile) => tile.properties.savedChartUuid)
@@ -1018,6 +1067,7 @@ export class CsvService extends BaseService {
             .map((tile) => ({
                 tileUuid: tile.uuid,
                 chartUuid: tile.properties.savedChartUuid!,
+                tabUuid: tile.tabUuid ?? null,
             }));
         const sqlChartTileUuids = dashboard.tiles
             .filter(isDashboardSqlChartTile)
@@ -1027,6 +1077,7 @@ export class CsvService extends BaseService {
             .map((tile) => ({
                 tileUuid: tile.uuid,
                 chartUuid: tile.properties.savedSqlUuid!,
+                tabUuid: tile.tabUuid ?? null,
             }));
 
         this.logger.info(
@@ -1041,14 +1092,17 @@ export class CsvService extends BaseService {
             );
 
         const csvForChartPromises = chartTileUuidsWithChartUuids.map(
-            ({ tileUuid, chartUuid }) =>
+            ({ tileUuid, chartUuid, tabUuid }) =>
                 this.getCsvForChart({
                     user,
                     chartUuid,
                     options,
                     jobId,
                     tileUuid,
-                    dashboardFilters,
+                    dashboardFilters: getDashboardFiltersForTile({
+                        filters: getFiltersForTab(tabUuid),
+                        tileUuid,
+                    }),
                     dashboardContext,
                     dateZoomGranularity,
                     invalidateCache,
@@ -1401,6 +1455,7 @@ export class CsvService extends BaseService {
         dashboardFilters: DashboardFilters,
         dateZoomGranularity?: DateGranularity,
         selectedTabs?: string[] | null,
+        tabFilters?: Record<string, DashboardFilters>,
     ) {
         const dashboard = await this.dashboardModel.getByIdOrSlug(
             dashboardUuid,
@@ -1425,6 +1480,7 @@ export class CsvService extends BaseService {
             dashboardFilters,
             dateZoomGranularity,
             selectedTabs: normalizedSelectedTabs,
+            tabFilters,
             // TraceTaskBase
             organizationUuid: dashboard.organizationUuid,
             projectUuid: dashboard.projectUuid,
@@ -1450,6 +1506,7 @@ export class CsvService extends BaseService {
         selectedTabs,
         userUuid,
         organizationUuid,
+        tabFilters,
     }: ExportCsvDashboardPayload) {
         if (!this.s3Client.isEnabled()) {
             throw new MissingConfigError('Cloud storage is not enabled');
@@ -1534,6 +1591,7 @@ export class CsvService extends BaseService {
             dateZoomGranularity,
             selectedTabs:
                 selectedTabs && selectedTabs.length > 0 ? selectedTabs : null,
+            tabFilters,
         }).then((urls) => urls.filter((url) => url.path !== '#no-results'));
 
         this.logger.info(

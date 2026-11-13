@@ -264,11 +264,17 @@ const exportCsvDashboard = async (
     filters: DashboardFilters,
     dateZoomGranularity: DateGranularity | undefined,
     selectedTabs: string[] | null,
+    tabFilters: Record<string, DashboardFilters>,
 ) =>
     lightdashApi<ApiJobScheduledResponse['results']>({
         url: `/dashboards/${id}/exportCsv`,
         method: 'POST',
-        body: JSON.stringify({ filters, dateZoomGranularity, selectedTabs }),
+        body: JSON.stringify({
+            filters,
+            dateZoomGranularity,
+            selectedTabs,
+            tabFilters,
+        }),
     });
 
 export const useExportCsvDashboard = () => {
@@ -288,6 +294,7 @@ export const useExportCsvDashboard = () => {
             filters: DashboardFilters;
             dateZoomGranularity: DateGranularity | undefined;
             selectedTabs: string[] | null;
+            tabFilters: Record<string, DashboardFilters>;
         }
     >(
         (data) =>
@@ -296,6 +303,7 @@ export const useExportCsvDashboard = () => {
                 data.filters,
                 data.dateZoomGranularity,
                 data.selectedTabs,
+                data.tabFilters,
             ),
         {
             mutationKey: ['export_csv_dashboard'],

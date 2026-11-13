@@ -8,6 +8,7 @@ import {
     CreateSchedulerLog,
     CreateSchedulerTarget,
     DashboardFilterRule,
+    DashboardFilters,
     DashboardParameterValue,
     type DownloadAsyncQueryResultsPayload,
     DownloadCsvPayload,
@@ -64,7 +65,10 @@ import {
     getColumnOrderFromVizTableConfig,
     getCustomLabelsFromTableConfig,
     getCustomLabelsFromVizTableConfig,
+    getDashboardFiltersForTab,
+    getDashboardFiltersForTile,
     getErrorMessage,
+    getExportFilterColumns,
     getFulfilledValues,
     getHiddenFieldsFromVizTableConfig,
     getHiddenTableFields,
@@ -91,6 +95,10 @@ import {
     pivotResultsAsCsv,
     setUuidParam,
     type DateGranularity,
+    type Account as QueryAccount,
+    type ExportFilterColumn,
+    type ItemsMap,
+    type MetricQuery,
 } from '@lightdash/common';
 import archiver from 'archiver';
 import fsSync from 'fs';
@@ -162,6 +170,12 @@ export type SchedulerTaskArguments = {
     msTeamsClient: MicrosoftTeamsClient;
     renameService: RenameService;
     asyncQueryService: AsyncQueryService;
+};
+
+/** 导出筛选器列需要的 explore 信息：字段标签 + 该 explore 的表（用于收敛筛选器） */
+type ExportExploreInfo = {
+    itemMap: ItemsMap;
+    tables: string[];
 };
 
 export default class SchedulerTask {
@@ -295,6 +309,8 @@ export default class SchedulerTask {
     protected async getNotificationPageData(
         scheduler: CreateSchedulerAndTargets,
         jobId: string,
+        /** 每 Tab 实际生效的筛选器（一次性导出时由前端带上来；交付任务缺省） */
+        tabFilters?: Record<string, DashboardFilters>,
     ): Promise<NotificationPayloadBase['page']> {
         const {
             createdBy: userUuid,
@@ -523,6 +539,26 @@ export default class SchedulerTask {
                                 );
                         }
 
+                        /**
+                         * 某个 Tab 实际生效的筛选器。
+                         * 一次性导出会带上页面当前取值（已含全局层）；
+                         * 定时交付没有前端状态，按看板保存的定义合并。
+                         */
+                        const getFiltersForTab = (
+                            tabUuid: string | null,
+                        ): DashboardFilters => {
+                            if (!tabUuid) return dashboardFilters;
+                            const provided = tabFilters?.[tabUuid];
+                            if (provided) return provided;
+                            return getDashboardFiltersForTab({
+                                dashboard,
+                                tabUuid,
+                                globalFilters: dashboardFilters,
+                            });
+                        };
+                        // 同一张 explore 只拉一次，用于把筛选器列名换成字段名
+                        const exploreCache = new Map<string, ExportExploreInfo>();
+
                         const dashboardParameters = dashboard.parameters || {};
                         const schedulerParameters = isDashboardScheduler(
                             scheduler,
@@ -544,10 +580,8 @@ export default class SchedulerTask {
                             ...schedulerParameters,
                         };
 
-                        // 需要合并多个 xlsx 时保留本地文件，省掉每张图一次 S3 上传 + 下载
-                        const keepTempFilesForMerge =
-                            csvOptions?.xlsxFileLayout === 'workbook' ||
-                            csvOptions?.xlsxFileLayout === 'per-tab-workbook';
+                        // 每张图先落本地，再按 Tab 合并；省掉每张图一次 S3 上传 + 下载
+                        const keepTempFilesForMerge = true;
 
                         const tabNameByUuid = new Map(
                             (dashboard.tabs ?? []).map((tab) => [
@@ -625,9 +659,29 @@ export default class SchedulerTask {
 
                         const exportChartTile = async ({
                             chartUuid,
+                            tileUuid,
                             tabUuid,
                             tabName,
                         }: DashboardExportTile) => {
+                            // 先取图表定义：筛选器列名要靠它的 explore 解析
+                            const chart =
+                                await this.schedulerService.savedChartModel.get(
+                                    chartUuid,
+                                );
+                            const tileFilters = getDashboardFiltersForTile({
+                                filters: getFiltersForTab(tabUuid),
+                                tileUuid,
+                            });
+                            const leadingColumns =
+                                await this.getExportFilterColumnsForTile({
+                                    filters: tileFilters,
+                                    exploreCache,
+                                    timezone: this.lightdashConfig.query.timezone,
+                                    account,
+                                    projectUuid,
+                                    tableName: chart.tableName,
+                                    metricQuery: chart.metricQuery,
+                                });
                             const chartLimit =
                                 getSchedulerCsvLimit(csvOptions);
                             const query =
@@ -640,15 +694,12 @@ export default class SchedulerTask {
                                         context:
                                             QueryExecutionContext.SCHEDULED_DELIVERY,
                                         dashboardUuid,
-                                        dashboardFilters,
+                                        // 页面按「全局 + 当前 Tab」合并后再按 tile 收敛
+                                        dashboardFilters: tileFilters,
                                         dashboardSorts: [],
                                         parameters: finalParameters,
                                         limit: chartLimit,
                                     },
-                                );
-                            const chart =
-                                await this.schedulerService.savedChartModel.get(
-                                    chartUuid,
                                 );
                             const downloadResult =
                                 await this.asyncQueryService.downloadSyncQueryResults(
@@ -658,6 +709,7 @@ export default class SchedulerTask {
                                         queryUuid: query.queryUuid,
                                         type: DownloadFileType.XLSX,
                                         keepTempFile: keepTempFilesForMerge,
+                                        leadingColumns,
                                         onlyRaw:
                                             csvOptions?.formatted === false,
                                         customLabels:
@@ -696,6 +748,10 @@ export default class SchedulerTask {
                             tabName,
                         }: DashboardExportTile) => {
                             const sqlLimit = getSchedulerCsvLimit(csvOptions);
+                            // SQL 图不接收看板筛选器（查询侧要求 tileTargets 显式绑定 SQL 列，
+                            // 一般都不满足），所以不写筛选器列，避免导出的列与实际过滤不符
+                            const tileFilters = getFiltersForTab(tabUuid);
+                            const leadingColumns: ExportFilterColumn[] = [];
                             const query =
                                 await this.asyncQueryService.executeAsyncDashboardSqlChartQuery(
                                     {
@@ -707,7 +763,7 @@ export default class SchedulerTask {
                                             QueryExecutionContext.SCHEDULED_DELIVERY,
                                         dashboardUuid,
                                         tileUuid,
-                                        dashboardFilters,
+                                        dashboardFilters: tileFilters,
                                         dashboardSorts: [],
                                         parameters: finalParameters,
                                         limit:
@@ -731,6 +787,7 @@ export default class SchedulerTask {
                                         queryUuid: query.queryUuid,
                                         type: DownloadFileType.XLSX,
                                         keepTempFile: keepTempFilesForMerge,
+                                        leadingColumns,
                                         onlyRaw:
                                             csvOptions?.formatted === false,
                                         customLabels:
@@ -827,34 +884,23 @@ export default class SchedulerTask {
                         // 1 条（或每 Tab 1 条），不能再用 csvUrls.length 当图数
                         const numExportedCharts = csvUrls.length;
 
-                        if (csvOptions?.xlsxFileLayout === 'workbook') {
-                            csvUrls = await this.buildWorkbookCsvUrls({
-                                files: csvUrls,
-                                workbookNameBase: dashboard.name,
-                                onFileError: (filename, reason) => {
-                                    failedExportList.push({ filename, reason });
-                                },
-                            });
-                        } else if (
-                            csvOptions?.xlsxFileLayout === 'per-tab-workbook'
-                        ) {
-                            csvUrls = await this.buildPerTabWorkbookCsvUrls({
-                                files: csvUrls,
-                                dashboardName: dashboard.name,
-                                locale: csvOptions?.locale,
-                                onFileError: (filename, reason) => {
-                                    failedExportList.push({ filename, reason });
-                                },
-                                onTabSkipped: (tabName, filenames) => {
-                                    filenames.forEach((filename) =>
-                                        failedExportList.push({
-                                            filename,
-                                            reason: `No sheets could be generated for tab "${tabName}"`,
-                                        }),
-                                    );
-                                },
-                            });
-                        }
+                        // 唯一产物形态：每个 Tab 一个 xlsx，合成一个 zip
+                        csvUrls = await this.buildPerTabWorkbookCsvUrls({
+                            files: csvUrls,
+                            dashboardName: dashboard.name,
+                            locale: csvOptions?.locale,
+                            onFileError: (filename, reason) => {
+                                failedExportList.push({ filename, reason });
+                            },
+                            onTabSkipped: (tabName, filenames) => {
+                                filenames.forEach((filename) =>
+                                    failedExportList.push({
+                                        filename,
+                                        reason: `No sheets could be generated for tab "${tabName}"`,
+                                    }),
+                                );
+                            },
+                        });
 
                         failedExports = failedExportList;
 
@@ -979,6 +1025,7 @@ export default class SchedulerTask {
                             selectedTabs,
                             invalidateCache: true,
                             schedulerParameters: csvSchedulerParameters,
+                            tabFilters,
                         });
 
                         this.analytics.track({
@@ -2036,7 +2083,7 @@ export default class SchedulerTask {
 
     /**
      * Collapses per-tile XLSX files into one "zip of per-tab workbooks" csvUrl
-     * for scheduled delivery, matching buildWorkbookCsvUrls' single-entry shape.
+     * for scheduled delivery (single-entry shape: page.csvUrls[0] is the zip).
      */
     private async buildPerTabWorkbookCsvUrls({
         files,
@@ -2078,87 +2125,6 @@ export default class SchedulerTask {
                 },
             ];
         } finally {
-            await Promise.all(
-                localInputPaths.map((localPath) =>
-                    fs.unlink(localPath).catch(() => undefined),
-                ),
-            );
-        }
-    }
-
-    /**
-     * Collapses per-tile XLSX files into one multi-sheet workbook for delivery.
-     * Default layout remains a zip of separate files when xlsxFileLayout !== 'workbook'.
-     */
-    private async buildWorkbookCsvUrls({
-        files,
-        workbookNameBase,
-        onFileError,
-    }: {
-        files: NonNullable<NotificationPayloadBase['page']['csvUrls']>;
-        workbookNameBase: string;
-        /** 合并期单文件失败回调：内部已 Logger.warn，这里向上透传收集 */
-        onFileError?: (filename: string, reason: string) => void;
-    }): Promise<NonNullable<NotificationPayloadBase['page']['csvUrls']>> {
-        if (!this.s3Client.isEnabled()) {
-            throw new MissingConfigError('Cloud storage is not enabled');
-        }
-        if (files.length === 0) {
-            throw new UnexpectedServerError('No files to include in workbook');
-        }
-
-        const workbookPath = `/tmp/${nanoid()}.xlsx`;
-        // 成功后返回值会被替换成单条 S3 URL，调用方的
-        // cleanupLocalExportFiles 会因 http 前缀跳过，
-        // 因此传入 files 里的本地中间文件（keepTempFile 生成）由这里统一清理
-        const localInputPaths = files
-            .map((file) => file.localPath)
-            .filter((localPath) => !/^https?:\/\//.test(localPath));
-        try {
-            const workbookResult = await WorkbookExportHelper.createWorkbookFile(
-                {
-                    files: files.map((file) => ({
-                        filename: file.filename,
-                        sheetName: file.filename,
-                        localPath: file.localPath,
-                    })),
-                    outputPath: workbookPath,
-                    onFileError: (filename, error) => {
-                        Logger.warn(
-                            `Failed to add XLSX file "${filename}" to workbook: ${error}`,
-                        );
-                        onFileError?.(filename, error);
-                    },
-                },
-            );
-
-            if (workbookResult.worksheetCount === 0) {
-                throw new UnexpectedServerError(
-                    'All XLSX downloads failed — no files to include in workbook',
-                );
-            }
-
-            const workbookFileName = `${sanitizeGenericFileName(
-                workbookNameBase,
-            )}-${new Date().toISOString().replace(/[:.]/g, '-')}.xlsx`;
-
-            const url = await this.s3Client.uploadExcel(
-                fsSync.createReadStream(workbookPath),
-                workbookFileName,
-            );
-
-            // 任一输入被截断，收口后的单文件也要带上截断标记，
-            // 否则邮件模板的 truncated 提示永远不会出现
-            return [
-                {
-                    filename: workbookNameBase,
-                    path: url,
-                    localPath: url,
-                    truncated: files.some((file) => file.truncated),
-                },
-            ];
-        } finally {
-            await fs.unlink(workbookPath).catch(() => undefined);
             await Promise.all(
                 localInputPaths.map((localPath) =>
                     fs.unlink(localPath).catch(() => undefined),
@@ -3700,6 +3666,7 @@ export default class SchedulerTask {
                             selectedTabs: payload.selectedTabs ?? null,
                             invalidateCache: true,
                             schedulerParameters: payload.parameters,
+                            tabFilters: payload.tabFilters,
                         })
                         .then((urls) =>
                             urls.filter((url) => url.path !== '#no-results'),
@@ -3749,6 +3716,7 @@ export default class SchedulerTask {
                     const page = await this.getNotificationPageData(
                         scheduler,
                         jobId,
+                        payload.tabFilters,
                     );
 
                     if (!page.csvUrls || page.csvUrls.length === 0) {
@@ -3757,66 +3725,22 @@ export default class SchedulerTask {
                         );
                     }
 
-                    const xlsxFileLayout = isSchedulerCsvOptions(
-                        payload.options,
-                    )
-                        ? payload.options.xlsxFileLayout
-                        : undefined;
-                    const shouldCreatePerTabWorkbook =
-                        xlsxFileLayout === 'per-tab-workbook';
-                    const shouldCreateWorkbook = xlsxFileLayout === 'workbook';
-
-                    if (shouldCreatePerTabWorkbook) {
-                        // getNotificationPageData 已按 per-tab-workbook 收口成
-                        // 单条 zip URL（每图 /tmp 中间文件也已清理），直接透传
-                        try {
-                            const zipUrl = page.csvUrls[0]?.path;
-                            if (!zipUrl) {
-                                throw new UnexpectedServerError(
-                                    'Dashboard per-tab workbook export failed',
-                                );
-                            }
-                            return SchedulerTask.withFailedExports(
-                                { url: zipUrl, fileType: 'zip' },
-                                page.failedExports,
+                    // getNotificationPageData 已收口成单条 zip URL
+                    // （每 Tab 一个 xlsx；每图 /tmp 中间文件也已清理），直接透传
+                    try {
+                        const zipUrl = page.csvUrls[0]?.path;
+                        if (!zipUrl) {
+                            throw new UnexpectedServerError(
+                                'Dashboard per-tab workbook export failed',
                             );
-                        } finally {
-                            await this.cleanupLocalExportFiles(page.csvUrls);
                         }
+                        return SchedulerTask.withFailedExports(
+                            { url: zipUrl, fileType: 'zip' },
+                            page.failedExports,
+                        );
+                    } finally {
+                        await this.cleanupLocalExportFiles(page.csvUrls);
                     }
-
-                    if (shouldCreateWorkbook) {
-                        try {
-                            const workbookUrl = page.csvUrls[0]?.path;
-                            if (!workbookUrl) {
-                                throw new UnexpectedServerError(
-                                    'Dashboard workbook export failed',
-                                );
-                            }
-                            return SchedulerTask.withFailedExports(
-                                {
-                                    url: workbookUrl,
-                                    fileType: DownloadFileType.XLSX,
-                                },
-                                page.failedExports,
-                            );
-                        } finally {
-                            await this.cleanupLocalExportFiles(page.csvUrls);
-                        }
-                    }
-
-                    const url = await this.createExportZipDownloadUrl({
-                        files: page.csvUrls.map((file) => ({
-                            entryNameBase: file.filename,
-                            localPath: file.localPath,
-                        })),
-                        fileExtension: 'xlsx',
-                        zipNameBase: page.details.name,
-                    });
-                    return SchedulerTask.withFailedExports(
-                        { url, fileType: 'zip' },
-                        page.failedExports,
-                    );
                 }
 
                 return assertUnreachable(
@@ -3847,6 +3771,87 @@ export default class SchedulerTask {
                 )}`,
             );
         }
+    }
+
+    /**
+     * 看板导出每张图前置的「筛选器常量列」。
+     *
+     * 列名优先用筛选器自定义名，缺失时用 explore 里的字段 label；
+     * 所以需要 chart 的 explore。同一张表的多张图只拉一次。
+     * 列的范围与该图查询侧一致（只保留落在 explore 表里的筛选器），
+     * explore 不可用时退回字段 id，不阻断导出。
+     */
+    private async getExportFilterColumnsForTile({
+        filters,
+        exploreCache,
+        timezone,
+        account,
+        projectUuid,
+        tableName,
+        metricQuery,
+    }: {
+        filters: DashboardFilters;
+        exploreCache: Map<string, ExportExploreInfo>;
+        /** 项目时区：相对时间/动态日期按查询侧同一时区解析 */
+        timezone?: string;
+        account: QueryAccount;
+        projectUuid: string;
+        tableName: string;
+        metricQuery: MetricQuery;
+    }): Promise<ExportFilterColumn[]> {
+        if (getExportFilterColumns({ filters, timezone }).length === 0)
+            return [];
+
+        let exploreInfo = exploreCache.get(tableName);
+        if (!exploreInfo) {
+            try {
+                const explore = await this.projectService.getExplore(
+                    account,
+                    projectUuid,
+                    tableName,
+                );
+                exploreInfo = {
+                    itemMap: getItemMap(
+                        explore,
+                        metricQuery.additionalMetrics,
+                        metricQuery.tableCalculations,
+                        metricQuery.customDimensions,
+                    ),
+                    tables: Object.keys(explore.tables),
+                };
+            } catch (e) {
+                Logger.warn(
+                    `Failed to resolve explore "${tableName}" for export filter columns: ${getErrorMessage(
+                        e,
+                    )}`,
+                );
+                exploreInfo = { itemMap: {}, tables: [] };
+            }
+            exploreCache.set(tableName, exploreInfo);
+        }
+
+        const { itemMap, tables } = exploreInfo;
+        // explore 拿不到时（tables 为空）不收敛，仍然输出列，避免静默丢信息
+        const filtersForChart: DashboardFilters =
+            tables.length === 0
+                ? filters
+                : {
+                      dimensions: filters.dimensions.filter((rule) =>
+                          tables.includes(rule.target.tableName),
+                      ),
+                      metrics: filters.metrics.filter((rule) =>
+                          tables.includes(rule.target.tableName),
+                      ),
+                      tableCalculations: filters.tableCalculations.filter(
+                          (rule) => tables.includes(rule.target.tableName),
+                      ),
+                  };
+
+        return getExportFilterColumns({
+            filters: filtersForChart,
+            itemMap,
+            timezone,
+        });
     }
 
     /**

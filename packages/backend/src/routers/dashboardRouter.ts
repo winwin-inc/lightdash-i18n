@@ -206,6 +206,7 @@ dashboardRouter.post(
                     req.body.filters,
                     req.body.dateZoomGranularity,
                     req.body.selectedTabs ?? null,
+                    req.body.tabFilters,
                 );
 
             res.json({

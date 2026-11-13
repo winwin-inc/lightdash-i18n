@@ -1343,12 +1343,6 @@
         "all_results": "All results",
         "custom": "Custom...",
         "results_are_limited": "Results are limited to {{limit}} cells for each file",
-        "xlsx_output": "XLSX output",
-        "xlsx_output_help": "Same content in every option; only the file layout differs.",
-        "xlsx_zip": "One file per chart (ZIP)",
-        "xlsx_workbook": "Single file (one sheet per chart)",
-        "xlsx_per_tab_workbook": "One file per tab (ZIP)",
-        "xlsx_per_tab_single_tab_hint": "Only 1 tab selected — same result as one file per chart.",
         "tabs": {
           "title": "Tabs",
           "tooltip": "Select all tabs to include all tabs in the delivery. If you don't select this option, only selected tab will be included in the delivery.",
