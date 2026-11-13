@@ -11,14 +11,12 @@ import {
     ScrollArea,
     Stack,
     Tabs,
-    Text,
     useMantineTheme,
 } from '@mantine/core';
 import { IconPlus } from '@tabler/icons-react';
 import cloneDeep from 'lodash/cloneDeep';
 import { memo, useCallback, useMemo, useRef, useState, type FC } from 'react';
 import { Responsive, WidthProvider, type Layout } from 'react-grid-layout';
-import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router';
 import { v4 as uuid4 } from 'uuid';
 import ErrorBoundary from '../../features/errorBoundary/ErrorBoundary';
@@ -198,7 +196,6 @@ const DashboardTabs: FC<DashboardTabsProps> = ({
     const dashboardTabs = useDashboardContext((c) => c.dashboardTabs);
     const setDashboardTabs = useDashboardContext((c) => c.setDashboardTabs);
     const hiddenTileUuids = useDashboardContext((c) => c.hiddenTileUuids);
-    const { t: translate } = useTranslation();
 
     // tabs state
     const [isEditingTab, setEditingTab] = useState<boolean>(false);
@@ -361,15 +358,6 @@ const DashboardTabs: FC<DashboardTabsProps> = ({
     const currentTabHasTiles = !!sortedTiles?.some((tile) =>
         isActiveTile(tile),
     );
-
-    // 当前 Tab 里被「筛选器无值」隐藏的图表数（编辑模式不应用）
-    const hiddenTilesInActiveTab =
-        !isEditMode && hiddenTileUuids.size > 0
-            ? (dashboardTiles ?? []).filter(
-                  (tile) =>
-                      hiddenTileUuids.has(tile.uuid) && isActiveTile(tile),
-              ).length
-            : 0;
 
     const { setDashboardActiveTabUuid } = useDashboardStorage();
 
@@ -844,37 +832,22 @@ const DashboardTabs: FC<DashboardTabsProps> = ({
                                         !!hasDashboardTiles
                                     }
                                 />
-                                {(!hasDashboardTiles || !currentTabHasTiles) &&
-                                    (hiddenTilesInActiveTab > 0 &&
-                                    !isEditMode ? (
-                                        <Text
-                                            c="dimmed"
-                                            size="sm"
-                                            ta="center"
-                                            py="xl"
-                                        >
-                                            {translate(
-                                                'components_dashboard_tabs.hidden_tiles_hint',
-                                                {
-                                                    count: hiddenTilesInActiveTab,
-                                                },
-                                            )}
-                                        </Text>
-                                    ) : (
-                                        <EmptyStateNoTiles
-                                            onAddTiles={handleAddTiles}
-                                            emptyContainerType={
-                                                dashboardTabs &&
-                                                dashboardTabs.length
-                                                    ? 'tab'
-                                                    : 'dashboard'
-                                            }
-                                            isEditMode={isEditMode}
-                                            setAddingTab={setAddingTab}
-                                            activeTabUuid={activeTab?.uuid}
-                                            dashboardTabs={dashboardTabs}
-                                        />
-                                    ))}
+                                {(!hasDashboardTiles || !currentTabHasTiles) && (
+                                    // 筛选器无值隐藏图表时不提示，直接回退到正常的空状态
+                                    <EmptyStateNoTiles
+                                        onAddTiles={handleAddTiles}
+                                        emptyContainerType={
+                                            dashboardTabs &&
+                                            dashboardTabs.length
+                                                ? 'tab'
+                                                : 'dashboard'
+                                        }
+                                        isEditMode={isEditMode}
+                                        setAddingTab={setAddingTab}
+                                        activeTabUuid={activeTab?.uuid}
+                                        dashboardTabs={dashboardTabs}
+                                    />
+                                )}
                                 <TabAddModal
                                     onClose={() => setAddingTab(false)}
                                     opened={addingTab}

@@ -43,6 +43,9 @@
 作用范围判定与调度器「筛选器 →Tab 归属」共用 `doesFilterApplyToTile`
 （`tileTargets` + 字段匹配，`tileVisibility.ts`）。
 
+查看态若某个 Tab 的图表全被隐藏，不弹任何「已隐藏」提示，直接回退到正常的
+「标签页为空」空状态（`EmptyStateNoTiles`）。
+
 ## 三、配置入口（作者侧）
 
 - 位置：筛选器配置弹窗 → **「查看者限制」分区** → 开关 **「无值时隐藏关联图表」**。
@@ -55,8 +58,8 @@
   「任何值」规则的角标依赖查看态探测结果（编辑模式不探测，作者从未在查看态
   跑过时可能无角标，属预期）。
 
-前端入口在 `FilterSettings.tsx`（查看者限制分区）与 `DashboardTabs`（角标 +
-提示条），字段随 `filterRule` 一起经 `onChangeFilterRule` 保存。
+前端入口在 `FilterSettings.tsx`（查看者限制分区）与 `DashboardTabs`（角标），
+字段随 `filterRule` 一起经 `onChangeFilterRule` 保存。
 
 ## 四、「任何值」候选探测
 
@@ -100,7 +103,7 @@
 ## 六、性能约束
 
 - **Provider 集中派生**：`hiddenTileUuids` 在 `DashboardProvider` 用 `useMemo`
-  计算一次，`DashboardTabs`（tile 隐藏 + 提示条）与「全部图表已加载」判定
+  计算一次，`DashboardTabs`（tile 隐藏）与「全部图表已加载」判定
   （`areAllChartsLoaded`，供截图/导出）共用同一引用。
 - **引用稳定**：无命中时返回共享常量 `EMPTY_TILE_VISIBILITY_SET`；内容不变时
   返回 `hiddenTileUuidsRef` 里的旧 Set，避免引用变化引发下游重渲染。
@@ -160,6 +163,6 @@
 | `packages/frontend/src/utils/tileVisibility.ts`                               | `doesFilterApplyToTile` / `getTileUuidsHiddenByEmptyFilters`（含 `EMPTY_TILE_VISIBILITY_SET`）                                                   |
 | `packages/frontend/src/utils/categoryFilters.ts`                              | 候选探测（`probeFilterCandidateAvailabilityAsync` / `reportCandidateAvailabilityAsync`）、5s 缓存、绑定值运行时清空（`resolveBoundValuesAsync`） |
 | `packages/frontend/src/providers/Dashboard/DashboardProvider.tsx`             | `hiddenTileUuids` 集中派生、pending 门禁、10s 兜底、候选可用性 state                                                                             |
-| `packages/frontend/src/components/DashboardTabs/index.tsx`                    | tile 隐藏渲染、编辑模式角标、隐藏数量提示条                                                                                                      |
+| `packages/frontend/src/components/DashboardTabs/index.tsx`                    | tile 隐藏渲染、编辑模式角标                                                                                                    |
 | `packages/backend/src/services/DashboardService/dashboardOperationLogDiff.ts` | `hideTilesWhenEmpty` 进入筛选器变更审计（dashboard filters updated 的 previous/next）                                                            |
 | `packages/backend/src/services/UnfurlService/UnfurlService.ts`                | `waitForAllLoaded()` 对「无 overlay」的容忍（截图/PDF 导出）                                                                                     |
