@@ -2976,7 +2976,6 @@
     }
   },
   "components_dashboard_tabs": {
-    "hidden_tiles_hint": "当前筛选无值，已隐藏 {{count}} 张图表",
     "add_tab_modal": {
       "title": "添加新标签页",
       "form": {

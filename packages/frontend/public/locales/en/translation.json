@@ -2976,7 +2976,6 @@
     }
   },
   "components_dashboard_tabs": {
-    "hidden_tiles_hint": "Hidden {{count}} chart(s) because the filter has no value",
     "add_tab_modal": {
       "title": "Add new tab",
       "form": {
