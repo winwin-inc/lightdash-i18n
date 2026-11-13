@@ -143,7 +143,7 @@ DownloadAsyncQueryResultsPayload.leadingColumns?: ExportFilterColumn[];
 
 | 项 | 做法 | 配置 |
 |---|---|---|
-| 累计行数额度 | `ExportRowBudget`：每张图写完统计真实行数（XLSX 用 `streamJsonlToExcelFile` 的计数、透视按输入行数、CSV 用实际行数），累计超限即整次导出失败（不产出半截文件，已落盘的 `/tmp` 中间文件会被清理），前端把错误换成本地化文案并带出「已导出 N 行 / 上限 M 行」 | `DASHBOARD_EXPORT_MAX_TOTAL_ROWS`（默认 200000，`/health` 会透出给弹窗提示） |
+| 累计行数额度 | `ExportRowBudget`：每张图写完统计真实行数（XLSX 用 `streamJsonlToExcelFile` 的计数、透视按输入行数、CSV 用实际行数），累计超限即整次导出失败（不产出半截文件，已落盘的 `/tmp` 中间文件会被清理），前端把错误换成本地化文案并带出「已导出 N 行 / 上限 M 行」 | `DASHBOARD_EXPORT_MAX_TOTAL_ROWS`（默认 500000，`/health` 会透出给弹窗提示） |
 | 任务超时 | 仅 `EXPORT_CONTENT` 与 `EXPORT_CSV_DASHBOARD` 用更长的超时；前端轮询这两个任务放宽到 35 分钟 | `SCHEDULER_EXPORT_JOB_TIMEOUT`（默认 30 分钟） |
 | 进度 | `scheduler_log.details.progress = { done, total, currentTabName, currentChartName }`，XLSX 与 CSV 两条链路都上报；前端导出 toast 实时显示「3/14 · Tab 名 · 图表名」 | — |
 
@@ -224,7 +224,8 @@ CSV 一键导出也补了并发限流（3）与同样的额度/进度，避免�
 - 透视表的前置列不参与合并单元格，多行表头里列值会重复出现（可读性优先于版式）；
   透视 XLSX 与透视 CSV 的列位一致（第 1 行是筛选器列名）。
 - 「所有结果」在整看板导出里受两道约束：单图各自的硬上限（CSV `csvCellsLimit` / XLSX `EXCEL_ROW_LIMIT`）+
-  整次导出的累计行数额度（默认 20 万行）；超额度是整体失败，不会产出半截文件。
+  整次导出的累计行数额度（默认 50 万行，跨所有图表累加）；超额度是整体失败，不会产出半截文件。
+  注意粒度差异：单图单独「导出数据」XLSX 仍可到 100 万行，但看板级总和仍受 50 万行约束。
 - 导出任务超时只中止等待、不中断后台执行（后台仍会跑完并清理 `/tmp`）；
   额度护栏的作用是让大导出更早失败，尽量不撞到超时。
 - 相对时间筛选器（近 N 个月 / 本月 / 未来 N 周）按查询侧口径解析成具体 `start ~ end` 再导出，

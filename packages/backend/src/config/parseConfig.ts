@@ -2093,7 +2093,7 @@ export const parseConfig = (): LightdashConfig => {
             dashboardExportMaxTotalRows:
                 getIntegerFromEnvironmentVariable(
                     'DASHBOARD_EXPORT_MAX_TOTAL_ROWS',
-                ) || 200000,
+                ) || 500000,
         },
         chart: {
             versionHistory: {

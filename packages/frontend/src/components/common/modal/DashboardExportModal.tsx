@@ -279,7 +279,7 @@ const DataExport: FC<DataExportProps & Pick<ModalProps, 'onClose'>> = ({
                               'components_common_modal_dashboard_export.total_row_limit_hint',
                               {
                                   rows: (
-                                      dashboardExportMaxTotalRows ?? 200000
+                                      dashboardExportMaxTotalRows ?? 500000
                                   ).toLocaleString(),
                                   csvCellsLimit: csvCellsLimit.toLocaleString(),
                               },
