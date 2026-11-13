@@ -550,6 +550,8 @@ export type ExportCsvDashboardPayload = TraceTaskBase & {
      * 前端导出时带上页面当前取值；缺省时后端按看板保存的定义合并。
      */
     tabFilters?: Record<string, DashboardFilters>;
+    /** UI 语言：筛选器列名与取值用词（缺省中文） */
+    locale?: string;
 };
 
 /** Dashboard one-click export (CSV/XLSX). Image stays on the legacy /export route. */

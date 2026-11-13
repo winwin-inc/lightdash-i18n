@@ -175,6 +175,26 @@ export type SchedulerTaskArguments = {
     asyncQueryService: AsyncQueryService;
 };
 
+/**
+ * 图表实际会出现在导出表里的字段：用于判断某个筛选器是否已经在列里，
+ * 避免同一字段出现两次（筛选器常量列 + 数据列）。隐藏字段不计入。
+ */
+export const getExportedFieldIds = ({
+    metricQuery,
+    hiddenFields,
+}: {
+    metricQuery: MetricQuery;
+    hiddenFields: string[];
+}): string[] =>
+    [
+        ...metricQuery.dimensions,
+        ...metricQuery.metrics,
+        ...metricQuery.tableCalculations.map((calculation) => calculation.name),
+        ...(metricQuery.customDimensions ?? []).map(
+            (customDimension) => customDimension.id,
+        ),
+    ].filter((fieldId) => !hiddenFields.includes(fieldId));
+
 /** 导出筛选器列需要的 explore 信息：字段标签 + 该 explore 的表（用于收敛筛选器） */
 type ExportExploreInfo = {
     itemMap: ItemsMap;
@@ -680,10 +700,18 @@ export default class SchedulerTask {
                                     filters: tileFilters,
                                     exploreCache,
                                     timezone: this.lightdashConfig.query.timezone,
+                                    locale: csvOptions?.locale,
                                     account,
                                     projectUuid,
                                     tableName: chart.tableName,
                                     metricQuery: chart.metricQuery,
+                                    // 图表自己已经导出的列：命中同字段的筛选器不再重复加列
+                                    exportedFieldIds: getExportedFieldIds({
+                                        metricQuery: chart.metricQuery,
+                                        hiddenFields: getHiddenTableFields(
+                                            chart.chartConfig,
+                                        ),
+                                    }),
                                 });
                             const chartLimit =
                                 getSchedulerCsvLimit(csvOptions);
@@ -3843,21 +3871,33 @@ export default class SchedulerTask {
         filters,
         exploreCache,
         timezone,
+        locale,
         account,
         projectUuid,
         tableName,
         metricQuery,
+        exportedFieldIds,
     }: {
         filters: DashboardFilters;
         exploreCache: Map<string, ExportExploreInfo>;
         /** 项目时区：相对时间/动态日期按查询侧同一时区解析 */
         timezone?: string;
+        /** UI 语言：筛选器列名与取值用词（缺省中文） */
+        locale?: string;
         account: QueryAccount;
         projectUuid: string;
         tableName: string;
         metricQuery: MetricQuery;
+        exportedFieldIds: string[];
     }): Promise<ExportFilterColumn[]> {
-        if (getExportFilterColumns({ filters, timezone }).length === 0)
+        if (
+            getExportFilterColumns({
+                filters,
+                timezone,
+                locale,
+                exportedFieldIds,
+            }).length === 0
+        )
             return [];
 
         let exploreInfo = exploreCache.get(tableName);
@@ -3909,6 +3949,8 @@ export default class SchedulerTask {
             filters: filtersForChart,
             itemMap,
             timezone,
+            locale,
+            exportedFieldIds,
         });
     }
 

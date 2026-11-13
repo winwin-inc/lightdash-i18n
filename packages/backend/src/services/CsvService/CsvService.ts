@@ -718,6 +718,7 @@ export class CsvService extends BaseService {
         dateZoomGranularity,
         invalidateCache,
         schedulerParameters,
+        locale,
     }: {
         user: SessionUser;
         chartUuid: string;
@@ -730,6 +731,8 @@ export class CsvService extends BaseService {
         dateZoomGranularity?: DateGranularity;
         invalidateCache?: boolean;
         schedulerParameters?: ParametersValuesMap;
+        /** UI 语言：筛选器列名与取值用词（缺省中文） */
+        locale?: string;
     }): Promise<AttachmentUrl> {
         const chart = await this.savedChartModel.get(chartUuid);
         const {
@@ -837,6 +840,21 @@ export class CsvService extends BaseService {
             filters: dashboardFiltersForTile,
             itemMap,
             timezone: this.lightdashConfig.query.timezone,
+            locale,
+            // 图表自己已经导出的列：命中同字段的筛选器不再重复加列
+            exportedFieldIds: [
+                ...metricQuery.dimensions,
+                ...metricQuery.metrics,
+                ...metricQuery.tableCalculations.map(
+                    (calculation: AnyType) => calculation.name,
+                ),
+                ...(metricQuery.customDimensions ?? []).map(
+                    (customDimension: AnyType) => customDimension.id,
+                ),
+            ].filter(
+                (fieldId) =>
+                    !getHiddenTableFields(chart.chartConfig).includes(fieldId),
+            ),
         });
 
         const pivotConfig = getPivotConfig(chart);
@@ -1109,6 +1127,7 @@ export class CsvService extends BaseService {
                     dateZoomGranularity,
                     invalidateCache,
                     schedulerParameters,
+                    locale: options?.locale,
                 }),
         );
         this.logger.info(
@@ -1458,6 +1477,7 @@ export class CsvService extends BaseService {
         dateZoomGranularity?: DateGranularity,
         selectedTabs?: string[] | null,
         tabFilters?: Record<string, DashboardFilters>,
+        locale?: string,
     ) {
         const dashboard = await this.dashboardModel.getByIdOrSlug(
             dashboardUuid,
@@ -1483,6 +1503,7 @@ export class CsvService extends BaseService {
             dateZoomGranularity,
             selectedTabs: normalizedSelectedTabs,
             tabFilters,
+            locale,
             // TraceTaskBase
             organizationUuid: dashboard.organizationUuid,
             projectUuid: dashboard.projectUuid,
@@ -1509,6 +1530,7 @@ export class CsvService extends BaseService {
         userUuid,
         organizationUuid,
         tabFilters,
+        locale: payloadLocale,
     }: ExportCsvDashboardPayload) {
         if (!this.s3Client.isEnabled()) {
             throw new MissingConfigError('Cloud storage is not enabled');
@@ -1516,6 +1538,7 @@ export class CsvService extends BaseService {
         const options: SchedulerCsvOptions = {
             formatted: true,
             limit: 'table',
+            locale: payloadLocale,
         };
         const dashboard = await this.dashboardModel.getByIdOrSlug(
             dashboardUuid,

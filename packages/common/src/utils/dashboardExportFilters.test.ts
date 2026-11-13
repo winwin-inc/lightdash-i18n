@@ -190,7 +190,7 @@ describe('formatDashboardFilterRuleValue', () => {
                     values: ['2024-01-01', '2024-06-30'],
                 }),
             ),
-        ).toBe('2024-01-01 ~ 2024-06-30');
+        ).toBe('2024-01-01 至 2024-06-30');
     });
 
     it('returns null for disabled rules (any value)', () => {
@@ -220,7 +220,7 @@ describe('formatDashboardFilterRuleValue', () => {
                     values: [100],
                 }),
             ),
-        ).toBe('> 100');
+        ).toBe('大于 100');
         expect(
             formatDashboardFilterRuleValue(
                 makeRule({
@@ -228,7 +228,7 @@ describe('formatDashboardFilterRuleValue', () => {
                     values: ['a'],
                 }),
             ),
-        ).toBe('!= a');
+        ).toBe('不是 a');
     });
 
     it('resolves "in the past" into a concrete window instead of a bare number', () => {
@@ -239,7 +239,7 @@ describe('formatDashboardFilterRuleValue', () => {
                 settings: { unitOfTime: UnitOfTime.months },
             }),
         );
-        expect(value).toMatch(/^\d{4}-\d{2}-\d{2} ~ \d{4}-\d{2}-\d{2}$/);
+        expect(value).toMatch(/^\d{4}-\d{2}-\d{2} 至 \d{4}-\d{2}-\d{2}$/);
     });
 
     it('keeps a column for "in the current" filters, which have no values', () => {
@@ -250,7 +250,7 @@ describe('formatDashboardFilterRuleValue', () => {
                 settings: { unitOfTime: UnitOfTime.months },
             }),
         );
-        expect(value).toMatch(/^\d{4}-\d{2}-\d{2} ~ \d{4}-\d{2}-\d{2}$/);
+        expect(value).toMatch(/^\d{4}-\d{2}-\d{2} 至 \d{4}-\d{2}-\d{2}$/);
     });
 
     it('returns null for rules without values', () => {
@@ -282,8 +282,8 @@ describe('getExportFilterColumns', () => {
             itemMap,
         });
         expect(columns).toEqual([
-            { header: '时间', value: '2024-05' },
-            { header: '订单状态', value: 'completed' },
+            { header: '筛选：时间', value: '2024-05' },
+            { header: '筛选：订单状态', value: 'completed' },
         ]);
     });
 
@@ -303,7 +303,7 @@ describe('getExportFilterColumns', () => {
                 ],
             },
         });
-        expect(columns).toEqual([{ header: '商品名称', value: '可乐' }]);
+        expect(columns).toEqual([{ header: '筛选：商品名称', value: '可乐' }]);
     });
 
     it('falls back to the field id when the field is unknown', () => {
@@ -313,7 +313,9 @@ describe('getExportFilterColumns', () => {
                 dimensions: [makeRule({ values: ['1'] })],
             },
         });
-        expect(columns).toEqual([{ header: 'orders_status', value: '1' }]);
+        expect(columns).toEqual([
+            { header: '筛选：orders_status', value: '1' },
+        ]);
     });
 
     it('skips filters without a concrete value', () => {
@@ -326,7 +328,7 @@ describe('getExportFilterColumns', () => {
                 ],
             },
         });
-        expect(columns).toEqual([{ header: '类目', value: '饮料' }]);
+        expect(columns).toEqual([{ header: '筛选：类目', value: '饮料' }]);
     });
 
     it('de-duplicates identical headers', () => {
@@ -340,9 +342,52 @@ describe('getExportFilterColumns', () => {
             },
         });
         expect(columns.map((column) => column.header)).toEqual([
-            '类目',
-            '类目 (2)',
+            '筛选：类目',
+            '筛选：类目 (2)',
         ]);
+    });
+
+    it('uses English wording when locale is en', () => {
+        const columns = getExportFilterColumns({
+            filters: {
+                ...emptyFilters,
+                dimensions: [
+                    makeRule({
+                        label: 'Group',
+                        operator: FilterOperator.NOT_EQUALS,
+                        values: ['其他集团'],
+                    }),
+                ],
+            },
+            locale: 'en',
+        });
+        expect(columns).toEqual([
+            { header: 'Filter: Group', value: 'is not 其他集团' },
+        ]);
+    });
+
+    it('skips filters whose field is already a column of the chart', () => {
+        const columns = getExportFilterColumns({
+            filters: {
+                ...emptyFilters,
+                dimensions: [
+                    makeRule({
+                        id: 'group-filter',
+                        label: '集团',
+                        target: {
+                            fieldId: 'group_name',
+                            tableName: 'orders',
+                        },
+                        operator: FilterOperator.NOT_EQUALS,
+                        values: ['其他集团'],
+                    }),
+                    makeRule({ id: 'time', label: '时间', values: ['近3个月'] }),
+                ],
+            },
+            // 图表本身已经导出了 group_name
+            exportedFieldIds: ['group_name'],
+        });
+        expect(columns).toEqual([{ header: '筛选：时间', value: '近3个月' }]);
     });
 
     it('returns no columns for undefined filters', () => {

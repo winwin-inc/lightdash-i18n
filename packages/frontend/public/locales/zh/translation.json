@@ -4272,6 +4272,9 @@
     "tabs_label": "选项卡",
     "select_all_tabs_tooltip": "选择所有选项卡以包含所有选项卡。如果您不选择此选项，则仅选择选项卡将被包含。",
     "include_all_tabs": "包含所有选项卡",
+    "xlsx_hint": "每个选项卡导出为一个 Excel 文件；多个选项卡会打包成 ZIP。",
+    "csv_hint": "每张图导出为一个 CSV 文件；多于一份时打包成 ZIP。",
+
     "select_tabs": "选择要包含的选项卡",
     "no_tiles_in_selected_tabs": "所选选项卡中没有图块",
     "cancel": "取消",

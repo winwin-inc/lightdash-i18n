@@ -138,18 +138,60 @@ const NOT_PREFIXED_OPERATORS: FilterOperator[] = [
     FilterOperator.NOT_IN_THE_CURRENT,
 ];
 
-const COMPARISON_OPERATOR_LABELS: Partial<Record<FilterOperator, string>> = {
-    [FilterOperator.EQUALS]: '',
-    [FilterOperator.INCLUDE]: '',
-    [FilterOperator.NOT_EQUALS]: '!=',
-    [FilterOperator.NOT_INCLUDE]: '!=',
-    [FilterOperator.GREATER_THAN]: '>',
-    [FilterOperator.GREATER_THAN_OR_EQUAL]: '>=',
-    [FilterOperator.LESS_THAN]: '<',
-    [FilterOperator.LESS_THAN_OR_EQUAL]: '<=',
-    [FilterOperator.STARTS_WITH]: 'starts with',
-    [FilterOperator.ENDS_WITH]: 'ends with',
+/**
+ * 导出文件的文案跟随 UI 语言（后端从 csvOptions.locale 传进来，缺省中文）。
+ * 值要能直接读懂：「不是 其他集团」而不是「!= 其他集团」。
+ */
+type ExportWording = {
+    filterPrefix: string;
+    between: string;
+    notBetween: (range: string) => string;
+    notRelative: (range: string) => string;
+    notEquals: string;
+    operators: Partial<Record<FilterOperator, string>>;
 };
+
+const WORDINGS: Record<'zh' | 'en', ExportWording> = {
+    zh: {
+        filterPrefix: '筛选：',
+        between: ' 至 ',
+        notBetween: (range) => `不在 ${range} 内`,
+        notRelative: (range) => `不在 ${range} 内`,
+        notEquals: '不是',
+        operators: {
+            [FilterOperator.EQUALS]: '',
+            [FilterOperator.INCLUDE]: '',
+            [FilterOperator.GREATER_THAN]: '大于',
+            [FilterOperator.GREATER_THAN_OR_EQUAL]: '大于等于',
+            [FilterOperator.LESS_THAN]: '小于',
+            [FilterOperator.LESS_THAN_OR_EQUAL]: '小于等于',
+            [FilterOperator.STARTS_WITH]: '开头是',
+            [FilterOperator.ENDS_WITH]: '结尾是',
+        },
+    },
+    en: {
+        filterPrefix: 'Filter: ',
+        between: ' to ',
+        notBetween: (range) => `not between ${range}`,
+        notRelative: (range) => `not in ${range}`,
+        notEquals: 'is not',
+        operators: {
+            [FilterOperator.EQUALS]: '',
+            [FilterOperator.INCLUDE]: '',
+            [FilterOperator.GREATER_THAN]: '>',
+            [FilterOperator.GREATER_THAN_OR_EQUAL]: '>=',
+            [FilterOperator.LESS_THAN]: '<',
+            [FilterOperator.LESS_THAN_OR_EQUAL]: '<=',
+            [FilterOperator.STARTS_WITH]: 'starts with',
+            [FilterOperator.ENDS_WITH]: 'ends with',
+        },
+    },
+};
+
+const getWording = (locale?: string): ExportWording =>
+    (locale ?? 'zh').toLowerCase().startsWith('zh')
+        ? WORDINGS.zh
+        : WORDINGS.en;
 
 const formatDay = (date: moment.Moment): string => {
     const value = date;
@@ -242,16 +284,21 @@ const getRuleValues = (
  */
 export const formatDashboardFilterRuleValue = (
     rule: DashboardFilterRule,
-    timezone?: string,
+    { timezone, locale }: { timezone?: string; locale?: string } = {},
 ): string | null => {
     if (rule.disabled) return null;
+
+    const wording = getWording(locale);
 
     if (isRelativeDateOperator(rule)) {
         const [start, end] = getRuleValues(rule, timezone);
         if (!start && !end) return null;
-        const range = start && end ? `${start} ~ ${end}` : `${start || end}`;
+        const range =
+            start && end
+                ? `${start}${wording.between}${end}`
+                : `${start || end}`;
         return NOT_PREFIXED_OPERATORS.includes(rule.operator)
-            ? `not (${range})`
+            ? wording.notRelative(range)
             : range;
     }
 
@@ -260,27 +307,39 @@ export const formatDashboardFilterRuleValue = (
 
     if (isBetweenOperator(rule)) {
         const [start, end] = values;
-        const isNegated = rule.operator === FilterOperator.NOT_IN_BETWEEN;
         const range =
-            start && end ? `${start} ~ ${end}` : `${start || end || ''}`;
+            start && end
+                ? `${start}${wording.between}${end}`
+                : `${start || end || ''}`;
         if (!range) return null;
-        return isNegated ? `not (${range})` : range;
+        return rule.operator === FilterOperator.NOT_IN_BETWEEN
+            ? wording.notBetween(range)
+            : range;
     }
 
     const formatted =
         values.filter((value) => value !== '').join(', ') || null;
     if (formatted === null) return null;
 
-    const operatorLabel = COMPARISON_OPERATOR_LABELS[rule.operator];
-    return operatorLabel ? `${operatorLabel} ${formatted}`.trim() : formatted;
+    if (
+        rule.operator === FilterOperator.NOT_EQUALS ||
+        rule.operator === FilterOperator.NOT_INCLUDE
+    ) {
+        return `${wording.notEquals} ${formatted}`;
+    }
+
+    const operatorLabel = wording.operators[rule.operator];
+    return operatorLabel ? `${operatorLabel} ${formatted}` : formatted;
 };
 
 const getRuleHeader = (
     rule: DashboardFilterRule,
-    itemMap?: ItemsMap,
+    itemMap: ItemsMap | undefined,
+    locale: string | undefined,
 ): string => {
+    const wording = getWording(locale);
     const customLabel = rule.label?.trim();
-    if (customLabel) return customLabel;
+    if (customLabel) return `${wording.filterPrefix}${customLabel}`;
 
     // 表计算没有 label，用 displayName；SQL 列在筛选器上带 fieldLabel
     const item = itemMap?.[rule.target.fieldId];
@@ -290,9 +349,9 @@ const getRuleHeader = (
     } else if (item && 'displayName' in item) {
         itemLabel = item.displayName;
     }
-    return (
-        itemLabel?.trim() || rule.target.fieldLabel?.trim() || rule.target.fieldId
-    );
+    const fieldLabel =
+        itemLabel?.trim() || rule.target.fieldLabel?.trim() || rule.target.fieldId;
+    return `${wording.filterPrefix}${fieldLabel}`;
 };
 
 /**
@@ -303,11 +362,20 @@ export const getExportFilterColumns = ({
     filters,
     itemMap,
     timezone,
+    locale,
+    exportedFieldIds = [],
 }: {
     filters: DashboardFilters | undefined;
     itemMap?: ItemsMap;
     /** 项目时区：相对时间/动态日期按查询侧同一时区解析 */
     timezone?: string;
+    /** UI 语言：决定筛选器列名与取值里的用词（缺省中文） */
+    locale?: string;
+    /**
+     * 该图表自身已经导出的字段 id。命中这些字段的筛选器不再输出常量列：
+     * 每行本来就有这一列（如「集团」既是筛选器又是维度），再加一列只会重名。
+     */
+    exportedFieldIds?: string[];
 }): ExportFilterColumn[] => {
     if (!filters) return [];
 
@@ -320,10 +388,15 @@ export const getExportFilterColumns = ({
     const columns: ExportFilterColumn[] = [];
 
     rules.forEach((rule) => {
-        const value = formatDashboardFilterRuleValue(rule, timezone);
+        if (exportedFieldIds.includes(rule.target.fieldId)) return;
+
+        const value = formatDashboardFilterRuleValue(rule, {
+            timezone,
+            locale,
+        });
         if (value === null) return;
 
-        const baseHeader = getRuleHeader(rule, itemMap);
+        const baseHeader = getRuleHeader(rule, itemMap, locale);
         let header = baseHeader;
         let suffix = 2;
         while (usedHeaders.has(header)) {

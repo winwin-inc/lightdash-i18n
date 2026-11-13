@@ -195,7 +195,7 @@ const CsvExport: FC<CsvExportProps & Pick<ModalProps, 'onClose'>> = ({
     tabFilters,
     onClose,
 }) => {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const exportCsvDashboardMutation = useExportCsvDashboard();
     const dashboardFilters = useDashboardContext((c) => c.allFilters);
     const dateZoomGranularity = useDashboardContext(
@@ -203,51 +203,56 @@ const CsvExport: FC<CsvExportProps & Pick<ModalProps, 'onClose'>> = ({
     );
 
     return (
-        <Stack p="md">
+        <Stack p="md" pt="sm" spacing="md">
             {!!dateZoomGranularity && (
                 <Alert
                     title={t(
                         'components_common_modal_dashboard_export.alert_title',
                     )}
                     color="blue"
-                    mb="md"
                 >
                     {t('components_common_modal_dashboard_export.alert')}
                 </Alert>
             )}
-            <Group position="right" spacing="lg">
+            <Text size="xs" color="dimmed">
+                {t('components_common_modal_dashboard_export.csv_hint')}
+            </Text>
+            <Group position="right" spacing="sm" pt="xs">
                 <Button variant="outline" onClick={onClose}>
                     {t('components_common_modal_dashboard_export.cancel')}
                 </Button>
-
-                <Group spacing="xs">
-                    <Tooltip
-                        withinPortal
-                        position="bottom"
-                        label={t(
-                            'components_common_modal_dashboard_export.tooltip.label',
-                        )}
+                <Tooltip
+                    withinPortal
+                    position="bottom"
+                    label={t(
+                        'components_common_modal_dashboard_export.tooltip.label',
+                    )}
+                >
+                    <Button
+                        disabled={!hasTilesInSelectedTabs}
+                        onClick={() => {
+                            exportCsvDashboardMutation.mutate({
+                                dashboard,
+                                filters: dashboardFilters,
+                                dateZoomGranularity: dateZoomGranularity,
+                                selectedTabs,
+                                tabFilters,
+                                // 后端按 locale 决定筛选器列的用词
+                                locale: i18n.language
+                                    ?.toLowerCase()
+                                    .startsWith('zh')
+                                    ? 'zh'
+                                    : 'en',
+                            });
+                            onClose();
+                        }}
+                        leftIcon={<MantineIcon icon={IconCsv} />}
                     >
-                        <Button
-                            disabled={!hasTilesInSelectedTabs}
-                            onClick={() => {
-                                exportCsvDashboardMutation.mutate({
-                                    dashboard,
-                                    filters: dashboardFilters,
-                                    dateZoomGranularity: dateZoomGranularity,
-                                    selectedTabs,
-                                    tabFilters,
-                                });
-                                onClose();
-                            }}
-                            leftIcon={<MantineIcon icon={IconCsv} />}
-                        >
-                            {t(
-                                'components_common_modal_dashboard_export.tooltip.button',
-                            )}
-                        </Button>
-                    </Tooltip>
-                </Group>
+                        {t(
+                            'components_common_modal_dashboard_export.tooltip.button',
+                        )}
+                    </Button>
+                </Tooltip>
             </Group>
         </Stack>
     );
@@ -292,8 +297,11 @@ const XlsxExport: FC<XlsxExportProps & Pick<ModalProps, 'onClose'>> = ({
     };
 
     return (
-        <Stack p="md" spacing="md">
-            <Group position="right" spacing="lg">
+        <Stack p="md" pt="sm" spacing="md">
+            <Text size="xs" color="dimmed">
+                {t('components_common_modal_dashboard_export.xlsx_hint')}
+            </Text>
+            <Group position="right" spacing="sm" pt="xs">
                 <Button variant="outline" onClick={onClose}>
                     {t('components_common_modal_dashboard_export.cancel')}
                 </Button>
@@ -613,12 +621,16 @@ export const DashboardExportModal: FC<Props & ModalProps> = ({
     }, [dashboard.tabs, getMergedFiltersForTab, resolvedSelectedTabs]);
 
     return (
-        <Modal.Root opened={opened} onClose={onClose} size="xl" yOffset={65}>
+        <Modal.Root
+            opened={opened}
+            onClose={onClose}
+            // 数据导出只有少量控件，窄一点更聚焦；图片导出要放预览，保留宽度
+            size={exportType === 'image' ? 'xl' : 560}
+            centered
+        >
             <Modal.Overlay />
             <Modal.Content
                 sx={{
-                    maxWidth: '800px',
-                    margin: '0 auto',
                     display: 'flex',
                     flexDirection: 'column',
                 }}
@@ -643,8 +655,8 @@ export const DashboardExportModal: FC<Props & ModalProps> = ({
                 </Modal.Header>
 
                 <SegmentedControl
-                    ml="md"
-                    mt="xs"
+                    mx="md"
+                    mt="sm"
                     data={[
                         ...(hasHeadlessBrowser
                             ? [
@@ -670,12 +682,11 @@ export const DashboardExportModal: FC<Props & ModalProps> = ({
                         },
                     ]}
                     w="min-content"
-                    mb="xs"
                     value={exportType}
                     onChange={(value) => setExportType(value ?? 'xlsx')}
                 />
                 {exportType !== 'image' && isDashboardTabsAvailable && (
-                    <Box px="md">
+                    <Box px="md" pt="md">
                         <ExportTabsPicker
                             dashboard={dashboard}
                             selection={{

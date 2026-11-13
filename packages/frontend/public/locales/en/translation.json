@@ -4249,6 +4249,9 @@
     "tabs_label": "Tabs",
     "select_all_tabs_tooltip": "Select all tabs to include all tabs in the export. If you don't select this option, only selected tabs will be included.",
     "include_all_tabs": "Include all tabs",
+    "xlsx_hint": "One Excel file per tab; multiple tabs are packed into a ZIP.",
+    "csv_hint": "One CSV file per chart; several files are packed into a ZIP.",
+
     "select_tabs": "Select tabs to include in the export",
     "no_tiles_in_selected_tabs": "There are no tiles in the selected tab(s)",
     "cancel": "Cancel",

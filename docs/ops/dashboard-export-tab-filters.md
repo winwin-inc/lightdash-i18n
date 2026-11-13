@@ -96,6 +96,11 @@ DownloadAsyncQueryResultsPayload.leadingColumns?: ExportFilterColumn[];
   explore 拉取失败仅 `Logger.warn`，按空 `itemMap` 继续输出列（列名退回字段 id），
   且此时不再按 explore 的表范围收敛规则，避免静默丢列。
   时区（`lightdashConfig.query.timezone`）会传进 `getExportFilterColumns`，动态日期/相对时间按查询侧同一时区解析。
+- 列名统一加前缀「筛选：」（英文 `Filter: `），与图表自带的数据列区分开；
+  筛选器的字段本身已经出现在该图（`exportedFieldIds`）时**不再重复加列**
+  ——例如「集团」既是 Tab 筛选器又是图表维度时，导出里只保留数据列。
+- 取值用词跟随 UI 语言（`csvOptions.locale`，缺省中文）：`!=` → 「不是」，`>=` → 「大于等于」，
+  区间 → 「start 至 end」，取反区间 → 「不在 start 至 end 内」，英文对应 `is not` / `>=` / `to` / `not between`。
 - **SQL 图 tile 不输出筛选器列**：查询侧要求筛选器显式绑定到 SQL 列
   （`getDashboardFilterRulesForTileAndReferences` + `target.isSqlColumn`），一般筛选器都不满足，
   打印出来会变成「这行属于某时间窗」的假信息；SQL 图的查询本身也不受这些筛选器影响。
@@ -169,6 +174,7 @@ DownloadAsyncQueryResultsPayload.leadingColumns?: ExportFilterColumn[];
 | 前端布局选项移除，`tabFilters` 随 CSV / XLSX 请求带上 | `DashboardExportModal.tsx`、`SchedulerForm.tsx`、`useDashboard.ts`、`dashboardRouter.ts` |
 | `tabFilterEnabled` 在看板加载时回填（页面与交付/导出口径一致） | `providers/Dashboard/DashboardProvider.tsx` |
 | 单份产物直接给 xlsx / csv，多份才 zip；无 Tab 看板用看板名 | `SchedulerTask.buildPerTabWorkbookZipUrl` / `exportContent`、`CsvService.runScheduledExportCsvDashboard` |
+| 筛选器列名加「筛选：」前缀、同字段不重复加列；取值用词按 locale | `common/utils/dashboardExportFilters.ts`、`SchedulerTask.getExportedFieldIds` |
 
 实际执行的验证命令与结果（backend 三份 jest 在文档核对时复跑确认）：
 
