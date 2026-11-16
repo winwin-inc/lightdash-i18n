@@ -27,6 +27,7 @@
 | [权限查询 get_my_access](./mcp-get-my-access.md) | 当前令牌的组织/项目能力与可查表 |
 | [Docker 部署](./lightdash-mcp-docker-deploy.md) | 镜像与健康检查 |
 | [看板上下文（dashboardSlug 透传）](./mcp-dashboard-context.md) | 开发维护：`sql_filter` 依赖 `dashboardSlug` 时如何带上 `dashboardUuid` |
+| [msy-x-cli 设计稿](../cli/msy-x-cli-design.md) | MCP 的 CLI 客户端形态（终端 / agent / 豆包 CLI 连接器） |
 | [包 README](../../packages/lightdash-mcp/README.md) | 环境变量、工具清单、构建 |
 | [Skills](../../packages/lightdash-skills/README.md) | 对外挂技能 |
 | [图表/看板内容即代码实施计划](../cli/content-as-code-dev-plan.md) | CLI / MCP / Skill 三层改造计划（增改删审） |
