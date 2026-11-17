@@ -1173,7 +1173,11 @@ const Dashboard: FC = () => {
                                                 )}
                                             </Button>
                                         </Popover.Target>
-                                        <Popover.Dropdown>
+                                        <Popover.Dropdown
+                                            p="xs"
+                                            mah={420}
+                                            style={{ overflowY: 'auto' }}
+                                        >
                                             <Text size="sm" fw={500} mb="xs">
                                                 {t(
                                                     'dashboard.select_color_palette',
@@ -1208,9 +1212,11 @@ const Dashboard: FC = () => {
                                                                     )
                                                                 }
                                                             >
+                                                                {/* 色块 8px + gap 3：20 个色在弹层宽度内单行放下，
+                                                                    不换行也不需要横向滚动；弹层限制最大高度可滚动 */}
                                                                 <Group
-                                                                    gap={4}
-                                                                    wrap="wrap"
+                                                                    gap={3}
+                                                                    wrap="nowrap"
                                                                 >
                                                                     <Text
                                                                         size="xs"
@@ -1231,10 +1237,10 @@ const Dashboard: FC = () => {
                                                                                     idx
                                                                                 }
                                                                                 w={
-                                                                                    10
+                                                                                    8
                                                                                 }
                                                                                 h={
-                                                                                    10
+                                                                                    8
                                                                                 }
                                                                                 bg={
                                                                                     color
