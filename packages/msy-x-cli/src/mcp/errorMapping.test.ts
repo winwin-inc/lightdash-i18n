@@ -86,6 +86,12 @@ test('D1：TypeError fetch failed 且 cause 有 errno → NETWORK(6)', () => {
     assert.equal(mapped.exitCode, ExitCode.NETWORK);
 });
 
+test('D1：裸 fetch failed（cause 无 errno，如非法端口）→ NETWORK(6)', () => {
+    const mapped = mapMcpError(new TypeError('fetch failed'));
+    assert.equal(mapped.code, 'NETWORK');
+    assert.equal(mapped.exitCode, ExitCode.NETWORK);
+});
+
 test('403 → FORBIDDEN(4)', () => {
     const error = mapMcpError(new StreamableHTTPError(403, 'Forbidden'));
     assert.equal(error.code, 'FORBIDDEN');

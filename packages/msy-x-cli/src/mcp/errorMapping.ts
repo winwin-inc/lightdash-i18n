@@ -215,6 +215,8 @@ const looksLikeNetworkError = (error: unknown, depth = 0): boolean => {
     if (readNumber(error.errno) !== null) return true;
     const message = readString(error.message);
     if (message !== null && NETWORK_MESSAGE_PATTERN.test(message)) return true;
+    // 仅有 'fetch failed'（cause 无 errno 时，如端口非法）也归网络层
+    if (message === 'fetch failed') return true;
     if (isRecord(error.cause)) return looksLikeNetworkError(error.cause, depth + 1);
     return false;
 };

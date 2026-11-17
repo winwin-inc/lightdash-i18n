@@ -187,6 +187,9 @@ const MISSING_DISCRIMINATOR_DETAIL =
 
 const PROBE_READY_DETAIL = '判别键修复已就绪（业务错误即视为通过）';
 
+/** 服务端没暴露 run_metric_query（或被裁掉）时，探测无法证明修复已就绪 */
+const PROBE_TOOL_MISSING_PATTERN = /tool .*not found|unknown tool|no such tool/i;
+
 const AUTH_LOGIN_HINT = '运行 msy-x auth login 重新登录';
 
 /* ------------------------------------------------------------------ */
@@ -527,6 +530,19 @@ const runRemoteChecks = async (
                 MISSING_DISCRIMINATOR_PATTERN.test(message)
             ) {
                 checks.push(check('capability-probe', 'fail', MISSING_DISCRIMINATOR_DETAIL, 'server'));
+            } else if (
+                error instanceof CliError &&
+                error.code === 'SERVER_ERROR' &&
+                PROBE_TOOL_MISSING_PATTERN.test(message)
+            ) {
+                // 探测工具本身不存在：不能据此声称修复已就绪
+                checks.push(
+                    check(
+                        'capability-probe',
+                        'warn',
+                        `服务端未暴露 run_metric_query，能力探测跳过：${message}`,
+                    ),
+                );
             } else if (error instanceof CliError) {
                 // explore 不存在 / 权限 / 其它业务错误：判别键已能通过服务端第一层校验
                 checks.push(

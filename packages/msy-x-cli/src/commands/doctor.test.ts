@@ -497,6 +497,26 @@ test('doctor --remote：Invalid literal value → capability-probe fail、退 5'
     }
 });
 
+test('doctor --remote：探测工具不存在 → capability-probe warn（不声称已就绪）', async () => {
+    const env = await makeConfigEnv();
+    const fake = fakeCatalogClient({
+        probeResult: businessErrorResult('MCP error -32603: Tool run_metric_query not found'),
+    });
+    try {
+        const result = await runDoctor(
+            { remote: true },
+            makeCtx(),
+            { ...localDeps(env), createClient: async () => fake.client },
+        );
+        const probe = byName(parseLines(result.stdout), 'capability-probe');
+        assert.equal(probe.status, 'warn');
+        assert.ok(probe.detail.includes('未暴露 run_metric_query'));
+        assert.equal(result.exitCode, 0);
+    } finally {
+        await rm(path.dirname(env.MSY_X_CONFIG as string), { recursive: true, force: true });
+    }
+});
+
 test('doctor --remote：403/看板门控类业务错误 → capability-probe ok', async () => {
     const env = await makeConfigEnv();
     const forbidden = new CliError({
