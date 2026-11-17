@@ -38,16 +38,22 @@ import { chartsCommands } from './charts';
 import { docsCommands } from './docs';
 import { runToolsCommand, toolsCommands } from './tools';
 import { runCallCommand, callCommands } from './call';
+import { runVerifiedCommand, verifiedCommands } from './verified';
+import { runDoctor, doctorCommands } from './doctor';
 
 /**
  * 命令注册唯一挂载点（设计稿 §6.2 命令面）。
  *
  * - 各分组文件导出 CommandSpec（纯映射），本文件负责：commander 装配、
  *   全局选项、--help 示例（addHelpText after）、CommandContext 组装与分发；
- * - 本地命令（auth/site）与 tools/call 走专门 handler，其余走
+ * - 本地命令（auth/site/doctor）与 tools/call 走专门 handler，其余走
  *   spec.build → runToolCommand（--dry-run / 401 刷新重试 / 渲染统一在该管道）；
  * - `dashboards get` 的 `code` 别名、`dashboards run --tile` 的本地磁贴过滤
- *   也在本文件特判（types.ts 契约层不含这些字段）。
+ *   也在本文件特判（types.ts 契约层不含这些字段）；
+ * - `verified` 走 runVerifiedCommand：部署未启用内容验证时
+ *   supported:false 按成功退 0（设计稿 §6.2）；
+ * - `doctor` 不走 buildContext 的失败即中止语义：配置损坏时降级占位上下文，
+ *   由 runDoctor 的 site-resolution 检查逐条报告（这正是 doctor 的职责）。
  */
 
 const GROUP_DESCRIPTIONS: Record<string, string> = {
@@ -61,6 +67,8 @@ const GROUP_DESCRIPTIONS: Record<string, string> = {
     query: '查数（语义化 / 实验性 flat）',
     dashboards: '看板（列表 / 搜索 / 磁贴 / 执行 / 定义）',
     charts: '图表（列表 / 搜索 / 详情 / 执行）',
+    verified: '已认证内容清单（站点可选功能）',
+    doctor: '本地自检与远程连通验证',
     tools: 'MCP 工具目录（tools/list）',
 };
 
@@ -159,6 +167,39 @@ const buildContext = async (
     return { options, site, credentials, format, startedAt: performance.now() };
 };
 
+/**
+ * doctor 专用降级上下文：buildContext 因 CliError CONFIG（坏 YAML / 未知站点名）
+ * 失败时使用。site 用占位（runDoctor 的 site-resolution 检查会真正报错因），
+ * credentials 置 null；全局选项照常解析（--json / --config / --quiet 仍生效）。
+ */
+const buildDegradedDoctorContext = async (cmd: Command): Promise<CommandContext> => {
+    const mergedOpts = {
+        ...ancestorOptsOf(cmd),
+        ...(cmd.opts() as Record<string, unknown>),
+    };
+    const options = parseGlobalOptions({
+        opts: mergedOpts,
+        dataCommand: false,
+        env: process.env,
+    });
+    setQuiet(options.quiet);
+    if (options.configPath !== null) {
+        process.env.MSY_X_CONFIG = options.configPath;
+    }
+    return {
+        options,
+        site: {
+            name: '(未解析)',
+            mcpUrl: '',
+            authMode: 'oauth',
+            authHeader: 'authorization',
+        },
+        credentials: null,
+        format: options.format ?? (process.stdout.isTTY === true ? 'table' : 'json'),
+        startedAt: performance.now(),
+    };
+};
+
 /* ------------------------------------------------------------------ */
 /* query --file：读盘 / stdin + 本地翻译（v2 不收 metricQuery）          */
 /* ------------------------------------------------------------------ */
@@ -243,8 +284,30 @@ const dispatch = async (
     cmd: Command,
     positional: Record<string, string | undefined>,
 ): Promise<void> => {
-    const ctx = await buildContext(cmd, spec.dataCommand);
     const opts = cmd.opts() as Record<string, unknown>;
+
+    // doctor：配置损坏（buildContext 护 CliError CONFIG）不能阻断自检本身，
+    // 降级为占位上下文，交给 runDoctor 逐条报告（exit 2 / stderr 单行 JSON）
+    if (spec.name === 'doctor') {
+        let ctx: CommandContext;
+        try {
+            ctx = await buildContext(cmd, spec.dataCommand);
+        } catch (error) {
+            if (error instanceof CliError && error.code === 'CONFIG') {
+                ctx = await buildDegradedDoctorContext(cmd);
+            } else {
+                throw error;
+            }
+        }
+        const result = await runDoctor({ remote: opts.remote === true }, ctx);
+        process.stdout.write(result.stdout);
+        if (result.error !== null) {
+            throw new CliError({ ...result.error, exitCode: result.exitCode });
+        }
+        return;
+    }
+
+    const ctx = await buildContext(cmd, spec.dataCommand);
 
     // 本地命令与专门通道（不走 spec.build 的 ToolCall 管道）
     if (
@@ -314,6 +377,13 @@ const dispatch = async (
     };
     const calls = spec.build(input);
 
+    // verified：部署未启用内容验证时 supported:false 按成功退 0，
+    // stdout 原样输出服务端 JSON（判定是 verified.ts 的纯函数，本层负责输出）
+    if (spec.name === 'verified') {
+        await runVerifiedCommand(calls, ctx);
+        return;
+    }
+
     // dashboards run --tile：服务端仍跑整板，CLI 只在渲染前过滤磁贴
     if (spec.name === 'dashboards run <dashboardUuid>') {
         const tile = str(opts.tile);
@@ -370,6 +440,8 @@ const ALL_SPECS: CommandSpec[] = [
     ...dashboardsCommands,
     ...chartsCommands,
     ...docsCommands,
+    ...verifiedCommands,
+    ...doctorCommands,
     ...toolsCommands,
     ...callCommands,
 ];

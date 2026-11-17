@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { mkdtemp, rm as rmDir, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { Command } from 'commander';
 import { CliError } from '../cli/errors';
 import {
@@ -27,7 +30,8 @@ import { docsCommands } from './docs';
  * 集成层单测（设计稿 §6.2/§6.3/§7.4 验收口径）：
  * globalOptions 互斥/上限/--csv 门控、query 两路径组装、metricQuery 本地翻译、
  * flat vizConfig 形状与 --filter 拒绝、savedChartUuid 键名、dashboards list 缺
- * --space、dry-run 不发请求（假 client 断言未调用）。
+ * --space、dry-run 不发请求（假 client 断言未调用）、
+ * verified/doctor 新命令的注册与端到端路由。
  */
 
 const UUID = '3f5d1b0e-1111-4222-8333-444455556666';
@@ -699,14 +703,18 @@ test('writeResult：--out 写文件 0600 且 stdout 只回摘要', async () => {
 /* 挂载：全部 CommandSpec 注册、code 别名、--csv 门控与缺 --space 退出   */
 /* ------------------------------------------------------------------ */
 
-test('挂载：全部命令注册且名字唯一（含 auth/site/tools/call）', () => {
+test('挂载：全部命令注册且名字唯一（含 auth/site/verified/doctor/tools/call，共 35 个）', () => {
     const specs = registeredSpecs();
     const names = specs.map((spec) => spec.name);
     assert.equal(new Set(names).size, names.length, '命令名不应重复');
+    // 旧断言清单缺 project use/project show/spaces find，这里补全为完整清单
+    assert.equal(names.length, 35, `应注册 35 个命令，实际 ${names.length}`);
     for (const expected of [
         'info',
         'access',
         'project list',
+        'project use <projectUuid>',
+        'project show',
         'site list',
         'site show',
         'site use <name>',
@@ -715,6 +723,7 @@ test('挂载：全部命令注册且名字唯一（含 auth/site/tools/call）',
         'auth logout',
         'search <query>',
         'spaces list',
+        'spaces find <query>',
         'explores list',
         'explores show <exploreName>',
         'fields find <query>',
@@ -730,9 +739,11 @@ test('挂载：全部命令注册且名字唯一（含 auth/site/tools/call）',
         'charts find <query>',
         'charts get <chartUuid>',
         'charts run <chartUuid>',
+        'verified',
         'docs [topic]',
         'tools list',
         'tools describe <name>',
+        'doctor',
         'call <tool>',
     ]) {
         assert.ok(names.includes(expected), `缺少命令 ${expected}`);
@@ -829,5 +840,142 @@ test('挂载端到端：非数据命令 --csv 退 USAGE', async () => {
             assert.equal(error.code, 'USAGE');
             return true;
         },
+    );
+});
+
+test('挂载端到端：verified --dry-run 输出 list_verified_content', async () => {
+    const previous = process.env.MSY_X_CONFIG;
+    process.env.MSY_X_CONFIG = '/tmp/msy-x-cli-integration-none.yaml';
+    try {
+        const out = await runProgram(['verified', '--dry-run']);
+        const parsed = dryRunLineOf(out) as {
+            tool: string;
+            args: Record<string, unknown>;
+        };
+        assert.equal(parsed.tool, 'list_verified_content');
+        assert.deepEqual(parsed.args, {});
+    } finally {
+        if (previous === undefined) {
+            delete process.env.MSY_X_CONFIG;
+        } else {
+            process.env.MSY_X_CONFIG = previous;
+        }
+    }
+});
+
+test('挂载端到端：verified --page-size 300 截断到 100 后再进 dry-run', async () => {
+    const previous = process.env.MSY_X_CONFIG;
+    process.env.MSY_X_CONFIG = '/tmp/msy-x-cli-integration-none.yaml';
+    try {
+        const out = await runProgram([
+            'verified',
+            '--page-size',
+            '300',
+            '--page',
+            '2',
+            '--dry-run',
+        ]);
+        const parsed = dryRunLineOf(out) as {
+            tool: string;
+            args: { pageSize?: number; page?: number };
+        };
+        assert.equal(parsed.tool, 'list_verified_content');
+        assert.equal(parsed.args.pageSize, 100);
+        assert.equal(parsed.args.page, 2);
+    } finally {
+        if (previous === undefined) {
+            delete process.env.MSY_X_CONFIG;
+        } else {
+            process.env.MSY_X_CONFIG = previous;
+        }
+    }
+});
+
+test('挂载端到端：doctor 本地检查输出逐行 [status] name — detail 且不联网', async () => {
+    const previous = process.env.MSY_X_CONFIG;
+    process.env.MSY_X_CONFIG = '/tmp/msy-x-cli-integration-none.yaml';
+    try {
+        const out = await runProgram(['doctor']);
+        const lines = out
+            .split('\n')
+            .map((line) => line.trim())
+            .filter((line) => /^\[(ok|warn|fail)\] \S+ — /.test(line));
+        assert.ok(lines.length >= 4, `应逐行输出检查项：${out}`);
+        assert.ok(
+            lines.some((line) => line.startsWith('[ok] node-version')),
+            `应包含 node-version：${out}`,
+        );
+        assert.ok(
+            lines.some((line) => line.includes('site-resolution')),
+            `应包含 site-resolution：${out}`,
+        );
+        assert.ok(
+            !lines.some((line) => line.startsWith('[fail]')),
+            `本地检查不应有 fail（文件不存在走默认配置）：${out}`,
+        );
+    } finally {
+        if (previous === undefined) {
+            delete process.env.MSY_X_CONFIG;
+        } else {
+            process.env.MSY_X_CONFIG = previous;
+        }
+    }
+});
+
+test('挂载端到端：doctor --remote 未登录退 3（stdout 检查行 + stderr 单行 JSON）', async () => {
+    const previous = process.env.MSY_X_CONFIG;
+    const dir = await mkdtemp(path.join(tmpdir(), 'msy-x-doctor-e2e-'));
+    const file = path.join(dir, 'none.yaml');
+    await writeFile(
+        file,
+        [
+            'currentSite: x',
+            'sites:',
+            '  x:',
+            '    mcpUrl: https://x.invalid.test/api/v1/mcp',
+            '    authMode: oauth',
+            '    authHeader: authorization',
+            'auth: {}',
+            '',
+        ].join('\n'),
+        'utf8',
+    );
+    process.env.MSY_X_CONFIG = file;
+    const errChunks: string[] = [];
+    const errOriginal = process.stderr.write.bind(process.stderr);
+    const errWrite = ((chunk: unknown): boolean => {
+        if (typeof chunk === 'string') errChunks.push(chunk);
+        return errOriginal(chunk as Parameters<typeof errOriginal>[0]);
+    }) as typeof process.stderr.write;
+    process.stderr.write = errWrite;
+    try {
+        // 走真实入口 main（含 stderr 单行 JSON 与退出码归一），不联网：未登录时
+        // dispatch 在建连前就退 3
+        const { main } = await import('../index');
+        const out = await captureStdout(async () => {
+            const code = await main(['node', 'msy-x', 'doctor', '--remote']);
+            assert.equal(code, 3, '未登录 + --remote 应退 3');
+        });
+        assert.ok(
+            out.split('\n').some((line) => line.includes('remote-auth')),
+            `stdout 应含 remote-auth 检查行：${out}`,
+        );
+        assert.ok(
+            out.split('\n').some((line) => line.includes('auth login')),
+            `检查行应带 auth login hint：${out}`,
+        );
+    } finally {
+        process.stderr.write = errOriginal;
+        if (previous === undefined) {
+            delete process.env.MSY_X_CONFIG;
+        } else {
+            process.env.MSY_X_CONFIG = previous;
+        }
+        await rmDir(dir, { recursive: true, force: true });
+    }
+    const stderrText = errChunks.join('');
+    assert.ok(
+        stderrText.includes('AUTH_REQUIRED'),
+        `stderr 应含单行错误 JSON：${stderrText}`,
     );
 });

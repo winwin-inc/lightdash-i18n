@@ -49,7 +49,7 @@ msy-x auth logout    # 清除本机凭证（幂等，重复执行不报错）
 {"logged_in":true,"site":"x","authMode":"oauth","expiresAt":"2026-11-17T12:00:00.000Z"}
 ```
 
-未登录时 `logged_in:false`（退出码仍为 0，靠 JSON 内容区分）；本地配置读取出错才退非 0。真实连通性检查用 `msy-x doctor --remote`（会发一次 `tools/list` 请求）。
+未登录时 `logged_in:false`（退出码仍为 0，靠 JSON 内容区分）；本地配置读取出错才退非 0。真实连通性检查用 `msy-x doctor --remote`（发真实请求：`tools/list` 与能力探测）。
 
 凭证保存在本机 `~/.config/msy-x/config.yaml`（Windows：`%APPDATA%\msy-x\`，目录 `0700`、文件 `0600`；共享机器请用 `MSY_X_CONFIG` 指到个人目录）。CLI 不回显任何令牌。
 
@@ -85,11 +85,11 @@ msy-x auth logout    # 清除本机凭证（幂等，重复执行不报错）
 | `query` | 临时查询：`-e` 指定表，逗号分隔维度/指标，`--filter 字段=值` 可重复 | `msy-x query -e pinleibaohsm_cls_top --dimensions pinleibaohsm_cls_top_cls_4 --metrics pinleibaohsm_cls_top_total_cls4_amount --filter pinleibaohsm_cls_top_period=2026Q2 --filter pinleibaohsm_cls_top_region_name=华南地区 --limit 10` |
 | `query --file q.json` | 用 JSON 文件描述查询（`-` 从 stdin 读） | `msy-x query --file q.json --out result.csv` |
 | `query flat` | 简单查询的直通模式（对应 vizConfig，排序用 `--sort 字段:desc`） | `msy-x query flat -e cls_insight_list --dimensions pinleibaohsm_cls_top_cls_4 --metrics pinleibaohsm_cls_top_total_cls4_amount --sort pinleibaohsm_cls_top_total_cls4_amount:desc --limit 10` |
-| `verified` | 列出已认证内容 | `msy-x verified` |
+| `verified` | 列出已认证内容（站点未启用该功能时原样输出服务端提示并退 0） | `msy-x verified` |
 | `docs [topic]` | 平台 MCP 使用文档（如 overview / query_workflow） | `msy-x docs query_workflow` |
 | `tools list` / `tools describe <n>` | 列出服务端当前全部工具（新工具自动可见） | `msy-x tools list` |
 | `call <tool> --json '<obj>'` | 直通任意 MCP 工具（兜底通道，新工具无需等 CLI 升级） | `msy-x call search_field_values --json '{"table":"pinleibaohsm_cls_top","fieldId":"pinleibaohsm_cls_top_period"}'` |
-| `doctor` | 自检配置、凭证与（`--remote` 时）服务端连通性 | `msy-x doctor --remote` |
+| `doctor` | 自检配置、凭证与（`--remote` 时）服务端连通性及能力 | `msy-x doctor --remote` |
 
 ## 输出约定
 
@@ -103,7 +103,7 @@ msy-x auth logout    # 清除本机凭证（幂等，重复执行不报错）
 
 | 码 | 含义 | 典型场景 |
 |---|---|---|
-| `0` | 成功（含 0 行结果；`auth status` 未登录也是 0） | — |
+| `0` | 成功（含 0 行结果；`auth status` 未登录也是 0，`verified` 在未启用内容验证的站点也是 0，`doctor` 仅 warn 也是 0） | — |
 | `2` | 用法 / 参数 / 本地配置错误 | 非法 flag、坏配置文件、`dashboards list` 缺 `--space` |
 | `3` | 未登录 / 凭证失效（401） | 未 `auth login`；token 过期且刷新失败 |
 | `4` | 无权限 / 被门控（403） | 越权访问；看板门控（见下） |
@@ -120,8 +120,8 @@ msy-x auth logout    # 清除本机凭证（幂等，重复执行不报错）
 ## 排错
 
 ```bash
-msy-x doctor                # 本地自检：配置文件、凭证是否在、格式是否合法
-msy-x doctor --remote       # 加做一次真实 tools/list 请求，验证端到端连通
+msy-x doctor                # 本地自检：Node 版本、配置文件与权限位、站点解析、凭证
+msy-x doctor --remote       # 加做真实请求：tools/list（工具目录 26 个）与能力探测，验证端到端连通
 MSY_X_DEBUG=1 msy-x info    # stderr 打印请求/响应摘要（令牌已自动脱敏）
 ```
 
