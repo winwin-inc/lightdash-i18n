@@ -1,6 +1,6 @@
 # msy-x-cli（MCP 命令行客户端）设计稿
 
-> 状态：**待开发**（设计稿，2026-11-16 归档）。实现顺序、测试与发布见 [开发计划](./msy-x-cli-dev-plan.md)。
+> 状态：**已实现 · 待发布**（代码在 `feat/msy-x-cli`，2026-11-17 落地；公开发布与真实站点验收待做）。实现顺序、测试与发布见 [开发计划](./msy-x-cli-dev-plan.md)。
 >
 > 契约来源：豆包《Plugin / 连接器 / MCP Apps 接入指南》第 3–4 章「Plugin 交付规范 / CLI 连接器」（本地文档）+ 本仓 26 个 MCP 工具契约（[DEV_TOOL_NAMES.md](../../packages/lightdash-mcp/DEV_TOOL_NAMES.md)、[MCP v2 接入指南](../mcp/mcp-v2-guide.md)）。
 >
@@ -290,6 +290,12 @@ msy-x auth login
 
 `code` 英文稳定（供 agent 分支判断），`message` / `hint` 中文（供人读）。
 
+可选第三个字段 `detail`：仅当服务端返回结构化载荷时出现（目前是看板门控五类），承载 `action` / `candidates` / `contact` / `dashboardUrl` / `detail` 中原样存在的字段；无载荷时该键整体省略：
+
+```json
+{"error":{"code":"dashboard_selection_required","message":"该表关联多张看板…","hint":"…\n- d54853b1-… 品类宝（HSM）\n重试时用 --dashboard <uuid>","detail":{"action":"select_dashboard","candidates":[{"dashboardUuid":"d54853b1-…","dashboardName":"品类宝（HSM）"}]}}}
+```
+
 ### 8.2 退出码
 
 | 码 | 含义 | 触发 |
@@ -304,13 +310,13 @@ msy-x auth login
 
 ### 8.3 看板门控（`MCP_DASHBOARD_STRICT=true` 的 x 站）
 
-服务端返回的 `status` 原样进入 `error.code`，`message`/`hint` 用服务端中文文案（含 `MCP_DASHBOARD_CONTACT`）：
+服务端返回的 `status` **原样进入 `error.code`**（不是被压成统一的 `DASHBOARD_STRICT`），`exitCode` 固定 `4`；`message`/`hint` 用服务端中文文案，结构化载荷放进 `error.detail`：
 
 | 服务端 status | 退出码 | CLI 行为 |
 |---|---|---|
-| `dashboard_permission_required` | `4` | 打印联系文案 + `get_my_access` 建议 |
+| `dashboard_permission_required` | `4` | `hint` 附服务端 `contact`（如 `MCP_DASHBOARD_CONTACT`）；`detail` 带 `action`/`dashboardUrl` |
 | `dashboard_configuration_required` | `4` | 提示看板未配置 |
-| `dashboard_selection_required` | `4` | 列出候选看板（`dashboardUuid` + 名称），提示 `--dashboard` |
+| `dashboard_selection_required` | `4` | `hint` 直接列出候选（`dashboardUuid` + 名称）并提示 `--dashboard`；`detail.candidates` 同数据可机读 |
 | `dashboard_not_found` | `4` | 提示先 `dashboards find` |
 | `dashboard_context_unavailable` | `4` | 打印服务端原因 |
 
