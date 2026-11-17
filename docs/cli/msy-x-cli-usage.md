@@ -1,6 +1,6 @@
 # msy-x-cli 使用手册
 
-> 适用版本：0.1.0　｜　运行时：Node.js ≥ 20
+> 适用版本：0.1.1　｜　运行时：Node.js ≥ 20
 >
 > 本文是自包含的使用说明，不依赖任何内部文档。命令与接口的完整契约（入参映射、输出结构、退出码定义）由设计文档单独提供。
 
@@ -9,9 +9,9 @@
 ## 1. 安装
 
 ```bash
-npm i -g https://img0.banmahui.cn/msy-x/cli/msy-x-cli/0.1.0/msy-x-cli-0.1.0.tgz
+npm i -g https://img0.banmahui.cn/msy-x/cli/msy-x-cli/0.1.1/msy-x-cli-0.1.1.tgz
 
-msy-x --version     # 期望输出单行：msy-x 0.1.0
+msy-x --version     # 期望输出单行：msy-x 0.1.1
 msy-x --help
 ```
 
@@ -20,7 +20,7 @@ msy-x --help
 | 包名 / 可执行名 | `msy-x-cli` / `msy-x` |
 | 升级 | 用新版本地址再执行一次 `npm i -g`（覆盖安装） |
 | 卸载 | `npm uninstall -g msy-x-cli` |
-| 完整性校验 | 同目录有 `<tgz>.sha256`：`sha256sum -c msy-x-cli-0.1.0.tgz.sha256` |
+| 完整性校验 | 同目录有 `<tgz>.sha256`：`sha256sum -c msy-x-cli-0.1.1.tgz.sha256` |
 | 自定义 npm 源 | 安装命令可加 `--registry https://registry.npmjs.org` |
 
 ---
@@ -30,7 +30,7 @@ msy-x --help
 ### 2.1 OAuth（推荐个人使用）
 
 ```bash
-msy-x auth login
+msy-x auth login      # 也可以简写：msy-x login
 ```
 
 流程：CLI 在本机起一个只绑 `127.0.0.1` 的临时回调 → 打开系统默认浏览器 → 你在页面上登录并点「授权」→ CLI 收到回调、换取令牌并保存 → 退出码 `0`。
@@ -67,7 +67,7 @@ PAT 的权限等于该用户本身，不受 OAuth scope 限制。
 
 ```bash
 msy-x auth status        # 单行 JSON，logged_in 是第一个键；已登录/未登录都退 0
-msy-x auth logout        # 吊销并删除本地凭证；可重复执行
+msy-x auth logout        # 吊销并删除本地凭证；可重复执行（简写：msy-x logout）
 msy-x doctor             # 本地自检：Node 版本、配置与权限位、站点解析、凭证状态（不打印令牌）
 msy-x doctor --remote    # 追加真实验证：工具名单 + 服务端能力探测
 ```

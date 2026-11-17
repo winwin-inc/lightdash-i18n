@@ -90,6 +90,38 @@ export const authCommands: CommandSpec[] = [
         dataCommand: false,
         build: localOnlyBuild('auth logout'),
     },
+    /* 顶层别名：兼容 `lightdash login` 的手感。规范形式仍是 auth *，
+       别名与规范命令共用同一 runner（见 commands/index.ts 的分派）。 */
+    {
+        name: 'login',
+        description: '别名：等价于 msy-x auth login',
+        options: [
+            {
+                flags: '--token <pat>',
+                description: '用 Personal Access Token 登录（落盘 mode: pat）',
+            },
+            {
+                flags: '--timeout <ms>',
+                description: '等待浏览器授权回调的超时毫秒数（默认 300000）',
+                defaultValue: '300000',
+            },
+            {
+                flags: '--no-browser',
+                description: '不拉起浏览器，把授权 URL 打到 stderr',
+            },
+        ],
+        example: 'msy-x login          # 等价于 msy-x auth login',
+        dataCommand: false,
+        build: localOnlyBuild('login'),
+    },
+    {
+        name: 'logout',
+        description: '别名：等价于 msy-x auth logout',
+        options: [],
+        example: 'msy-x logout         # 等价于 msy-x auth logout',
+        dataCommand: false,
+        build: localOnlyBuild('logout'),
+    },
 ];
 
 /** PAT 来源：--token 优先，其次 env MSY_X_PAT（设计稿 §4.3 / §5.2） */

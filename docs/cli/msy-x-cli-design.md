@@ -1,6 +1,6 @@
 # msy-x-cli 设计文档
 
-> 版本对应：0.1.0　｜　文档状态：已实现，随 0.1.0 发布
+> 版本对应：0.1.1　｜　文档状态：已实现，随 0.1.1 发布
 >
 > 本文是自包含的对外契约文档，不依赖任何内部文档或代码路径。使用步骤见同目录《msy-x-cli 使用手册》。
 
@@ -214,6 +214,8 @@ auth login
 
 `auth status` 为**纯本地离线判定**（凭证存在且未过期，或存在 refresh token）；真实可用性由 `doctor --remote` 验证。
 
+为兼容习惯，另外提供两个顶层别名：`msy-x login`（= `auth login`）、`msy-x logout`（= `auth logout`）。别名与规范命令走同一实现，**没有**独立的语义分支；`auth status` 不提供别名（避免与 `doctor` / `info` 混淆）。本地凭证命令不支持 `--dry-run`（会直接报用法错误，而不是静默写盘）。
+
 ---
 
 ## 7. 命令面
@@ -255,6 +257,7 @@ auth login
 | `doctor [--remote] [--json]` | 本地自检；`--remote` 时 `tools/list` + 能力探测 | 不发业务查询 |
 | `tools list [--verbose]` / `tools describe <name>` | `tools/list` | 本地展示 |
 | `call <tool> [--args '<json>' \| --file <path>]` | 任意 `tools/call` | 原样透传；`--args` 与 `--file` 互斥 |
+| `login` / `logout`（顶层别名） | 本地 | 等价于 `auth login` / `auth logout`；规范形式仍是 `auth *` |
 | `auth login\|status\|logout`、`site list\|show\|use` | 本地（不调工具） | 见 §6 |
 
 ### 7.3 参数约定
@@ -352,7 +355,7 @@ auth login
   "connectors": {
     "msy-x": {
       "install": {
-        "default": ["npm install -g https://img0.banmahui.cn/msy-x/cli/msy-x-cli/0.1.0/msy-x-cli-0.1.0.tgz"]
+        "default": ["npm install -g https://img0.banmahui.cn/msy-x/cli/msy-x-cli/0.1.1/msy-x-cli-0.1.1.tgz"]
       },
       "versionCheck": { "default": ["msy-x --version"] },
       "statusMatchRegex": "\"logged_in\"\\s*:\\s*true",

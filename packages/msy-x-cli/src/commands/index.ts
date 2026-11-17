@@ -140,6 +140,23 @@ const ancestorOptsOf = (cmd: Command): Record<string, unknown> => {
     return Object.assign({}, ...collected);
 };
 
+/**
+ * 本地凭证命令的子命令解析：规范形式 `auth login|status|logout`，
+ * 顶层 `login` / `logout` 是别名（共用同一 runner，避免两套语义）。
+ */
+export const resolveAuthSub = (
+    specName: string,
+): 'login' | 'status' | 'logout' | null => {
+    if (specName === 'login' || specName === 'logout') return specName;
+    if (specName.startsWith('auth ')) {
+        const sub = specName.split(' ')[1];
+        if (sub === 'login' || sub === 'status' || sub === 'logout') {
+            return sub;
+        }
+    }
+    return null;
+};
+
 const buildContext = async (
     cmd: Command,
     dataCommand: boolean,
@@ -331,12 +348,17 @@ const dispatch = async (
     const ctx = await buildContext(cmd, spec.dataCommand);
 
     // 本地命令与专门通道（不走 spec.build 的 ToolCall 管道）
-    if (
-        spec.name === 'auth login' ||
-        spec.name === 'auth status' ||
-        spec.name === 'auth logout'
-    ) {
-        const sub = spec.name.split(' ')[1] as 'login' | 'status' | 'logout';
+    const authSub = resolveAuthSub(spec.name);
+    if (authSub !== null) {
+        // --dry-run 对本地凭证命令没有意义，直接拒绝而不是静默真的写盘
+        if (ctx.options.dryRun) {
+            throw new CliError({
+                code: 'USAGE',
+                message: `msy-x ${spec.name} 不支持 --dry-run（本地凭证命令）`,
+                hint: '要看将执行什么，直接运行不带 --dry-run 的命令；--dry-run 只用于工具调用类命令',
+            });
+        }
+        const sub = authSub;
         const result = await runAuthCommand(
             sub,
             {

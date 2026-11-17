@@ -3,7 +3,7 @@
     "msy-x": {
       "install": {
         "default": [
-          "npm install -g https://img0.banmahui.cn/msy-x/cli/msy-x-cli/0.1.0/msy-x-cli-0.1.0.tgz"
+          "npm install -g https://img0.banmahui.cn/msy-x/cli/msy-x-cli/0.1.1/msy-x-cli-0.1.1.tgz"
         ]
       },
       "versionCheck": {

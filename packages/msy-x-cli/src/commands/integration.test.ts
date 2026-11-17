@@ -703,12 +703,12 @@ test('writeResult：--out 写文件 0600 且 stdout 只回摘要', async () => {
 /* 挂载：全部 CommandSpec 注册、code 别名、--csv 门控与缺 --space 退出   */
 /* ------------------------------------------------------------------ */
 
-test('挂载：全部命令注册且名字唯一（含 auth/site/verified/doctor/tools/call，共 35 个）', () => {
+test('挂载：全部命令注册且名字唯一（含 auth/site/verified/doctor/tools/call/别名，共 37 个）', () => {
     const specs = registeredSpecs();
     const names = specs.map((spec) => spec.name);
     assert.equal(new Set(names).size, names.length, '命令名不应重复');
     // 旧断言清单缺 project use/project show/spaces find，这里补全为完整清单
-    assert.equal(names.length, 35, `应注册 35 个命令，实际 ${names.length}`);
+    assert.equal(names.length, 37, `应注册 37 个命令，实际 ${names.length}`);
     for (const expected of [
         'info',
         'access',
@@ -721,6 +721,8 @@ test('挂载：全部命令注册且名字唯一（含 auth/site/verified/doctor
         'auth login',
         'auth status',
         'auth logout',
+        'login',
+        'logout',
         'search <query>',
         'spaces list',
         'spaces find <query>',
@@ -1423,5 +1425,51 @@ test('D18/T12：call 的 --json 不再吃参数值（解析为布尔 flag，旧�
         } else {
             process.env.MSY_X_CONFIG = previous;
         }
+    }
+});
+
+/* ------------------------------------------------------------------ */
+/* 顶层别名：login / logout 与 auth * 共用同一分派                       */
+/* ------------------------------------------------------------------ */
+
+test('resolveAuthSub：规范命令与顶层别名映射到同一子命令', async () => {
+    const { resolveAuthSub } = await import('./index');
+    assert.equal(resolveAuthSub('auth login'), 'login');
+    assert.equal(resolveAuthSub('auth status'), 'status');
+    assert.equal(resolveAuthSub('auth logout'), 'logout');
+    assert.equal(resolveAuthSub('login'), 'login');
+    assert.equal(resolveAuthSub('logout'), 'logout');
+    assert.equal(resolveAuthSub('status'), null);
+    assert.equal(resolveAuthSub('site list'), null);
+});
+
+test('本地凭证命令拒绝 --dry-run（避免静默写盘）', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'msyx-dryrun-'));
+    const configPath = path.join(dir, 'config.yaml');
+    try {
+        const program = new Command();
+        program.exitOverride();
+        registerCommands(program);
+        await assert.rejects(
+            () =>
+                program.parseAsync([
+                    'node',
+                    'msy-x',
+                    'login',
+                    '--dry-run',
+                    '--token',
+                    'x',
+                    '--config',
+                    configPath,
+                ]),
+            (error: unknown) =>
+                error instanceof CliError &&
+                error.code === 'USAGE' &&
+                error.exitCode === 2,
+        );
+        // 守卫在写盘前生效：配置文件不应被创建
+        await assert.rejects(() => readFile(configPath, 'utf8'));
+    } finally {
+        await rmDir(path.join(dir), { recursive: true, force: true });
     }
 });

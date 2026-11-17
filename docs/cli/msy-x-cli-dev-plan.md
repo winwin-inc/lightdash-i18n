@@ -1,6 +1,6 @@
 # msy-x-cli 开发计划
 
-> 状态：**P0–P3 已实现，0.1.0 已发布；P4 剩首次真实站点验收**（2026-11-17）。契约以 [设计文档](./msy-x-cli-design.md) 为准，使用说明见 [使用手册](./msy-x-cli-usage.md)；本文只写实施顺序、测试与发布（内部文档，可含内部引用）。
+> 状态：**P0–P3 已实现，0.1.1 已发布；P4 剩真实站点验收**（2026-11-17）。契约以 [设计文档](./msy-x-cli-design.md) 为准，使用说明见 [使用手册](./msy-x-cli-usage.md)；本文只写实施顺序、测试与发布（内部文档，可含内部引用）。
 >
 > 已完成：配置/鉴权/MCP 客户端/渲染/35 个命令/doctor/verified/打包脚本/豆包 CLI 连接器；独立审查的 P0+P1（401 映射、门控 detail、text JSON 原样输出、Skill 文档）已修。
 > 待办：P4 公网 tgz 与 npm 发布、真实站点验收（OAuth 登录 + `values`/`query flat` 冒烟）、P2 尾巴（见设计稿审查清单）。
@@ -84,7 +84,7 @@ packages/msy-x-cli/
 ```jsonc
 {
   "name": "msy-x-cli",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": false,
   "bin": { "msy-x": "dist/index.js" },
   "files": ["dist/**/*", "README.md"],
@@ -190,7 +190,7 @@ packages/msy-x-cli/
 | P4-1 | `pnpm pack-msyx`（= `pnpm -F msy-x-cli pack:tgz` → `scripts/pack-cli.mjs`）：`npm pack` → `dist-msy-x/msy-x-cli-<ver>.tgz` + `.sha256` | ✅ 已实现；临时 prefix 安装后可执行 |
 | P4-2 | 发布流水线 `.github/workflows/release-msy-x-cli.yml`（tag `msyx-v*`） | ✅ 已实现；见下方发版流程 |
 | P4-3 | `packages/msy-x-cli/README.md` | ✅ 已实现 |
-| P4-4 | 首次发版 + 两篇 docs 补“上线记录”（版本 / tgz 地址 / 验证日期） | ⬜ 待执行（需 repo vars/secrets + 运维） |
+| P4-4 | 发版：0.1.0 首发布、0.1.1 补 `login`/`logout` 别名 ✅；剩余为真实站点验收记录 | ⬜ 待补验收记录 |
 
 #### 分发基线（来自 `../k8s-config` master 的 `lightdash/lightdash-config.yaml`）
 
