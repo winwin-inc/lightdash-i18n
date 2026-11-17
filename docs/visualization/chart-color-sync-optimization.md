@@ -80,3 +80,39 @@ extractManualColorsFromChartConfig / extractColorSyncKeysFromChartConfig
 2. 改筛选后，已出现过的系列颜色不应被打乱
 3. 编辑态打开开关应立即生效，不必先保存
 4. `syncChartTileUuids` 是严格白名单：只同步勾选的 tile；为空时没有任何图表参与同步
+
+## 补充（2026-11-17）：兜底唯一性、容量上限与已知限制
+
+这一节记录当前真实语义，避免后续把「近似色」当成 bug 反复返工。
+
+### 已修：候选耗尽不再返回冲突色
+
+`pickAvoidingColor` 的候选顺序是「主题色板 → 扩展色（每色 3–4 个同色相明暗变体）→ 色相旋转」。
+历史上候选耗尽后**直接返回上一轮的冲突色**，导致同图出现完全相同的颜色（用户反馈「黄色出现 3 次」即此）。
+现在：第 13 个候选起用黄金角 137.5° 扩色相空间；仍找不到满足色差的候选时**唯一性优先**，
+只要求「不与已用色完全相同」，因此同图不会再有重复色值。
+
+### 阈值分层与容量上限
+
+- 主题色板仍按 `MIN_COLOR_DIFF = 45` 使用；生成色（扩展色 / 色相旋转）要求 `MIN_GENERATED_COLOR_DIFF = 60`
+- 60 的**有效容量约 16–19 色**：看板已用色 ≥ `GENERATED_DIFF_CAPACITY = 20` 时自动降级回 45，
+  否则会提前耗尽候选、掉进唯一性兜底，图内色差反而更差（实测 known=30 时 29.3，降级后 ≈45）
+- 实测：15 系列在 `usedColors < 20` 时最小色差 60；≤9 系列（未超色板长度）的颜色与阈值调整前逐项一致
+
+### 已知限制（不是 bug，是当前设计的边界）
+
+1. **看板级避让会拥挤**：运行期新增的名字按「整块看板已用色」避让（`appendDashboardUnknownHashColors`），
+   图很多、每图十几个运行期系列时（如 30 known + 45 未知名），单图色差会被挤到 15–45。
+   要根治需改为「只避让同图共现的邻居」，代价是不同的两个名字可能跨图撞色——属产品取舍，单独评估
+2. **瞬态不一致**：名字要等 `useLayoutEffect` 注册进看板表后才统一；首帧与 `known` 重置帧由各图自算，
+   理论上可出现短暂不同色（React 在 paint 前同步 flush，通常不可见，未做浏览器实测）
+3. **运行期未知名依赖挂载顺序**：`known` 变化会重置追加表，已有未知名可能被重新分配颜色；
+   要彻底消除需持久化追加表（涉及 `DashboardConfig` 类型与迁移）
+
+### 改动入口（排查用）
+
+| 行为 | 代码位置 |
+|---|---|
+| 同图取色 + 本图避让 | `VisualizationProvider.tsx` 的 `chartHashAssignments`（`appendUnknownHashColors`） |
+| 看板级追加 | `DashboardChartColorSyncProvider.tsx` 的 `registerVisibleColorKeys` |
+| 避让算法与阈值 | `hashColorAssignment.ts` 的 `pickAvoidingColor` / `MIN_*_COLOR_DIFF` / `GENERATED_DIFF_CAPACITY` |
