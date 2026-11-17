@@ -1,9 +1,12 @@
 import { CliError } from '../cli/errors';
 import { ExitCode, ExitCodeValue } from '../cli/exitCodes';
 import { readConfig, writeConfig } from '../config/store';
+import { loginWithDeviceQr } from '../auth/device';
 import { loginWithOAuth } from '../auth/oauth';
 import { savePat } from '../auth/pat';
 import { logout as revokeAndClear } from '../auth/revoke';
+import { hasConfiguredBrowser, isWsl } from '../lib/openBrowser';
+import { logWarn } from '../lib/logger';
 import type { AuthCredentials, CommandSpec, CommandContext } from '../types';
 
 /**
@@ -25,10 +28,12 @@ export type AuthCommandName = 'login' | 'status' | 'logout';
 export type RunAuthOptions = {
     /** `--token <pat>`：走 PAT 登录；缺省时看 env MSY_X_PAT，再缺省走 OAuth */
     token?: string;
-    /** `--timeout <ms>`：OAuth 等待回调超时；默认 300000 */
+    /** `--timeout <ms>`：OAuth 等待回调 / 设备码确认超时；默认 300000 */
     timeoutMs?: number;
     /** `--no-browser`：只打印授权 URL（env MSY_X_NO_BROWSER=1 等效） */
     noBrowser?: boolean;
+    /** `--qr`：终端二维码扫码登录（设备码流程，无需浏览器） */
+    qr?: boolean;
 };
 
 export type AuthCommandResult = {
@@ -54,7 +59,7 @@ const localOnlyBuild =
 export const authCommands: CommandSpec[] = [
     {
         name: 'auth login',
-        description: '登录当前站点（默认 OAuth；--token <pat> 用 PAT）',
+        description: '登录当前站点（默认 OAuth；--token <pat> 用 PAT；--qr 扫码）',
         options: [
             {
                 flags: '--token <pat>',
@@ -62,12 +67,17 @@ export const authCommands: CommandSpec[] = [
             },
             {
                 flags: '--timeout <ms>',
-                description: '等待浏览器授权回调的超时毫秒数（默认 300000）',
+                description: '等待授权/扫码确认的超时毫秒数（默认 300000）',
                 defaultValue: '300000',
             },
             {
                 flags: '--no-browser',
                 description: '不拉起浏览器，把授权 URL 打到 stderr',
+            },
+            {
+                flags: '--qr',
+                description:
+                    '终端二维码扫码登录（设备码流程，无浏览器/WSL 环境适用）',
             },
         ],
         example: 'msy-x auth login',
@@ -102,12 +112,17 @@ export const authCommands: CommandSpec[] = [
             },
             {
                 flags: '--timeout <ms>',
-                description: '等待浏览器授权回调的超时毫秒数（默认 300000）',
+                description: '等待授权/扫码确认的超时毫秒数（默认 300000）',
                 defaultValue: '300000',
             },
             {
                 flags: '--no-browser',
                 description: '不拉起浏览器，把授权 URL 打到 stderr',
+            },
+            {
+                flags: '--qr',
+                description:
+                    '终端二维码扫码登录（设备码流程，无浏览器/WSL 环境适用）',
             },
         ],
         example: 'msy-x login          # 等价于 msy-x auth login',
@@ -181,6 +196,36 @@ const runLogin = async (
                 logged_in: true,
                 site: ctx.site.name,
                 authMode: 'pat',
+                mode: 'login',
+            }),
+            exitCode: ExitCode.OK,
+        };
+    }
+
+    // 扫码（设备码）登录：--qr 显式指定；或 WSL2 且未配置外部浏览器时
+    // 自动降级（回环回调在 WSL 里常不可达，浏览器 OAuth 基本注定超时）
+    const preferQr =
+        opts.qr === true ||
+        (isWsl(process.env) && !hasConfiguredBrowser(process.env));
+    if (preferQr) {
+        if (opts.qr !== true) {
+            logWarn(
+                '检测到 WSL 且未配置外部浏览器（可设 BROWSER=wslview），自动改用扫码登录',
+            );
+        }
+        // 任何失败路径都不落盘，由这里成功后统一落盘（与 OAuth 一致）
+        const credentials = await loginWithDeviceQr({
+            site: ctx.site,
+            timeoutMs: opts.timeoutMs,
+        });
+        const config = await readConfig();
+        config.auth[ctx.site.name] = credentials;
+        await writeConfig(config);
+        return {
+            stdout: jsonLine({
+                logged_in: true,
+                site: ctx.site.name,
+                authMode: 'oauth',
                 mode: 'login',
             }),
             exitCode: ExitCode.OK,

@@ -205,10 +205,77 @@ const OAUTH_REDIRECT_TEMPLATE = `
 </html>
 `;
 
+// OAuth device flow (RFC 8628) confirmation page template
+const OAUTH_DEVICE_TEMPLATE = `
+<html>
+    <head>
+        <title>Terminal Login</title>
+        <style>
+            {{{styles}}}
+            .container, .container p, .container form { text-align: center; }
+            .user-code {
+                font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+                font-size: 28px;
+                letter-spacing: 4px;
+                color: #111418;
+                background: #f1f5f9;
+                border-radius: 4px;
+                padding: 12px 8px;
+                margin: 16px 0;
+            }
+            .oauth-btn-row { display: flex; justify-content: center; gap: 12px; margin-top: 18px; }
+            .oauth-btn {
+                padding: 8px 24px;
+                border: none;
+                border-radius: 4px;
+                font-weight: 600;
+                font-size: 15px;
+                cursor: pointer;
+                transition: background 0.15s;
+            }
+            .oauth-btn.approve {
+                background: #00B26F;
+                color: #fff;
+            }
+            .oauth-btn.approve:hover {
+                background: #00975E;
+            }
+            .oauth-btn.deny {
+                background: #E03131;
+                color: #fff;
+            }
+            .oauth-btn.deny:hover {
+                background: #B32525;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="stack">
+            <form class="container" method="POST" action="{{action}}">
+                <h1>Terminal Login</h1>
+                <p>A Lightdash CLI session is requesting access to your account.</p>
+                <p>Verify this code matches the one shown in your terminal:</p>
+                <div class="user-code">{{userCode}}</div>
+                {{#each hiddenInputs}}
+                <input type="hidden" name="{{name}}" value="{{value}}" />
+                {{/each}}
+                <p>Authenticate as user: <b>{{user.firstName}} {{user.lastName}}</b></p>
+                <p>on organization: <b>{{user.organizationName}}</b></p>
+                <div class="oauth-btn-row">
+                    <button type="submit" name="approve" value="true" class="oauth-btn approve">Approve</button>
+                    <button type="submit" name="approve" value="false" class="oauth-btn deny">Deny</button>
+                </div>
+            </form>
+        </div>
+    </body>
+</html>
+`;
+
 // Compile the templates once with proper type safety
 const compiledResponseTemplate = compile(OAUTH_RESPONSE_TEMPLATE);
 const compiledAuthorizeTemplate = compile(OAUTH_AUTHORIZE_TEMPLATE);
 const compiledRedirectTemplate = compile(OAUTH_REDIRECT_TEMPLATE);
+const compiledDeviceTemplate = compile(OAUTH_DEVICE_TEMPLATE);
 
 export type OAuthResponseStatus = 'success' | 'error';
 export type OAuthIconType = keyof typeof OAUTH_ICONS;
@@ -236,6 +303,13 @@ export interface OAuthAuthorizeParams {
 export interface OAuthRedirectParams {
     redirectUrl: string;
     message: string;
+}
+
+export interface OAuthDeviceParams {
+    action: string;
+    userCode: string;
+    user: OAuthUser;
+    hiddenInputs: OAuthHiddenInput[];
 }
 
 /**
@@ -302,6 +376,16 @@ export const generateOAuthRedirectPage = (
     params: OAuthRedirectParams,
 ): string =>
     compiledRedirectTemplate({
+        styles: oauthPageStyles,
+        ...params,
+    });
+
+/**
+ * Generates the device flow confirmation page (RFC 8628) shown after the
+ * user scans the CLI QR code or opens the verification URL.
+ */
+export const generateOAuthDevicePage = (params: OAuthDeviceParams): string =>
+    compiledDeviceTemplate({
         styles: oauthPageStyles,
         ...params,
     });
