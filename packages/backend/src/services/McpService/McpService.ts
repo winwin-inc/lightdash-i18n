@@ -47,19 +47,6 @@ import { ProjectModel } from '../../models/ProjectModel/ProjectModel';
 import { SearchModel } from '../../models/SearchModel';
 import { SpaceModel } from '../../models/SpaceModel';
 import { UserAttributesModel } from '../../models/UserAttributesModel';
-import { BaseService } from '../BaseService';
-import { CatalogService } from '../CatalogService/CatalogService';
-import { ContentService } from '../ContentService/ContentService';
-import { DashboardService } from '../DashboardService/DashboardService';
-import { SavedChartService } from '../SavedChartsService/SavedChartService';
-import { SearchService } from '../SearchService/SearchService';
-import { FeatureFlagService } from '../FeatureFlag/FeatureFlagService';
-import { ProjectService } from '../ProjectService/ProjectService';
-import { SpaceService } from '../SpaceService/SpaceService';
-import {
-    doesExploreMatchRequiredAttributes,
-    getFilteredExplore,
-} from '../UserAttributesService/UserAttributeUtils';
 import { wrapSentryTransaction } from '../../utils';
 import { VERSION } from '../../version';
 import { runFindExplores } from '../ai/tools/findExplores';
@@ -73,35 +60,49 @@ import {
     RunMiniMetricQueryFn,
     SearchFieldValuesFn,
 } from '../ai/types/aiAgentDependencies';
-import { McpSchemaCompatLayer } from './McpSchemaCompatLayer';
+import { BaseService } from '../BaseService';
+import { CatalogService } from '../CatalogService/CatalogService';
+import { ContentService } from '../ContentService/ContentService';
+import { DashboardService } from '../DashboardService/DashboardService';
+import { FeatureFlagService } from '../FeatureFlag/FeatureFlagService';
+import { ProjectService } from '../ProjectService/ProjectService';
+import { SavedChartService } from '../SavedChartsService/SavedChartService';
+import { SearchService } from '../SearchService/SearchService';
+import { SpaceService } from '../SpaceService/SpaceService';
+import {
+    doesExploreMatchRequiredAttributes,
+    getFilteredExplore,
+} from '../UserAttributesService/UserAttributeUtils';
 import { McpAuthContext, McpAuthType } from './McpAuthContext';
+import { McpSchemaCompatLayer } from './McpSchemaCompatLayer';
+import { withToolDiscriminator } from './mcpToolArgs';
 import { McpToolName } from './McpToolName';
-import { McpToolCallInfo, McpToolRegistry } from './tools/registry';
-import { McpToolScope } from './tools/scopes';
-import { McpToolContext } from './tools/types';
+import { assertExploreQueryable } from './tools/access/assertExploreQueryable';
+import { exploreRequiresDashboardContext } from './tools/access/exploreRequiresDashboardContext';
+import {
+    createRequiredDashboardGuard,
+    formatDashboardAccessError,
+} from './tools/access/requiredDashboardContext';
+import { registerAccessTools } from './tools/accessTools';
+import { registerAnalystPrompt } from './tools/analystPromptTools';
+import { registerChartRunTools } from './tools/chartRunTools';
+import { registerContentListTools } from './tools/contentListTools';
+import { registerContentSearchTools } from './tools/contentSearchTools';
+import { registerDashboardTools } from './tools/dashboardTools';
 import { McpToolDeps } from './tools/deps';
+import { registerDocsTools } from './tools/docsTools';
+import { registerOrgTools } from './tools/orgTools';
 import {
     NO_DEFAULT_PROJECT_ERROR,
     NO_DEFAULT_PROJECT_HINT,
     PROJECT_UUID_PARAM_DESCRIPTION,
     resolveProjectContext,
 } from './tools/projectContext';
-import { registerOrgTools } from './tools/orgTools';
-import { registerAccessTools } from './tools/accessTools';
-import { registerDocsTools } from './tools/docsTools';
 import { registerQueryTools } from './tools/queryTools';
-import { assertExploreQueryable } from './tools/access/assertExploreQueryable';
-import {
-    createRequiredDashboardGuard,
-    formatDashboardAccessError,
-} from './tools/access/requiredDashboardContext';
-import { exploreRequiresDashboardContext } from './tools/access/exploreRequiresDashboardContext';
-import { registerContentSearchTools } from './tools/contentSearchTools';
-import { registerContentListTools } from './tools/contentListTools';
+import { McpToolCallInfo, McpToolRegistry } from './tools/registry';
 import { registerSavedChartTools } from './tools/savedChartTools';
-import { registerDashboardTools } from './tools/dashboardTools';
-import { registerChartRunTools } from './tools/chartRunTools';
-import { registerAnalystPrompt } from './tools/analystPromptTools';
+import { McpToolScope } from './tools/scopes';
+import { McpToolContext } from './tools/types';
 
 type McpServiceArguments = {
     lightdashConfig: LightdashConfig;
@@ -354,7 +355,6 @@ export class McpService extends BaseService {
                 );
                 const argsWithProject = { ...args, projectUuid };
 
-
                 const findExplores: FindExploresFn =
                     await this.getFindExploresFunction(
                         argsWithProject,
@@ -395,12 +395,8 @@ export class McpService extends BaseService {
                 );
                 const argsWithProject = { ...args, projectUuid };
 
-
                 const findFields: FindFieldFn =
-                    await this.getFindFieldsFunction(
-                        argsWithProject,
-                        context,
-                    );
+                    await this.getFindFieldsFunction(argsWithProject, context);
 
                 const result = await runFindFields(
                     { findFields, pageSize: 15 },
@@ -429,10 +425,8 @@ export class McpService extends BaseService {
                 inputSchema: {},
             },
             async (_args, context) => {
-                const { user, organizationUuid, account } = this.getAccount(
-                    context,
-                );
-
+                const { user, organizationUuid, account } =
+                    this.getAccount(context);
 
                 const projects =
                     await this.projectModel.getAllByOrganizationUuid(
@@ -476,10 +470,8 @@ export class McpService extends BaseService {
             },
             async (_args, context) => {
                 const args = _args as { projectUuid: string; tags?: string[] };
-                const { user, organizationUuid, account } = this.getAccount(
-                    context,
-                );
-
+                const { user, organizationUuid, account } =
+                    this.getAccount(context);
 
                 if (!args.projectUuid) {
                     throw new ParameterError('Project UUID is required');
@@ -547,9 +539,8 @@ export class McpService extends BaseService {
                 inputSchema: {},
             },
             async (_args, context) => {
-                const { user, organizationUuid, account } = this.getAccount(
-                    context,
-                );
+                const { user, organizationUuid, account } =
+                    this.getAccount(context);
 
                 const contextRow = await this.mcpContextModel.getContext(
                     user.userUuid,
@@ -579,7 +570,8 @@ export class McpService extends BaseService {
                                     {
                                         projectUuid: resolved.projectUuid,
                                         projectName: project.name,
-                                        selectedTags: storedContext?.tags ?? null,
+                                        selectedTags:
+                                            storedContext?.tags ?? null,
                                         source: resolved.source,
                                         hasUserDefault,
                                     },
@@ -642,8 +634,7 @@ export class McpService extends BaseService {
                     this.lightdashConfig.mcp?.dashboardStrict === true;
                 // v1 对齐：exploreName 存在才预检（vizConfig.exploreName 为
                 // schema 必填，实际恒有值；缺失时交由后续 parse 报参数错误）
-                const exploreName =
-                    argsWithProject.vizConfig?.exploreName;
+                const exploreName = argsWithProject.vizConfig?.exploreName;
                 let dashboardContextForQuery:
                     | DashboardQueryContextAttributes
                     | undefined;
@@ -662,12 +653,11 @@ export class McpService extends BaseService {
                     const explicitDashboardUuid = (
                         argsWithProject as { dashboardUuid?: string }
                     ).dashboardUuid;
-                    const explore =
-                        await this.projectService.getExplore(
-                            context.account,
-                            projectUuid,
-                            exploreName,
-                        );
+                    const explore = await this.projectService.getExplore(
+                        context.account,
+                        projectUuid,
+                        exploreName,
+                    );
                     if (
                         strict ||
                         exploreRequiresDashboardContext(explore) ||
@@ -706,10 +696,15 @@ export class McpService extends BaseService {
                         {
                             getExplore,
                             runMiniMetricQuery,
-                            maxLimit: this.lightdashConfig.ai.copilot
-                                .maxQueryLimit,
+                            maxLimit:
+                                this.lightdashConfig.ai.copilot.maxQueryLimit,
                         },
-                        argsWithProject,
+                        // 共享实现会用含 `type` 的原始 schema 再 parse；MCP
+                        // 下发的 inputSchema 已剥掉该键，这里补回来
+                        withToolDiscriminator(
+                            argsWithProject,
+                            McpToolName.RUN_METRIC_QUERY,
+                        ),
                     );
                 } catch (error) {
                     if (strict) {
@@ -808,7 +803,11 @@ export class McpService extends BaseService {
 
                 const result = await runSearchFieldValues(
                     { searchFieldValues },
-                    argsWithProject,
+                    // 同上：补回被 MCP schema 剥掉的 `type` 判别键
+                    withToolDiscriminator(
+                        argsWithProject,
+                        McpToolName.SEARCH_FIELD_VALUES,
+                    ),
                 );
 
                 return {
