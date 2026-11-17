@@ -7,6 +7,41 @@
 > -   自 **v2.0** 起产品主版本独立编号
 
 
+## v2.7.4（未发布 · dev 草稿）
+
+-   **内置 MCP：修复查询工具判别键丢失（重要）**
+    -   `run_metric_query` / `search_field_values` 此前会必然失败：MCP 兼容层为了客户端友好把 AI schema 的 `type` 判别键从下发的 inputSchema 剥掉，但这两个工具的 handler 复用共享实现、又用含必填 `type` 的原始 schema 二次解析
+    -   修复方式：透传前补回判别键（新增 `withToolDiscriminator`），并加回归测试与源码级守门；`customMetrics` / `tableCalculations` / `filters` 等可空字段不受影响
+    -   影响：升级后这两个工具恢复可用；未升级的镜像上 `msy-x query flat` / `values` 仍会报 `Invalid literal value`（CLI 已给出明确提示，`doctor --remote` 可直接探测）
+-   **看板**
+    -   修复：筛选器「无值隐藏图表」触发后仍残留隐藏提示条
+-   **命令行工具**
+    -   新增仓库内包 `msy-x-cli`（MCP 命令行客户端，独立发版，不进主站镜像）：当前 0.1.1，含 OAuth（DCR + PKCE）/ PAT 登录、35 个任务化命令、`doctor` 自检与能力探测、`verified`、`--verbose` 请求日志；已发布到 CDN `msy-x/cli/msy-x-cli/0.1.1/`
+    -   豆包 Plugin 增加 CLI 连接器通道（`com.doubao/cli.json` + 技能说明 + 发布前自检规则）
+    -   dbt CLI（`lightdash`）已单独发版 2.2.0：新增 `sql`、`run-chart`、`warehouse-catalog`、`config` 四件套与 `export-chart-image`
+-   **文档**
+    -   新增 `docs/cli/msy-x-cli-design.md` 与 `docs/cli/msy-x-cli-usage.md`（对外自包含），内部发版与 CDN 基线见 `docs/cli/msy-x-cli-dev-plan.md`
+-   **待合并（不包含在本节）**
+    -   `feat/dashboard-xlsx-export`：看板 XLSX 导出重构（每 Tab 一个 xlsx、Tab 前缀与 Tab 筛选器列、导出行数额度 50 万、失败不再静默等，55 个提交）；该分支已占用 `v2.7.4-test.*` 预发 tag，合并后需在本节补齐导出变更并把版本号收敛
+
+## v2.7.3 (2026-11-12)
+
+-   **看板筛选器：无值隐藏图表（hideTilesWhenEmpty）**
+    -   规则级开关：筛选器无值时隐藏依赖它的磁贴；未开启该开关的看板行为完全不变（含 as-code 往返、引用检查与审计）
+    -   审计与还原白名单、导出路径加固；补 as-code round-trip 与组件回归测试
+-   **日期可选范围约束（延续 v2.7.2 能力）**
+    -   数据可用日放开为规则级配置 `dataAvailableFromDay`（缺省 4 号，1–28 校验）：前端展示 / 钳制 / 校验与后端定时推送解析共用同一配置
+    -   单值月份「是」接入可选范围约束（与「在之间」同构互斥）；动态默认改为可配置「N 个可用月前」
+    -   动态模式默认开启「按数据更新限制最晚」；约束编辑器 UI 收敛（模式 Radio 上提、单位改静态后缀、tooltip 联动 `{{day}}`）
+-   **CLI（dbt / 内容同步）**
+    -   补齐 6 个命令：`sql`、`run-chart`、`warehouse-catalog`、`config set-project` / `list-projects` / `get-project` / `unset-project`
+    -   新增 `export-chart-image`（REST + CLI）：把已部署图表导出为 PNG
+-   **修复**
+    -   ⓘ 帮助图标不可见（MantineIcon 传 `dimmed` 时把字面量写进 svg stroke，非法颜色导致图标空白）
+    -   月份「是」默认值缺少分节标题；数据可用日相关 tooltip 未跟随输入值联动；说明文案颜色与开关行不对齐
+-   **文档**
+    -   新增仓库提交信息规范（`.agents/rules/commits.md`）
+
 ## v2.7.2 (2026-11-11)
 
 -   **看板筛选器：日期可选范围约束（近 N 个整月滚动窗口）**
