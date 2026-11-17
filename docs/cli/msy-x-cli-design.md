@@ -401,20 +401,26 @@ Plugin 内同时保留 `mcp.json`（MCP 连接器 `x`）与 `cli.json`（CLI 连
 - 回环回调只绑 `127.0.0.1`、随机端口、单次、校验 `state`，完成后立即 `server.close()`。
 - 不改写工具入参（`call` 原样透传）；**唯一例外**是 `query --file`：v2 不收 `metricQuery`，CLI 必须把它翻译成扁平参数，翻译规则固定在 `commands/query.ts` 并配单测，不允许静默丢字段（未知字段进 `--dry-run` 输出并 stderr 告警）。
 
-### 10.4 服务端缺陷（已确认并已修复，待随主站发布）
+### 10.4 服务端缺陷（已确认并已修复，需随主站发布）
 
-**根因**：`McpService.getMcpCompatibleSchema()` 把 AI schema 的 `type` 判别键从下发给客户端的 inputSchema 里剥掉（注释写着「MCP clients should not have to send it」），但 `run_metric_query` / `search_field_values` 的 handler 又直接复用了 AI 侧共享实现（`runRunMetricQuery` / `runSearchFieldValues`），而那两份实现会用**含必填 `type` 的原始 schema** 再 parse 一次 → 必然 `invalid_literal: expected "run_metric_query"`。
+**先分清责任边界**：这是**服务端**（本仓 `packages/backend` 的 MCP 服务）的 bug，**改 CLI 修不了**。
+
+- `McpService.getMcpCompatibleSchema()` 把 AI schema 的 `type` 判别键从下发给客户端的 inputSchema 里剥掉（注释："MCP clients should not have to send it"）；
+- SDK 用该 shape 校验后，会把客户端**硬塞的** `type` 当未知键丢弃（已验证：客户端带上 `type` 后，交给 handler 的键里没有 `type`）；
+- 但 `run_metric_query` / `search_field_values` 的 handler 直接复用 AI 侧共享实现（`runRunMetricQuery` / `runSearchFieldValues`），那两份实现用**含必填 `type` 的原始 schema** 再 parse 一次 → `invalid_literal: expected "run_metric_query"`。
+
+所以只有两个选项：（a）修服务端（已选）；（b）CLI 完全不用这两个工具（改走 `run_semantic_metric_query`，但 `values` 没有等价替代）。
 
 **已确认**（本仓可复现）：按 MCP 真实链路模拟（compat layer 处理 → 剥 `type` → SDK parse → handler 二次 parse），handler 阶段只剩 `type: Invalid literal value`；`customMetrics`/`tableCalculations`/`filters`/`query` 不受影响（compat layer 把 nullable 变成「可选 + 缺省补 null」）。
 
-**已修复**：`packages/backend/src/services/McpService/mcpToolArgs.ts` 新增 `withToolDiscriminator()`，两个透传调用点补回判别键；回归测试 `mcpToolDiscriminator.test.ts`（含源码级守门：调用点必须走该函数）。v1 独立包 `packages/lightdash-mcp` 自带 handler，不受影响。
+**已修复**（同一分支）：`packages/backend/src/services/McpService/mcpToolArgs.ts` 新增 `withToolDiscriminator()`，两个透传调用点补回判别键；回归测试 `mcpToolDiscriminator.test.ts`（含源码级守门）。v1 独立包 `packages/lightdash-mcp` 自带 handler，不受影响。
 
-**对 CLI 的影响**：该修复随主站镜像发布后才生效。在 x 站升级前：
+**与 CLI 发布的关系**：CLI **尚未对外发布**，不需要兼容窗口，也不长期背「实验」标注。发布门禁两条：
 
-- `query`（`run_semantic_metric_query`）为主路径，不受影响；
-- `query flat`（`run_metric_query`）在 `--help` 标「实验」；
-- `values`（`search_field_values`）失败时提示改用 `query --dimensions <fieldId>`，不做自动降级；
-- 上线后用 `msy-x call search_field_values '{"table":"…","fieldId":"…"}'` 做一次真实冒烟，确认后去掉「实验」标注。
+1. 目标站点镜像 ≥ 含该修复的版本（否则 `run_metric_query` / `search_field_values` 必定失败）；
+2. 发布前用真实站点跑一次 `msy-x call search_field_values '{"table":"…","fieldId":"…"}'` 与 `msy-x query flat …` 冒烟，确认后去掉「实验」标注。
+
+**若真撞上未升级的镜像**：CLI 会把服务端的 `Invalid literal value` 归一为 `SERVER_ERROR(5)` 并附可执行 hint（升级主站 / 改用 `msy-x query`），不会把裸 zod 文案扔给用户。
 
 ---
 
