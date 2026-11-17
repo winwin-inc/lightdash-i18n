@@ -1,5 +1,6 @@
 import { ParameterError, UserWithOrganizationUuid } from '@lightdash/common';
 import OAuth2Server from '@node-oauth/oauth2-server';
+import { nanoid } from 'nanoid';
 import { LightdashConfig } from '../../config/parseConfig';
 import { OAuth2Model } from '../../models/OAuth2Model';
 import { UserModel } from '../../models/UserModel';
@@ -83,7 +84,9 @@ export class OAuthService extends BaseService {
      * scopes, so that the issued token can be used against the MCP server.
      * Clients that do request scopes are always honoured.
      */
-    private async applyDefaultScope(request: OAuth2Server.Request): Promise<void> {
+    private async applyDefaultScope(
+        request: OAuth2Server.Request,
+    ): Promise<void> {
         const requestedScope =
             request.body?.scope ?? request.query?.scope ?? undefined;
         if (requestedScope) {
@@ -114,6 +117,74 @@ export class OAuthService extends BaseService {
         response: OAuth2Server.Response,
     ): Promise<OAuth2Server.Token> {
         return this.oauthServer.token(request, response);
+    }
+
+    /**
+     * Issues an access token for the CLI device flow (RFC 8628). The user
+     * authorizes out-of-band on the activate page, so we bypass
+     * @node-oauth/oauth2-server (which has no device grant) and persist the
+     * token directly with the same lifetime/scopes as regular tokens.
+     */
+    public async createDeviceToken({
+        clientId,
+        userId,
+        organizationUuid,
+    }: {
+        clientId: string;
+    } & UserWithOrganizationUuid): Promise<{
+        accessToken: string;
+        accessTokenExpiresAt: Date;
+        refreshToken: string;
+        scope: string[];
+    }> {
+        const client = await this.oauthModel.getClient(clientId);
+        if (!client) {
+            throw new ParameterError(`Unknown OAuth client ${clientId}`);
+        }
+        // Grant the client's registered scopes: MCP clients (msy-x-cli)
+        // get their MCP scopes; the classic CLI (lightdash-cli) gets its
+        // read/write scopes.
+        const registeredScopes = await this.oauthModel.getClientScopes(
+            clientId,
+        );
+        const mcpScopes = registeredScopes.filter((s) =>
+            MCP_SUPPORTED_SCOPES.includes(s),
+        );
+        const scope = mcpScopes.length > 0 ? mcpScopes : registeredScopes;
+        const accessToken = nanoid(48);
+        const refreshToken = nanoid(48);
+        const accessTokenExpiresAt = new Date(
+            Date.now() +
+                (this.lightdashConfig.auth.oauthServer?.accessTokenLifetime ??
+                    3600) *
+                    1000,
+        );
+        const refreshTokenExpiresAt = new Date(
+            Date.now() +
+                (this.lightdashConfig.auth.oauthServer?.refreshTokenLifetime ??
+                    1209600) *
+                    1000,
+        );
+        const user: UserWithOrganizationUuid = { userId, organizationUuid };
+        const token = await this.oauthModel.saveToken(
+            {
+                accessToken,
+                accessTokenExpiresAt,
+                refreshToken,
+                refreshTokenExpiresAt,
+                scope,
+                client,
+                user,
+            },
+            client,
+            user,
+        );
+        return {
+            accessToken: token.accessToken,
+            accessTokenExpiresAt: token.accessTokenExpiresAt!,
+            refreshToken: token.refreshToken!,
+            scope,
+        };
     }
 
     public async authenticate(
