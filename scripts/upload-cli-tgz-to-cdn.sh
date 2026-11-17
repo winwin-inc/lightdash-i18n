@@ -1,6 +1,6 @@
 #!/bin/bash
-# 把独立 CLI tgz 传到 OSS，路径与前端 static 分开：
-#   {CDN_PATH_PREFIX}/cli/{VERSION}/lightdash-cli-{VERSION}.tgz
+# 把 CLI tgz 传到 OSS，路径与前端 static 分开：
+#   默认：{CDN_PATH_PREFIX}/cli/{VERSION}/lightdash-cli-{VERSION}.tgz
 # 同版本已存在则失败，不覆盖。
 #
 # 环境变量：
@@ -11,8 +11,11 @@
 #   S3_ENDPOINT        aliyun 可选，默认 oss-cn-hangzhou.aliyuncs.com
 #   S3_REGION          aws 可选
 #   CDN_PATH_PREFIX    可选，默认 msy-x
-#   CLI_TGZ            可选，默认 packages/cli/release/lightdash-cli-${VERSION}.tgz
+#   CLI_NAME           可选，tgz 前缀名，默认 lightdash-cli（msy-x-cli 传 msy-x-cli）
+#   CLI_TGZ            可选，默认 packages/cli/release/${CLI_NAME}-${VERSION}.tgz
+#   CDN_UPLOAD_PATH    可选，覆盖对象路径，默认 ${CDN_PATH_PREFIX}/cli/${VERSION}
 #   CDN_BASE_URL       可选，仅用于打印公开安装地址
+#   DRY_RUN            可选，1 时只校验文件与路径并打印，不上传
 
 set -euo pipefail
 
@@ -38,8 +41,10 @@ fi
 
 CDN_PREFIX="${CDN_PATH_PREFIX:-msy-x}"
 CDN_PREFIX="${CDN_PREFIX#/}"
-UPLOAD_PATH="${CDN_PREFIX}/cli/${VERSION}"
-TGZ_NAME="lightdash-cli-${VERSION}.tgz"
+CLI_NAME="${CLI_NAME:-lightdash-cli}"
+UPLOAD_PATH="${CDN_UPLOAD_PATH:-${CDN_PREFIX}/cli/${VERSION}}"
+UPLOAD_PATH="${UPLOAD_PATH#/}"
+TGZ_NAME="${CLI_NAME}-${VERSION}.tgz"
 TGZ_PATH="${CLI_TGZ:-packages/cli/release/${TGZ_NAME}}"
 
 if [ ! -f "$TGZ_PATH" ]; then
@@ -67,6 +72,16 @@ fi
 OSS_OBJECT="${UPLOAD_PATH}/${TGZ_NAME}"
 SHA_OBJECT="${UPLOAD_PATH}/${TGZ_NAME}.sha256"
 CACHE_META="Cache-Control:public, max-age=31536000, immutable"
+
+if [ "${DRY_RUN:-0}" = "1" ]; then
+    PUBLIC_HOST="${CDN_BASE_URL:-https://img0.banmahui.cn}"
+    PUBLIC_HOST="${PUBLIC_HOST%/}"
+    echo "[dry-run] CLI_NAME=${CLI_NAME}"
+    echo "[dry-run] source=${TGZ_PATH} ($(wc -c < "$TGZ_PATH") bytes)"
+    echo "[dry-run] object=oss://${S3_BUCKET}/${OSS_OBJECT}"
+    echo "[dry-run] install URL: ${PUBLIC_HOST}/${OSS_OBJECT}"
+    exit 0
+fi
 
 echo "Uploading CLI tgz to CDN..."
 echo "Provider: $CDN_PROVIDER"

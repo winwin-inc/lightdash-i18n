@@ -183,14 +183,33 @@ packages/msy-x-cli/
 | P3-3 | `scripts/verify.mjs` 增规则：`cli.json` 位置与结构、平台键、命令非空、`statusMatchRegex` 可编译、无二进制、无凭据、连接器键不重名 | `node scripts/verify.mjs` 全绿 |
 | P3-4 | `scripts/build-plugin.mjs` 打包包含 `cli.json`；`README.md` 补 CLI 章节与"单连接器裁剪"步骤 | `dist/x-platform-assistant.zip` 内可见 `cli.json` |
 
-### P4 分发与收口（0.5 天）
+### P4 发布（已完成脚本与流水线，首次发版待执行）
 
-| # | 任务 | 判据 |
+| # | 任务 | 状态 / 判据 |
 |---|---|---|
-| P4-1 | `scripts/pack-cli.mjs`：`npm pack` → `dist-msy-x/msy-x-cli-<ver>.tgz` + `.sha256` | 临时 prefix `npm i -g <tgz>` 后可执行 |
-| P4-2 | tgz 上传公网静态托管，回填 `cli.json` 的 `<public-host>` | 干净机器安装成功 |
-| P4-3 | `packages/msy-x-cli/README.md`（安装/登录/命令表/退出码/排错） | 能脱离本文独立使用 |
-| P4-4 | 两篇 docs 状态改「已实施」，补一节"上线记录"（版本、tgz 地址、验证日期） | 链接自检 `OK` |
+| P4-1 | `scripts/pack-cli.mjs`：`npm pack` → `dist-msy-x/msy-x-cli-<ver>.tgz` + `.sha256` | ✅ 已实现；临时 prefix 安装后可执行 |
+| P4-2 | 发布流水线 `.github/workflows/release-msy-x-cli.yml`（tag `msyx-v*`） | ✅ 已实现；见下方发版流程 |
+| P4-3 | `packages/msy-x-cli/README.md` | ✅ 已实现 |
+| P4-4 | 首次发版 + 两篇 docs 补“上线记录”（版本 / tgz 地址 / 验证日期） | ⬜ 待执行（需 repo vars/secrets + 运维） |
+
+#### 分发基线（来自 `../k8s-config` master 的 `lightdash/lightdash-config.yaml`）
+
+| 项 | 值 | 说明 |
+|---|---|---|
+| `S3_BUCKET` | `qmgy-report` | 与 lightdash 导出同桶；对象路径前缀区分用途 |
+| `CDN_PATH_PREFIX` | `msy-x` | 前端静态资源在 `msy-x/static/<ver>/`，CLI 在 `msy-x/cli/` |
+| `CDN_BASE_URL` | `https://img0.banmahui.cn` | 公共 CDN，**匿名可读**（已实测：`msy-x/static/...` 返 200） |
+| ⚠️ 不可用 | `https://report-assets.brandct.com` | 同一 k8s 配置里的 `S3_PUBLIC_ENDPOINT`，用于**预签名**下载（私有对象）；豆包 `npm install -g` 无法带签名 |
+
+#### 发版流程（首次 0.1.0 同样适用）
+
+1. 算好目标 URL（**确定性，可提前拼**）：`https://img0.banmahui.cn/msy-x/cli/msy-x-cli/<ver>/msy-x-cli-<ver>.tgz`
+2. `pnpm set-msyx-url -- <URL>`：把地址写进 `packages/x-doubao-plugin/plugin/com.doubao/cli.json`（只改 `install.default`）
+3. `pnpm bump-msyx -- <ver>`：同步 `package.json` 与 `src/lib/version.ts` → commit → 打 `msyx-v<ver>` tag（支持 `--dry-run`）
+4. `git push && git push origin msyx-v<ver>` 触发流水线，依次：build + `pack:tgz` → **装到临时 prefix 冒烟** → 校验 `cli.json` 指向本 URL（门禁在**上传之前**，避免同版本不可重传的死锁）→ OSS 上传（不覆盖同版本）→ **CDN 匿名 HEAD 冒烟（200 + `application/gzip`）** → GitHub Release → step summary
+5. 第 4 步全绿后，重新打豆包 Plugin ZIP（`cd packages/x-doubao-plugin && node scripts/verify.mjs` 必须 **0 警告**）并提审
+
+> 失败处理：门禁/冒烟失败不会留下半成品（OSS 对象未写或已写但 `cli.json` 已提前对齐）；若已上传而后续步骤失败，`cli.json` 无需改（URL 未变），重跑流水线时需先在 OSS 删该版本对象或 bump 新版本——upload 脚本对同版本拒绝覆盖是刻意的。
 
 ---
 

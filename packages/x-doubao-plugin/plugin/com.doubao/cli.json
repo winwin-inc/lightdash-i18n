@@ -3,15 +3,35 @@
     "msy-x": {
       "install": {
         "default": [
-          "npm install -g https://static.example.com/msy-x-cli/msy-x-cli-0.1.0.tgz"
+          "npm install -g https://img0.banmahui.cn/msy-x/cli/msy-x-cli/0.1.0/msy-x-cli-0.1.0.tgz"
         ]
       },
-      "versionCheck": { "default": ["msy-x --version"] },
+      "versionCheck": {
+        "default": [
+          "msy-x --version"
+        ]
+      },
       "statusMatchRegex": "\"logged_in\"\\s*:\\s*true",
-      "auth": { "default": ["msy-x auth login"] },
-      "unAuth": { "default": ["msy-x auth logout"] },
-      "status": { "default": ["msy-x auth status"] },
-      "help": { "default": ["msy-x --help"] }
+      "auth": {
+        "default": [
+          "msy-x auth login"
+        ]
+      },
+      "unAuth": {
+        "default": [
+          "msy-x auth logout"
+        ]
+      },
+      "status": {
+        "default": [
+          "msy-x auth status"
+        ]
+      },
+      "help": {
+        "default": [
+          "msy-x --help"
+        ]
+      }
     }
   }
 }

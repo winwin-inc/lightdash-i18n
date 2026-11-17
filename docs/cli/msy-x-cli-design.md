@@ -334,7 +334,7 @@ msy-x auth login
   "connectors": {
     "msy-x": {
       "install": {
-        "default": ["npm install -g https://<public-host>/msy-x-cli/msy-x-cli-0.1.0.tgz"]
+        "default": ["npm install -g https://img0.banmahui.cn/msy-x/cli/msy-x-cli/0.1.0/msy-x-cli-0.1.0.tgz"]
       },
       "versionCheck": { "default": ["msy-x --version"] },
       "statusMatchRegex": "\"logged_in\"\\s*:\\s*true",
@@ -352,7 +352,9 @@ msy-x auth login
 - `install` 必填；平台键用 `linux` / `darwin` / `win32` / `default`，至少含 `linux` 或 `default`；Linux 选中项**只能是 npm 安装命令**（当前用 `default`，全平台同一 npm 命令）。
 - 每条命令数组不得为空；`install` 按顺序执行，任一失败即安装失败。
 - ZIP 内**不含** CLI 二进制、`client_id`、`client_secret`、真实令牌。
-- 拿到 npm 账号后，`install.default` 只改一行为 `npm install -g msy-x-cli`（或 `--registry https://registry.npmjs.org`）。
+- 公网分发基线（来自 `../k8s-config` master 的 lightdash 配置）：CDN `https://img0.banmahui.cn`、桶 `qmgy-report`、前缀 `msy-x`；对象路径 `msy-x/cli/msy-x-cli/<ver>/msy-x-cli-<ver>.tgz`（与 `lightdash-cli` 同在 `msy-x/cli/` 命名空间）。改地址用 `pnpm set-msyx-url -- <url>`，不要手改 JSON。
+- 同一 k8s 配置里的 `https://report-assets.brandct.com` 是 `S3_PUBLIC_ENDPOINT`（预签名下载用，对象私有），**不能**作为 `install` 地址——`npm install -g` 无法带签名。
+- 拿到 npm 账号后，`install.default` 只改一行为 `npm install -g msy-x-cli`（或 `--registry https://registry.npmjs.org`），并保留 tgz 作为回退。
 
 ### 9.2 平台/运行时自检（提交材料用）
 
