@@ -401,12 +401,20 @@ Plugin 内同时保留 `mcp.json`（MCP 连接器 `x`）与 `cli.json`（CLI 连
 - 回环回调只绑 `127.0.0.1`、随机端口、单次、校验 `state`，完成后立即 `server.close()`。
 - 不改写工具入参（`call` 原样透传）；**唯一例外**是 `query --file`：v2 不收 `metricQuery`，CLI 必须把它翻译成扁平参数，翻译规则固定在 `commands/query.ts` 并配单测，不允许静默丢字段（未知字段进 `--dry-run` 输出并 stderr 告警）。
 
-### 10.4 已知服务端风险（待线上验证）
+### 10.4 服务端缺陷（已确认并已修复，待随主站发布）
 
-`packages/backend/src/services/McpService/McpService.ts` 的 `getMcpCompatibleSchema()` 会把 AI schema 里的 `type` 判别键剥掉，但 `run_metric_query` / `search_field_values` 的 handler 又用含必填 `type` 的 schema 二次 parse，因此这两个工具在当前代码上**可能必然报** `Invalid literal value, expected "run_metric_query"`。
+**根因**：`McpService.getMcpCompatibleSchema()` 把 AI schema 的 `type` 判别键从下发给客户端的 inputSchema 里剥掉（注释写着「MCP clients should not have to send it」），但 `run_metric_query` / `search_field_values` 的 handler 又直接复用了 AI 侧共享实现（`runRunMetricQuery` / `runSearchFieldValues`），而那两份实现会用**含必填 `type` 的原始 schema** 再 parse 一次 → 必然 `invalid_literal: expected "run_metric_query"`。
 
-- CLI 侧处置：`query`（`run_semantic_metric_query`）为主路径；`query flat`（`run_metric_query`）标「实验」；`values` 失败时提示改用 `query --dimensions <fieldId>`，不做自动降级。
-- 发布前必须用 x 站真实冒烟确认（`msy-x call search_field_values '{"table":"…","fieldId":"…"}'`）；确认失败则单独报后端修，不阻塞 CLI 主路径。
+**已确认**（本仓可复现）：按 MCP 真实链路模拟（compat layer 处理 → 剥 `type` → SDK parse → handler 二次 parse），handler 阶段只剩 `type: Invalid literal value`；`customMetrics`/`tableCalculations`/`filters`/`query` 不受影响（compat layer 把 nullable 变成「可选 + 缺省补 null」）。
+
+**已修复**：`packages/backend/src/services/McpService/mcpToolArgs.ts` 新增 `withToolDiscriminator()`，两个透传调用点补回判别键；回归测试 `mcpToolDiscriminator.test.ts`（含源码级守门：调用点必须走该函数）。v1 独立包 `packages/lightdash-mcp` 自带 handler，不受影响。
+
+**对 CLI 的影响**：该修复随主站镜像发布后才生效。在 x 站升级前：
+
+- `query`（`run_semantic_metric_query`）为主路径，不受影响；
+- `query flat`（`run_metric_query`）在 `--help` 标「实验」；
+- `values`（`search_field_values`）失败时提示改用 `query --dimensions <fieldId>`，不做自动降级；
+- 上线后用 `msy-x call search_field_values '{"table":"…","fieldId":"…"}'` 做一次真实冒烟，确认后去掉「实验」标注。
 
 ---
 

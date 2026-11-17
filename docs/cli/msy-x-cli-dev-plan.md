@@ -261,7 +261,7 @@ timeout 180 msy-x dashboards tiles d54853b1-85df-4ab3-8cdf-70a5244640e1
 | 5 | Windows 浏览器拉起/编码异常 | 平台分支 + `MSY_X_NO_BROWSER` 降级；文档给出手动 URL |
 | 6 | 服务端新增工具导致 CLI 落后 | `call` 兜底 + `tools list` 自动可见；映射测试提示补齐 |
 | 7 | 强制看板模式把常用查询拦成 `4` | 错误里原样透出服务端文案与候选看板，文档给 `--dashboard` 用法 |
-| 8 | 后端 `type` 判别键被剥离导致 `run_metric_query` / `search_field_values` 二次 parse 失败（设计稿 §10.4） | `query` 走 `run_semantic_metric_query` 主路径；`query flat` 标实验；`values` 失败提示改用 `query --dimensions`；发版前用 `call` 真实冒烟，确认失败则单独报后端 |
+| 8 | 后端 `type` 判别键被剥离导致 `run_metric_query` / `search_field_values` 二次 parse 失败（设计稿 §10.4） | **已修复**（`mcpToolArgs.withToolDiscriminator` + 回归测试），随主站镜像发布；在 x 站升级前 `query` 走 `run_semantic_metric_query` 主路径、`query flat` 标实验、`values` 失败提示改用 `query --dimensions` |
 
 **回滚**：卸载 CLI（`npm uninstall -g msy-x-cli`）+ 从 `cli.json` 移除连接器即可；不影响现有 MCP 连接器与站点。
 
