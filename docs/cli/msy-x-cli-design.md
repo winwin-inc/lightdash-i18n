@@ -196,42 +196,47 @@ msy-x auth login
 
 ### 6.2 命令 ↔ 工具映射（26/26）
 
-| 命令 | MCP 工具 | 关键参数 |
+| 命令 | MCP 工具 | 真实入参 |
 |---|---|---|
-| `msy-x info` | `get_site_info` + `get_lightdash_version` + `get_current_project` | — |
-| `msy-x access [--explores]` | `get_my_access` | `includeExplores` |
-| `msy-x project list` | `list_projects` | — |
-| `msy-x project use <uuid>` | `set_project` | 写**服务端**默认项目（PG），不写本地 |
-| `msy-x project show` | `get_current_project` | 展示 `source`（user/organization/server default） |
-| `msy-x explores list [--search <q>]` | `list_explores` | `pageSize`、精简/`--full` |
-| `msy-x explores find <q>` | `find_explores` | `searchQuery` |
-| `msy-x fields find <q> [--explore <name>]` | `find_fields` | `searchQuery` |
-| `msy-x values <fieldId> [--search <s>]` | `search_field_values` | `fieldId`、`limit` |
-| `msy-x search <q> [--type chart\|dashboard\|space]` | `find_content` / `find_charts` / `find_dashboards` / `find_spaces` | 无 `--type` 走 `find_content` |
-| `msy-x spaces list [--parent <slug>]` | `list_spaces` | 层级浏览 |
-| `msy-x spaces find <q>` | `find_spaces` | `searchQuery` |
-| `msy-x dashboards list [--space <slug>]` | `list_dashboards` | `spaceUuid` |
-| `msy-x dashboards find <q>` | `find_dashboards` | `searchQuery` |
-| `msy-x dashboards tiles <uuid>` | `get_dashboard_tiles` | `dashboardUuid` |
-| `msy-x dashboards run <uuid> [--tile <slug>]` | `run_dashboard_tiles` | 批量执行 saved_chart 磁贴 |
-| `msy-x dashboards code <uuid>` | `get_dashboard_code` | 导出 as-code |
-| `msy-x charts list --dashboard <uuid>` | `list_charts` | `dashboardUuid` |
-| `msy-x charts find <q>` | `find_charts` | `searchQuery` |
-| `msy-x charts get <uuid> [--full]` | `get_saved_chart` | `full` |
-| `msy-x charts run <uuid> [--dashboard <uuid>] [--csv]` | `run_saved_chart` | `valueFormat`、`full` |
-| `msy-x verified` | `list_verified_content` | 部署不支持时返回结构化"不支持"，退 `0` |
-| `msy-x query --file q.json [--dashboard <uuid>]` | `run_semantic_metric_query` | `metricQuery` 原样透传 |
-| `msy-x query -e <explore> --dimensions a,b --metrics x,y` | `run_semantic_metric_query` | 由 CLI 组装 metricQuery |
-| `msy-x query flat -e <explore> --dimensions … --metrics …` | `run_metric_query` | 扁平参数（vizConfig schema） |
-| `msy-x docs [topic]` | `get_mcp_docs` | `topic`：overview/query_workflow/content_fields/session_lifecycle/security |
+| `msy-x info` | `get_site_info` + `get_lightdash_version` + `get_current_project` | 均无参 |
+| `msy-x access [--explores]` | `get_my_access` | `{ projectUuid?, includeExplores? }` |
+| `msy-x project list` | `list_projects` | 无参（v2 无 `full`） |
+| `msy-x project use <uuid>` | `set_project` | `{ projectUuid }`，写**服务端**默认项目（PG） |
+| `msy-x project show` | `get_current_project` | 无参；`source` ∈ `argument`/`user_default`/`organization_default`/`server_default` |
+| `msy-x explores list [--search <q>]` | `list_explores` | `{ exploreName?, page?, pageSize? }`（过滤键是 `exploreName`；`pageSize` 默认 **25**、上限 100） |
+| `msy-x explores show <name>` | `find_explores` | `{ exploreName（**必填**）, catalogTags?, projectUuid? }`；v2 语义是「看指定表详情」，**不是**关键词搜表 |
+| `msy-x fields find <q> --explore <name>` | `find_fields` | `{ table（必填）, fieldSearchQueries: [{ label }]（必填）, catalogTags?, page? }`；无 `pageSize`（服务端固定 15） |
+| `msy-x values <fieldId> [--table <t>] [--search <s>]` | `search_field_values` | `{ table（必填）, fieldId（必填）, query?, filters?, dashboardUuid? }`；无 `limit`（服务端固定 100） |
+| `msy-x search <q> [--type chart\|dashboard\|space]` | `find_content` / `find_charts` / `find_dashboards` / `find_spaces` | `{ searchQueries: [{ label: q }], page?, pageSize?(1..100, 默认 50), full? }`；无 `--type` 走 `find_content` |
+| `msy-x spaces list [--page n] [--page-size n] [--full]` | `list_spaces` | `{ projectUuid?, page?, pageSize?, full? }`；**无层级/`parent` 参数** |
+| `msy-x spaces find <q>` | `find_spaces` | `{ searchQueries: [{ label: q }], page?, pageSize?, full? }` |
+| `msy-x dashboards list --space <spaceUuid>` | `list_dashboards` | `{ spaceUuid（**必填**）, projectUuid?, page?, pageSize?, full? }`；缺 `--space` 本地退 `2` 并提示改用 `search --type dashboard` |
+| `msy-x dashboards find <q>` | `find_dashboards` | `{ searchQueries: [{ label: q }], … }` |
+| `msy-x dashboards tiles <uuid>` | `get_dashboard_tiles` | `{ dashboardUuid（必填，UUID 或 slug）, projectUuid? }`；无 `full` |
+| `msy-x dashboards run <uuid> [--tile <slug>]` | `run_dashboard_tiles` | `{ dashboardUuid, projectUuid?, limit?, valueFormat? }`；**服务端会跑整板**，`--tile` 只在 CLI 侧过滤展示 |
+| `msy-x dashboards get <uuid> [--full]`（`code` 保留为别名） | `get_dashboard_code` | `{ dashboardUuid, full?, projectUuid? }`；返回看板定义 JSON（不是 as-code 文本） |
+| `msy-x charts list --dashboard <uuid>` | `list_charts` | `{ dashboardUuid（必填）, projectUuid?, full? }` |
+| `msy-x charts find <q>` | `find_charts` | `{ searchQueries: [{ label: q }], … }` |
+| `msy-x charts get <uuid> [--full]` | `get_saved_chart` | `{ savedChartUuid（必填）, projectUuid?, full? }` |
+| `msy-x charts run <uuid> [--limit n] [--value-format raw\|formatted] [--dashboard <uuid>]` | `run_saved_chart` | `{ savedChartUuid, projectUuid?, limit?, valueFormat?, dashboardUuid? }`；**无 `full`** |
+| `msy-x verified` | `list_verified_content` | `{ projectUuid?, page?, pageSize?, full? }`；响应 `supported:false` 时按成功退 `0` |
+| `msy-x query --file q.json` | `run_semantic_metric_query` | **v2 不收 `metricQuery`**：CLI 本地把 Explorer JSON 翻译成 `{ exploreName, metrics, dimensions, filters: { dimensions: [{ fieldId, operator, values }], metrics: [] }, limit, valueFormat }` |
+| `msy-x query -e <explore> --dimensions … --metrics …` | `run_semantic_metric_query` | 同上，由 CLI 组装扁平参数 |
+| `msy-x query flat -e <explore> --dimensions … --metrics …` | `run_metric_query` | `{ vizConfig: { exploreName, metrics, dimensions, sorts: [{ fieldId, descending }], limit }, filters?, dashboardUuid? }`；`filters` 每条 rule 必带 `fieldType` + `fieldFilterType` |
+| `msy-x docs [topic] [--text]` | `get_mcp_docs` | `{ topic?（**自由字符串**，非枚举）, format? }`；推荐值 overview/query_workflow/content_fields/session_lifecycle/security |
 | `msy-x tools list [--verbose]` / `tools describe <name>` | `tools/list`（本地展示） | 新工具自动可见 |
 | `msy-x call <tool> [--json '<obj>' \| --file <path>]` | 任意 `tools/call` | 兜底通道，未知工具直接透传 |
 
+> 入参名以服务端 schema 为准（来源：`packages/backend/src/services/McpService/tools/**` 与 `packages/common/src/schemas/mcp/**`）。**MCP SDK 会静默丢弃未知键**，键名写错不会报「未知参数」，而是报某必填项缺失——所以命令层必须是严格映射，不允许把 CLI flag 名直接当入参名。
+
 ### 6.3 参数约定
 
-- 维度/指标用逗号分隔，可重复：`--dimensions cls_4,mon --metrics total_amount`。
-- 过滤器：`--filter fieldId=value`（可重复，多值 `a,b` → `equals`）；复杂条件用 `--filters-json '<json>'` 或 `--file`。
-- 排序：`--sort fieldId:asc|desc`（可重复）；`--limit N`（默认 500，受服务端 `LIGHTDASH_MAX_LIMIT` 约束）。
+- 维度/指标用逗号分隔，可重复：`--dimensions cls_4,mon --metrics total_amount`.
+- 过滤器（`query`，语义查询）：`--filter fieldId=value`（可重复，多值 `a,b`）→ `filters.dimensions: [{ fieldId, operator: 'equals', values: [...] }]`；复杂条件用 `--filters-json '<json>'`。
+- 过滤器（`query flat`，vizConfig）：每条 rule 必须带 `fieldType` + `fieldFilterType`，CLI 无法从 `fieldId=value` 推出 → `--filter` 不支持，只能用 `--filters-json` 传完整 rule；否则引导改用 `query`。
+- 排序：`--sort fieldId:asc|desc`（可重复）；`query flat` 映射到 `vizConfig.sorts[].descending`。
+- `--limit`：默认 500，受服务端 `LIGHTDASH_MAX_LIMIT` / `ai.copilot.maxQueryLimit` 封顶；`--page-size` 上限 100，本地截断并在 stderr 告警。
+- `projectUuid` **总是可以传**：非强制看板模式下服务端会丢弃未知键（不报错），强制看板模式下它是门控依据；本地不缓存项目，直接用服务端四级兜底链。
 - 所有命令 `--help` 必须带一条**真实可跑**的示例（取自 `docs/mcp/马上赢 X 平台 MCP 上手指南.md` 的 `pinleibaohsm_*` / `cls_insight_*`）。
 - `--dry-run` 打印将要发送的 `{tool, arguments}`，不发请求（豆包/agent 排障与单测都用它）。
 - `--file -` 从 stdin 读；仅在 stdin 非 TTY 时允许，避免挂死。
@@ -253,15 +258,18 @@ msy-x auth login
 
 ### 7.3 JSON 形态
 
-- 默认：**原样输出工具的 `structuredContent`**（与 MCP 客户端看到的一致，零转译歧义）。
+- 默认：原样输出工具返回的数据体（**优先 `structuredContent`，没有则用 `content[].text` 解析出的 JSON**）。
+- 现实口径：v2 的 26 个工具里，**只有看板门控阻断 payload 带 `structuredContent`**；其余 25 个都是 `content[0].text` 里的 JSON 文本（`run_metric_query` 例外，是 CSV；`find_explores`/`find_fields` 是 XML 片段；`search_field_values` 是 ```json 围栏）。
 - `--envelope`：`{"ok":true,"tool":"run_semantic_metric_query","data":{…},"meta":{"site":"x","projectUuid":"…","durationMs":812}}`。
-- 只有 `content[0].text` 没有结构化内容时（如部分 CSV 返回），输出 `{"csv":"…","rows":[…]}` 并在 stderr 提示 `structured content unavailable`。
 
 ### 7.4 渲染源
 
-1. `structuredContent` 优先；
-2. 退化：解析 `content[]` 中 `text` 的 CSV；
-3. 都失败：退 `7`，`--raw` 时把原始响应打到 stderr 便于排查。
+1. `structuredContent`；
+2. `content[].text` 以 `{`/`[` 开头 → `JSON.parse`；
+3. ```json / ``` 围栏 → 剥围栏后 `JSON.parse`；
+4. 表头+逗号的行 → 按 CSV 解析（`run_metric_query`）；
+5. `<` 开头的 XML 片段（`find_explores`/`find_fields`）→ 原样按文本展示，表格模式下退回 `--json` 提示；
+6. 全部失败：退 `7`，`--raw` 时把原始响应打到 stderr 便于排查。
 
 ### 7.5 表格
 
@@ -391,7 +399,14 @@ Plugin 内同时保留 `mcp.json`（MCP 连接器 `x`）与 `cli.json`（CLI 连
 
 - 不回显凭证、不写日志文件；`--verbose` 输出请求头前先 `redact()`。
 - 回环回调只绑 `127.0.0.1`、随机端口、单次、校验 `state`，完成后立即 `server.close()`。
-- 不信任 `--file` 内容做"聪明"改写：原样透传，避免 CLI 成为第二套语义。
+- 不改写工具入参（`call` 原样透传）；**唯一例外**是 `query --file`：v2 不收 `metricQuery`，CLI 必须把它翻译成扁平参数，翻译规则固定在 `commands/query.ts` 并配单测，不允许静默丢字段（未知字段进 `--dry-run` 输出并 stderr 告警）。
+
+### 10.4 已知服务端风险（待线上验证）
+
+`packages/backend/src/services/McpService/McpService.ts` 的 `getMcpCompatibleSchema()` 会把 AI schema 里的 `type` 判别键剥掉，但 `run_metric_query` / `search_field_values` 的 handler 又用含必填 `type` 的 schema 二次 parse，因此这两个工具在当前代码上**可能必然报** `Invalid literal value, expected "run_metric_query"`。
+
+- CLI 侧处置：`query`（`run_semantic_metric_query`）为主路径；`query flat`（`run_metric_query`）标「实验」；`values` 失败时提示改用 `query --dimensions <fieldId>`，不做自动降级。
+- 发布前必须用 x 站真实冒烟确认（`msy-x call search_field_values '{"table":"…","fieldId":"…"}'`）；确认失败则单独报后端修，不阻塞 CLI 主路径。
 
 ---
 

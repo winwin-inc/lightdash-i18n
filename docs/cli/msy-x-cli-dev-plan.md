@@ -5,6 +5,8 @@
 > 分支：`feat/msy-x-cli`（按 [.agents/rules/branching.md](../../.agents/rules/branching.md)，功能一律功能分支，完成后合 `dev`）。
 >
 > 产物：`packages/msy-x-cli`（npm `msy-x-cli`，bin `msy-x`）+ `packages/x-doubao-plugin` 的 CLI 连接器包。
+>
+> **口径修正（2026-11-17，以代码为准）**：v2 真实入参与本计划初稿有差异，已在设计稿 §6.2 重写。要点：`find_*` 用 `searchQueries:[{label}]`（不是 `searchQuery`）；`find_fields` 必填 `table` + `fieldSearchQueries`；`search_field_values` 必填 `table`，无 `limit`；`list_dashboards` 必填 `spaceUuid`；`get/run_saved_chart` 入参是 `savedChartUuid`；`run_metric_query` 只吃 `vizConfig`（顶层扁平参数无效）；`run_semantic_metric_query` 不吃 `metricQuery`，`filters` 形状为 `{dimensions:[{fieldId,operator,values}]}`；`run_saved_chart` 无 `full`；`run_dashboard_tiles` 无磁贴筛选。另：v2 只有看板门控 payload 带 `structuredContent`，其余 25 个是 text JSON（`run_metric_query` 为 CSV、`find_*` 为 XML、`search_field_values` 为 ```json 围栏）——渲染层必须四级探测（设计稿 §7.4）。
 
 ---
 
@@ -162,7 +164,8 @@ packages/msy-x-cli/
 
 | # | 任务 | 判据 |
 |---|---|---|
-| P2-1 | `commands/{search,spaces,dashboards,charts,explores,fields,values,query,docs}.ts` 纯函数 | 映射完整性 26/26 |
+| P2-0 | 渲染层扩展：v2 text JSON / ```json 围栏 / XML 三级探测（设计稿 §7.4） | `src/render/detect.ts` | 三种返回都能正确出表；纯 JSON 文本不再被当成 CSV |
+| P2-1 | `commands/{search,spaces,dashboards,charts,explores,fields,values,query,docs}.ts` 纯函数 | 映射完整性 26/26，入参名逐条比对设计稿 §6.2 |
 | P2-2 | `render/*`：`structuredContent` 优先、CSV 退化、表格裁剪、`webUrl` 末列、`--out` 摘要 | 两类 fixture 渲染正确；坏数据退 `7` |
 | P2-3 | 看板门控五类 `status` → 退 `4` + 服务端中文文案 | `dashboardStrictError.json` fixture |
 | P2-4 | `query` 组装器（`-e/--dimensions/--metrics/--filter/--sort/--limit`）与 `--file` 透传 | `--dry-run` 输出与设计稿示例逐字一致 |
@@ -258,6 +261,7 @@ timeout 180 msy-x dashboards tiles d54853b1-85df-4ab3-8cdf-70a5244640e1
 | 5 | Windows 浏览器拉起/编码异常 | 平台分支 + `MSY_X_NO_BROWSER` 降级；文档给出手动 URL |
 | 6 | 服务端新增工具导致 CLI 落后 | `call` 兜底 + `tools list` 自动可见；映射测试提示补齐 |
 | 7 | 强制看板模式把常用查询拦成 `4` | 错误里原样透出服务端文案与候选看板，文档给 `--dashboard` 用法 |
+| 8 | 后端 `type` 判别键被剥离导致 `run_metric_query` / `search_field_values` 二次 parse 失败（设计稿 §10.4） | `query` 走 `run_semantic_metric_query` 主路径；`query flat` 标实验；`values` 失败提示改用 `query --dimensions`；发版前用 `call` 真实冒烟，确认失败则单独报后端 |
 
 **回滚**：卸载 CLI（`npm uninstall -g msy-x-cli`）+ 从 `cli.json` 移除连接器即可；不影响现有 MCP 连接器与站点。
 
