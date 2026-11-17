@@ -368,6 +368,7 @@ const dispatch = async (
                         ? Number(str(opts.timeout))
                         : undefined,
                 noBrowser: opts.noBrowser === true,
+                qr: opts.qr === true,
             },
             ctx,
         );
