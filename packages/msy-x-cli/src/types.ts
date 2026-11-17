@@ -126,6 +126,35 @@ export type CommandResult =
       };
 
 /** 渲染层入参 */
+/** 命令描述符：纯数据 + 纯映射，便于单测与并行开发 */
+export type CommandOptionSpec = {
+    /** commander flags，如 '--limit <n>' */
+    flags: string;
+    description: string;
+    defaultValue?: string;
+};
+
+/** build 的入参：位置参数 + 选项 + 全局上下文，全部已归一化为字符串 */
+export type CommandBuildInput = {
+    args: Record<string, string | undefined>;
+    options: Record<string, string | boolean | undefined>;
+    projectUuid: string | null;
+};
+
+export type CommandSpec = {
+    /** 空格分隔的 commander 路径，如 'dashboards tiles <dashboardUuid>' */
+    name: string;
+    description: string;
+    options: CommandOptionSpec[];
+    /** --help 里展示的真实可跑示例（单行） */
+    example: string;
+    /** 纯函数：不读环境、不发请求、不写盘 */
+    build: (input: CommandBuildInput) => ToolCall[];
+    /** 数据类命令才允许 --csv */
+    dataCommand: boolean;
+};
+
+/** 渲染层入参 */
 export type RenderInput = {
     tool: string;
     result: ToolResult;
