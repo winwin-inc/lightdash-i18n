@@ -41,8 +41,9 @@
 | [本仓 CLI 使用流程](./cli/cli-standalone-usage.md) | 安装指定版本、`download` / `upload`、校验 |
 | [看板 YAML 与同步说明](./cli/dashboard-sync-current-cli-usage.md) | 本仓 YAML 扩展字段、权限、与官方 CLI 的差异 |
 | [内容即代码开发闭环实施计划](./cli/content-as-code-dev-plan.md) | 图表/看板 as-code：CLI + 服务端校验 + MCP 写工具（**待开发**） |
-| [msy-x-cli 设计稿](./cli/msy-x-cli-design.md) | MCP 命令行客户端：命令面、鉴权、输出契约与豆包 CLI 连接器（**已实现 · 待发布**） |
-| [msy-x-cli 开发计划](./cli/msy-x-cli-dev-plan.md) | 包结构、分阶段任务、测试与发布（**已实现 · 待发布**） |
+| [msy-x-cli 设计文档](./cli/msy-x-cli-design.md) | **对外 · 自包含**：命令面、鉴权、输出与退出码、豆包 CLI 连接器契约（0.1.0） |
+| [msy-x-cli 使用手册](./cli/msy-x-cli-usage.md) | **对外 · 自包含**：安装、OAuth / PAT 登录、站点切换、常用命令、排错（0.1.0） |
+| [msy-x-cli 开发计划](./cli/msy-x-cli-dev-plan.md) | **内部**：包结构、分阶段任务、测试、发版流程与 CDN 基线 |
 
 ## dashboard/ — 看板筛选器与看板能力
 

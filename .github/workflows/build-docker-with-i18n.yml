@@ -6,9 +6,10 @@ on:
             - '*'
             - '!*-alpha*'
             - '!*-beta*'
-            # MCP / CLI 工具镜像由独立 workflow 构建，勿重复打主站镜像
+            # MCP / CLI 工具发版由独立 workflow 构建，勿重复打主站镜像
             - '!mcp-v*'
             - '!cli-v*'
+            - '!msyx-v*'
 
     workflow_dispatch:
 
