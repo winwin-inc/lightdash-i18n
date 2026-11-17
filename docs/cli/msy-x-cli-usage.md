@@ -94,8 +94,8 @@ msy-x doctor --remote    # 追加真实验证：工具名单 + 服务端能力�
 |---|---|---|
 | 品牌站（默认，代号 `x`） | `https://x.brandct.com/api/v1/mcp` | OAuth |
 | 内部站（代号 `inner`） | `https://lightdash.banmahui.cn/api/v1/mcp` | PAT |
-| 品牌站预发 | `https://x.pre.banmahui.cn/api/v1/mcp` | OAuth / PAT |
-| 旧版独立服务（仅逃生口） | `https://mcp-x.brandct.com/mcp` | `x-api-key` |
+
+其它环境（预发、自建网关）不需要预先配置，用 `--site <地址>` 或 `--mcp-url <地址>` 指过去即可。
 
 ### 3.2 切换与临时指定
 
@@ -103,11 +103,11 @@ msy-x doctor --remote    # 追加真实验证：工具名单 + 服务端能力�
 msy-x site list                                   # 列出配置里的站点与当前站点
 msy-x site show                                   # 当前站点详情
 msy-x site use inner                              # 切换当前站点（写入配置）
-msy-x site use https://x.pre.banmahui.cn/api/v1/mcp   # 也可以直接给 URL
+msy-x site use https://<your-site>/api/v1/mcp     # 也可以直接给 URL
 
 # 只对单条命令生效，不改配置
-msy-x --site https://x.pre.banmahui.cn/api/v1/mcp info
-msy-x --mcp-url https://x.pre.banmahui.cn/api/v1/mcp info
+msy-x --site https://<your-site>/api/v1/mcp info
+msy-x --mcp-url https://<your-site>/api/v1/mcp info
 ```
 
 **凭证按站点隔离**：在品牌站登录不会让内部站也登录；切换后先跑一次 `msy-x auth status` 确认。
@@ -127,15 +127,6 @@ msy-x --mcp-url https://x.pre.banmahui.cn/api/v1/mcp info
 
 优先级：`--mcp-url` > `--site <url>` > `--site <名字>` > `MSY_X_MCP_URL` > `MSY_X_SITE_URL` > 配置里的当前站点。
 
-### 3.4 旧版独立服务（不推荐）
-
-```bash
-msy-x --mcp-url https://mcp-x.brandct.com/mcp --auth-header x-api-key auth login --token ldpat_...
-```
-
-旧版服务按「服务端令牌统一代执行」，权限与审计粒度都弱于新版；能改地址就改。
-
----
 
 ## 4. 项目上下文
 

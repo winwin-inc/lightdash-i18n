@@ -40,7 +40,7 @@
 |---|---|
 | `lightdash-cli` / bin `lightdash` | 不采用：与已有 dbt 开发者 CLI 重名，受众也不同 |
 | `msy-cli` / bin `msy` | 不采用：语义过泛，无法体现平台归属 |
-| **`msy-x-cli` / bin `msy-x`** | 采用：与「马上赢 X 平台」品牌一致；内部环境以后可另发独立包 |
+| **`msy-x-cli` / bin `msy-x`** | 采用：与「马上赢 X 平台」品牌一致；内部环境以后可另发子品牌包 |
 
 与既有工具的关系：
 
@@ -119,7 +119,7 @@ sites:
   x:
     mcpUrl: https://x.brandct.com/api/v1/mcp
     authMode: oauth            # oauth | pat
-    authHeader: authorization  # authorization | x-api-key（仅旧版独立服务需要）
+    authHeader: authorization  # 出站鉴权头名：authorization | x-api-key（兼容自定义网关）
   inner:
     mcpUrl: https://lightdash.banmahui.cn/api/v1/mcp
     authMode: pat
@@ -201,7 +201,7 @@ auth login
 ### 6.2 Personal Access Token
 
 - 在站点的个人设置中生成（`ldpat_` + 38 位，只显示一次），权限等于该用户本身。
-- 出站头：v2 主站用 `Authorization: ApiKey <PAT>`；旧版独立服务逃生口可用 `--auth-header x-api-key`。
+- 出站头：主站用 `Authorization: ApiKey <PAT>`；如网关要求别的头名，用 `--auth-header x-api-key` 切换。
 - PAT 不受 OAuth scope 限制（服务端不做 scope 校验）。
 
 ### 6.3 三条契约命令
@@ -400,8 +400,8 @@ auth login
 
 ### 11.1 协议与站点
 
-- 默认只对接 `/api/v1/mcp`（无状态、逐请求鉴权、服务端持久化默认项目）。
-- 旧版独立服务（`<host>/mcp` + `x-api-key` 头）仅保留逃生口：`--mcp-url` + `--auth-header x-api-key`；CLI 不实现其会话/容量语义。旧版是「服务端 PAT 代执行」，权限与审计口径弱于新版，能迁移就迁移。
+- 只对接 `/api/v1/mcp`（无状态、逐请求鉴权、服务端持久化默认项目）。
+- `--mcp-url` + `--auth-header` 是**通用逃生口**：可指向任意兼容的 MCP 端点（预发、自建网关、代理），CLI 不实现任何私有会话/容量语义。
 
 ### 11.2 超时与体量
 

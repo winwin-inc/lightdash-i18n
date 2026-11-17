@@ -210,6 +210,15 @@ packages/msy-x-cli/
 | `pnpm set-msyx-url -- <url>` | 把公网 tgz 地址写进豆包 `cli.json` 的 `install.default` |
 | `pnpm msy-x-cli-build` / `-test` / `-lint` / `-typecheck` / `-dev` | 包维度开发命令 |
 
+#### 环境地址（内部信息，不从对外文档引用）
+
+| 环境 | MCP 地址 | 备注 |
+|---|---|---|
+| 品牌站生产 | `https://x.brandct.com/api/v1/mcp` | 内置 v2，强制看板模式开启 |
+| 内部站生产 | `https://lightdash.banmahui.cn/api/v1/mcp` | 内置 v2，不开强制看板模式 |
+| 品牌站预发 | `https://x.pre.banmahui.cn/api/v1/mcp` | 内置 v2 |
+| 旧版独立包（弃用中） | `https://mcp-x.brandct.com/mcp` / `https://mcp-lightdash.banmahui.cn/mcp` | 会话式 + `x-api-key`；k8s `lightdash-mcp` / `lightdash-internal-mcp` 仍在运行（最新 `mcp-v2.5.8`），退役按去留评估方案 C 走 |
+
 #### 发版流程（首次 0.1.0 同样适用）
 
 1. 算好目标 URL（**确定性，可提前拼**）：`https://img0.banmahui.cn/msy-x/cli/msy-x-cli/<ver>/msy-x-cli-<ver>.tgz`
