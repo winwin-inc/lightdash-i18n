@@ -41,10 +41,12 @@ msy-x auth login      # 也可以简写：msy-x login
 - **无桌面环境**（WSL / SSH / 容器）：
 
   ```bash
-  MSY_X_NO_BROWSER=1 msy-x auth login
+  MSY_X_NO_BROWSER=1 msy-x auth login     # 打印授权链接
+  msy-x auth login --qr                   # 或直接扫码登录（更省事）
   ```
 
   它会把授权链接打印到 stderr，复制到浏览器打开即可。**必须让该进程留在前台等待**——不要加 `timeout`、不要 Ctrl-C，否则回调端口关闭，本次登录作废。
+- **扫码登录（无浏览器环境推荐）**：`msy-x auth login --qr` 会在终端打印二维码，手机（微信/相机）扫码后在确认页点同意即可；WSL2 且未配置 `$BROWSER` 时也会自动降级为扫码。
 - 失败不留痕：授权被拒、超时、网络失败都不会写入半截凭证。
 - 令牌有效期：access 1 小时、refresh 2 周；日常调用遇 401 会自动刷新一次再重试。
 

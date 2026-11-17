@@ -7,7 +7,7 @@
 > -   自 **v2.0** 起产品主版本独立编号
 
 
-## v2.7.4（修复版 · 待发布）
+## v2.7.4 (2026-11-17)
 
 -   **内置 MCP：修复查询工具判别键丢失（重要）**
     -   `run_metric_query` / `search_field_values` 此前会必然失败：MCP 兼容层为了客户端友好把 AI schema 的 `type` 判别键从下发的 inputSchema 剥掉，但这两个工具的 handler 复用共享实现、又用含必填 `type` 的原始 schema 二次解析
@@ -22,14 +22,19 @@
     -   已知限制：看板级色表是「整块看板避让」，图很多时（几十个运行期系列）单图色差仍会被挤到 15–35；根治需改为「只避让同图共现的邻居」并保持同名同色，属于后续独立改动
 -   **看板**
     -   修复：筛选器「无值隐藏图表」触发后仍残留隐藏提示条
+-   **扫码登录（OAuth 设备码流程）**
+    -   后端新增 RFC 8628 设备码端点：`POST /api/v1/oauth/device` 申请 `device_code` + `user_code`；`GET/POST /api/v1/oauth/device/activate` 手机确认页（需登录态）；`POST /api/v1/oauth/device/token` 轮询换 token（含 refresh_token）
+    -   设备会话内存存储，上限 1 万条、随申请清扫过期（10 分钟 TTL）；迁移预注册 `msy-x-cli` 公开客户端（`scope=mcp:read`，幂等插入）
+    -   **现有 `authorize` / `token` / `introspect` / DCR 流程零改动**：浏览器授权与扫码并存
+    -   CLI：`msy-x auth login --qr` 在终端打印二维码，手机（微信/相机）扫码确认即完成登录，凭证与浏览器 OAuth 同构、refresh 复用；**WSL2 且未配置 `$BROWSER` 时自动降级为扫码**并在 stderr 提示；`openBrowser` 优先读 `$BROWSER`（如 wslview）
 -   **命令行工具**
-    -   新增仓库内包 `msy-x-cli`（MCP 命令行客户端，独立发版，不进主站镜像）：当前 0.1.1，含 OAuth（DCR + PKCE）/ PAT 登录、35 个任务化命令、`doctor` 自检与能力探测、`verified`、`--verbose` 请求日志；已发布到 CDN `msy-x/cli/msy-x-cli/0.1.1/`
+    -   新增仓库内包 `msy-x-cli`（MCP 命令行客户端，独立发版，不进主站镜像）：当前 0.1.1，含 OAuth（DCR + PKCE + 扫码）/ PAT 登录、35 个任务化命令、`doctor` 自检与能力探测、`verified`、`--verbose` 请求日志；已发布到 CDN `msy-x/cli/msy-x-cli/0.1.1/`
     -   豆包 Plugin 增加 CLI 连接器通道（`com.doubao/cli.json` + 技能说明 + 发布前自检规则）
     -   dbt CLI（`lightdash`）已单独发版 2.2.0：新增 `sql`、`run-chart`、`warehouse-catalog`、`config` 四件套与 `export-chart-image`
 -   **文档**
     -   新增 `docs/cli/msy-x-cli-design.md` 与 `docs/cli/msy-x-cli-usage.md`（对外自包含），内部发版与 CDN 基线见 `docs/cli/msy-x-cli-dev-plan.md`
--   **待合并（不包含在本节）**
-    -   `feat/dashboard-xlsx-export`：看板 XLSX 导出重构（每 Tab 一个 xlsx、Tab 前缀与 Tab 筛选器列、导出行数额度 50 万、失败不再静默等，55 个提交）；该分支已占用 `v2.7.4-test.*` 预发 tag，合并后需在本节补齐导出变更并把版本号收敛
+-   **本版本不包含**
+    -   **看板导出（XLSX）重构**：`feat/dashboard-xlsx-export` 分支（每 Tab 一个 xlsx、Tab 前缀与 Tab 筛选器列、导出行数额度 50 万、失败不再静默等，55 个提交）尚未合入，本次沿用现有导出行为；该分支已占用 `v2.7.4-test.*` 预发 tag，合入后需在下一版本补齐说明并收敛版本号
 
 ## v2.7.3 (2026-11-12)
 
