@@ -7,7 +7,7 @@
  * 规则来源：豆包开放平台「插件总览 / MCP Server / 技能开发规范」。
  * 任何一条 FAIL 都会导致控制台提交校验不通过。
  */
-import { readdir, readFile, stat } from 'node:fs/promises';
+import { open, readdir, readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -37,7 +37,35 @@ const SECRET_PATTERNS = [
     /sk-[A-Za-z0-9]{16,}/,
     /"password"\s*:\s*"[^"]{4,}"/i,
     /(?:api[_-]?key|token)\s*[=:]\s*['"][A-Za-z0-9_\-]{12,}['"]/i,
+    /Bearer\s+[A-Za-z0-9._~+/=-]{16,}/,
 ];
+
+/** CLI 连接器键命名：小写字母 / 数字 / 连字符 */
+const CLI_CONNECTOR_KEY_RE = /^[a-z0-9-]+$/;
+/** 除 install 外必须是非空字符串数组的命令字段 */
+const CLI_COMMAND_FIELDS = ['auth', 'status', 'unAuth', 'help', 'versionCheck'];
+/** 包内出现即视为「可执行二进制」的扩展名（豆包 CLI 连接器包只允许命令安装） */
+const BINARY_EXT_RE = /\.(?:exe|node|dll|so|dylib|bin|com|msi)$/i;
+/** 常见可执行格式魔数（PE / ELF / Mach-O 32·64，大端与小端） */
+const BINARY_MAGICS = [
+    { bytes: [0x4d, 0x5a], name: 'PE/MZ' },
+    { bytes: [0x7f, 0x45, 0x4c, 0x46], name: 'ELF' },
+    { bytes: [0xfe, 0xed, 0xfa, 0xce], name: 'Mach-O' },
+    { bytes: [0xfe, 0xed, 0xfa, 0xcf], name: 'Mach-O64' },
+    { bytes: [0xce, 0xfa, 0xed, 0xfe], name: 'Mach-O-LE' },
+    { bytes: [0xcf, 0xfa, 0xed, 0xfe], name: 'Mach-O64-LE' },
+];
+
+async function readHead(file, n) {
+    const fh = await open(file, 'r');
+    try {
+        const buf = Buffer.alloc(n);
+        const { bytesRead } = await fh.read(buf, 0, n, 0);
+        return buf.subarray(0, bytesRead);
+    } finally {
+        await fh.close();
+    }
+}
 
 const NAME_RE = /^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])$/;
 const SKILL_NAME_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -322,7 +350,7 @@ if (mcp) {
     fail('plugin.json 声明了 mcpServers，但缺少 mcp.json');
 }
 
-// ── 4. 技能包 ───────────────────────────────────────────────────────
+// ── 3.5 CLI 连接器 cli.json ─────────────────────────────────────────
 const skillsDir = path.join(ROOT, 'skills');
 let skillDirs = [];
 if (await exists(skillsDir)) {
@@ -330,7 +358,154 @@ if (await exists(skillsDir)) {
         .filter((e) => e.isDirectory())
         .map((e) => e.name);
 }
+async function anySkillCliRef() {
+    for (const dir of skillDirs) {
+        if (await exists(path.join(skillsDir, dir, 'references', 'cli.md'))) return true;
+    }
+    return false;
+}
 
+const cliJsonRel = 'com.doubao/cli.json';
+const cliJsonPath = path.join(ROOT, 'com.doubao', 'cli.json');
+const hasCliJson = await exists(cliJsonPath);
+if (hasCliJson) {
+    let cli = null;
+    try {
+        cli = await readJson(cliJsonPath);
+        ok('cli.json 可解析');
+    } catch (err) {
+        fail(`cli.json 解析失败：${err.message}`);
+    }
+
+    const connectors = cli?.connectors;
+    if (
+        !connectors ||
+        typeof connectors !== 'object' ||
+        Array.isArray(connectors) ||
+        Object.keys(connectors).length === 0
+    ) {
+        fail('cli.json：connectors 必须是非空对象');
+    } else {
+        const connectorKeys = Object.keys(connectors);
+        ok(`CLI 连接器 ${connectorKeys.length} 个：${connectorKeys.join(', ')}`);
+
+        const clashes = connectorKeys.filter((k) => mcpKeys.includes(k));
+        if (clashes.length) {
+            fail(`CLI 连接器键与 mcp.json 服务键重名：${clashes.join(', ')}（重名会导致平台装配冲突）`);
+        } else {
+            ok('CLI 连接器键与 mcp.json 服务键无重名');
+        }
+
+        for (const key of connectorKeys) {
+            const connector = connectors[key] ?? {};
+            const where = `connectors.${key}`;
+
+            if (!CLI_CONNECTOR_KEY_RE.test(key)) {
+                fail(
+                    `${where}：连接器键只能是小写字母/数字/连字符（^[a-z0-9-]+$），当前：${JSON.stringify(key)}`,
+                );
+            }
+
+            const install = connector.install;
+            const installPlatforms =
+                install && typeof install === 'object' && !Array.isArray(install)
+                    ? Object.keys(install)
+                    : [];
+            if (installPlatforms.length === 0) {
+                fail(`${where}.install 必填：非空的平台映射（linux/darwin/win32/default）`);
+            } else {
+                let installOk = true;
+                for (const platform of installPlatforms) {
+                    const commands = install[platform];
+                    if (
+                        !Array.isArray(commands) ||
+                        commands.length === 0 ||
+                        commands.some((c) => typeof c !== 'string' || c.trim() === '')
+                    ) {
+                        fail(`${where}.install.${platform} 必须是非空字符串数组（按序执行，任一失败即安装失败）`);
+                        installOk = false;
+                    }
+                }
+                if (installOk && !installPlatforms.includes('linux') && !installPlatforms.includes('default')) {
+                    fail(`${where}.install 必须包含 linux 或 default 平台键`);
+                    installOk = false;
+                }
+                if (installOk) {
+                    // linux 命中时选 linux，否则选 default（平台选中项只能是 npm 安装命令）
+                    const selected = installPlatforms.includes('linux') ? install.linux : install.default;
+                    if (!selected.every((c) => /^\s*npm\s+install\b/.test(c))) {
+                        fail(`${where}.install（linux 命中的平台）只能是 npm 安装命令`);
+                    } else {
+                        ok(`${where}.install 合规（平台：${installPlatforms.join('/')}，npm 安装）`);
+                    }
+                }
+                for (const platform of installPlatforms) {
+                    const commands = Array.isArray(install[platform]) ? install[platform] : [];
+                    if (commands.some((c) => /static\.example\.com/.test(String(c)))) {
+                        warn(
+                            `${where}.install.${platform}：仍是占位域名 static.example.com，发布前必须替换为真实公网 tgz 地址`,
+                        );
+                    }
+                }
+            }
+
+            for (const field of CLI_COMMAND_FIELDS) {
+                const spec = connector[field];
+                // 允许两种形态：直接的非空字符串数组，或与 install 相同的平台映射
+                const isPlainArray =
+                    Array.isArray(spec) &&
+                    spec.length > 0 &&
+                    spec.every((c) => typeof c === 'string' && c.trim() !== '');
+                const platformMap =
+                    spec && typeof spec === 'object' && !Array.isArray(spec)
+                        ? Object.entries(spec)
+                        : null;
+                const mapOk =
+                    platformMap &&
+                    platformMap.length > 0 &&
+                    platformMap.every(
+                        ([platform, commands]) =>
+                            Array.isArray(commands) &&
+                            commands.length > 0 &&
+                            commands.every((c) => typeof c === 'string' && c.trim() !== ''),
+                    );
+                if (!isPlainArray && !mapOk) {
+                    fail(
+                        `${where}.${field} 必须是非空字符串数组（或与 install 相同形态的平台映射，每个平台数组非空）`,
+                    );
+                }
+            }
+
+            const regex = connector.statusMatchRegex;
+            if (typeof regex !== 'string' || regex.trim() === '') {
+                fail(`${where}.statusMatchRegex 必须是非空字符串（用于从 status 输出判定登录态）`);
+            } else {
+                try {
+                    new RegExp(regex);
+                    ok(`${where}.statusMatchRegex 可编译：${regex}`);
+                } catch (err) {
+                    fail(`${where}.statusMatchRegex 无法被 new RegExp 编译：${err.message}`);
+                }
+            }
+        }
+    }
+
+    // 双通道一致性：带 cli.json 就必须带 CLI 速查文档，否则技能无从路由
+    const cliRefOk = await anySkillCliRef();
+    if (!cliRefOk) {
+        fail('包含 com.doubao/cli.json 但没有任何 skills/*/references/cli.md：请补 CLI 速查文档或按「单连接器裁剪」删除 cli.json');
+    } else {
+        ok('cli.json 与 skills/*/references/cli.md 成对出现');
+    }
+} else {
+    // 裁剪为「只留 MCP」时允许没有 cli.json；但若文档还在，提示同步删
+    const staleRef = await anySkillCliRef();
+    if (staleRef) {
+        warn('未包含 com.doubao/cli.json，但存在 skills/*/references/cli.md：若已裁剪为单 MCP 连接器，请同步删除该文档与 SKILL.md 的「CLI 通道」段');
+    }
+}
+
+// ── 4. 技能包 ───────────────────────────────────────────────────────
 if (skillDirs.length > LIMITS.skills) {
     fail(`Skill 数量 ${skillDirs.length} 超过 ${LIMITS.skills}`);
 } else {
@@ -412,6 +587,25 @@ for (const file of files) {
     total += info.size;
     if (info.size > LIMITS.singleFileBytes) tooBig.push(file.rel);
     if (file.rel.includes('..')) fail(`非法路径：${file.rel}`);
+    // CLI 连接器包禁止携带二进制：位置与扩展名
+    if (path.basename(file.rel) === 'cli.json' && file.rel !== cliJsonRel) {
+        fail(`cli.json 必须位于包内 ${cliJsonRel}（当前出现在：${file.rel}）`);
+    }
+    if (BINARY_EXT_RE.test(file.rel)) {
+        fail(`包内不得含可执行二进制文件：${file.rel}（CLI 连接器只允许 npm 命令安装）`);
+    }
+}
+for (const file of files) {
+    if (BINARY_EXT_RE.test(file.rel)) continue;
+    try {
+        const head = await readHead(file.full, 4);
+        const magic = BINARY_MAGICS.find((m) => m.bytes.every((b, i) => head[i] === b));
+        if (magic) {
+            fail(`包内不得含可执行二进制文件：${file.rel}（命中 ${magic.name} 魔数）`);
+        }
+    } catch {
+        // 读不动的文件交给上面的扩展名/体积规则兜底
+    }
 }
 if (files.length > LIMITS.entries) fail(`文件条目 ${files.length} 超过 ${LIMITS.entries}`);
 if (total > LIMITS.zipBytes) fail(`解压总量 ${(total / 1024 / 1024).toFixed(1)}MB 超过 16MB`);
