@@ -5,7 +5,7 @@ import { loginWithDeviceQr } from '../auth/device';
 import { loginWithOAuth } from '../auth/oauth';
 import { savePat } from '../auth/pat';
 import { logout as revokeAndClear } from '../auth/revoke';
-import { hasConfiguredBrowser, isWsl } from '../lib/openBrowser';
+import { isWsl, wslNeedsQrFallback } from '../lib/browserEnv';
 import { logWarn } from '../lib/logger';
 import type { AuthCredentials, CommandSpec, CommandContext } from '../types';
 
@@ -202,15 +202,14 @@ const runLogin = async (
         };
     }
 
-    // 扫码（设备码）登录：--qr 显式指定；或 WSL2 且未配置外部浏览器时
-    // 自动降级（回环回调在 WSL 里常不可达，浏览器 OAuth 基本注定超时）
-    const preferQr =
-        opts.qr === true ||
-        (isWsl(process.env) && !hasConfiguredBrowser(process.env));
+    // 扫码（设备码）登录：--qr 显式指定；或 WSL 里既无 $BROWSER、PATH
+    // 中也无可用拉起命令（xdg-open/wslview）时自动降级——无浏览器的 WSL
+    // 回环回调注定超时。仅按「是 WSL」预判会误伤有可用垫片/wslu 的机器
+    const preferQr = opts.qr === true || wslNeedsQrFallback(process.env);
     if (preferQr) {
         if (opts.qr !== true) {
             logWarn(
-                '检测到 WSL 且未配置外部浏览器（可设 BROWSER=wslview），自动改用扫码登录',
+                '检测到 WSL 且无可用浏览器拉起方式（可设 BROWSER=wslview 或安装 wslu），自动改用扫码登录',
             );
         }
         // 任何失败路径都不落盘，由这里成功后统一落盘（与 OAuth 一致）
@@ -230,6 +229,14 @@ const runLogin = async (
             }),
             exitCode: ExitCode.OK,
         };
+    }
+
+    // WSL 但探测到可用浏览器：走浏览器 OAuth；留一条扫码兑底提示，
+    // 防止 xdg-open 存在但实际打不开的场景里用户干等到超时
+    if (!preferQr && isWsl(process.env) && opts.noBrowser !== true) {
+        logWarn(
+            'WSL 下走浏览器登录；若浏览器未弹出或长时间未完成回调，可 Ctrl+C 后加 --qr 扫码登录',
+        );
     }
 
     // OAuth：失败（含超时 / 拒绝 / 网络）由 CliError 冒泡给集成层，
