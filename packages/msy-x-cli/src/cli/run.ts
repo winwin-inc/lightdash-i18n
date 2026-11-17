@@ -4,7 +4,8 @@ import { CliError } from './errors';
 import { writeMultiResult, writeResult } from './output';
 import { ensureFreshCredentials } from '../auth/refresh';
 import { readConfig } from '../config/store';
-import { executeToolCall } from '../mcp/callTool';
+import { setVerbose, verboseLog } from '../lib/logger';
+import { executeToolCall, summarizeArgs } from '../mcp/callTool';
 import { createMcpClient } from '../mcp/client';
 import type { CommandContext, McpClient, ToolCall, ToolResult } from '../types';
 
@@ -13,6 +14,11 @@ import type { CommandContext, McpClient, ToolCall, ToolResult } from '../types';
  *
  * - `--dry-run`：逐条打印将要发送的 `{tool,args}`（数组按顺序），不发任何请求；
  * - 否则 createMcpClient → 顺序 executeToolCall → cli/output.writeResult；
+ * - `--verbose`（D10）：入口处 setVerbose，dry-run 分支之前即生效，
+ *   便于确认将要发送的参数；实际请求/响应摘要由 executeToolCall 打印；
+ * - `beforeRender` 钩子（D11）：渲染前调用，返回 'handled' 表示调用方已自行
+ *   输出（跳过 writeResult / writeMultiResult），但 client 生命周期、401 刷新
+ *   重试、dry-run、verbose 仍由本管道负责；默认 'render' 走常规渲染；
  * - 401（AUTH_REQUIRED）：先 ensureFreshCredentials 刷新凭证，再换新客户端重试一次；
  *   未登录（无凭证）不重试，直接抛给顶层；
  * - finally 关闭客户端；
@@ -20,9 +26,22 @@ import type { CommandContext, McpClient, ToolCall, ToolResult } from '../types';
  *   一次输出单个合并 JSON 对象（`--out` 一次写盘不覆盖，D14）；单条调用语义不变。
  */
 
+export type BeforeRenderAction = 'handled' | 'render';
+
 export type RunToolCommandOptions = {
     /** 渲染前的本地结果变换（如 dashboards run --tile 的磁贴过滤） */
     transformResult?: (result: ToolResult) => ToolResult;
+    /**
+     * 渲染前钩子（D11）：在 transformResult 之后、writeResult 之前调用。
+     * 返回 'handled' = 调用方已自行输出（如 verified 的 supported:false 旁路），
+     * 本管道跳过该条结果的渲染，但 client 生命周期 / 401 刷新重试 / dry-run /
+     * verbose 不变；返回 'render'（或未提供钩子）走常规渲染，既有调用方不变。
+     */
+    beforeRender?: (input: {
+        call: ToolCall;
+        result: ToolResult;
+        ctx: CommandContext;
+    }) => BeforeRenderAction;
     /** 客户端工厂（默认 createMcpClient）；单测注入假 client 断言调用次数 */
     createClient?: typeof createMcpClient;
 };
@@ -41,8 +60,12 @@ export const runToolCommand = async (
     const { site, options } = ctx;
     const { timeoutMs } = options;
 
+    // D10：--verbose 在 dry-run 分支之前生效（dry-run 也能确认将要发送的参数）
+    setVerbose(options.verbose);
+
     if (options.dryRun) {
         for (const call of list) {
+            verboseLog(`→ ${call.tool} ${summarizeArgs(call.args)} (dry-run)`);
             process.stdout.write(
                 `${JSON.stringify({ tool: call.tool, args: call.args })}\n`,
             );
@@ -100,14 +123,24 @@ export const runToolCommand = async (
                 runOptions?.transformResult !== undefined
                     ? runOptions.transformResult(result)
                     : result;
-            if (multi) {
-                collected.push({ tool: call.tool, result: finalResult });
-            } else {
-                await writeResult({
-                    tool: call.tool,
+            const renderCtx: CommandContext = { ...ctx, credentials };
+            const handled =
+                runOptions?.beforeRender?.({
+                    call,
                     result: finalResult,
-                    ctx: { ...ctx, credentials },
-                });
+                    ctx: renderCtx,
+                }) === 'handled';
+            if (!handled) {
+                if (multi) {
+                    collected.push({ tool: call.tool, result: finalResult });
+                } else {
+                    // 调用方未接管输出：走常规渲染（D11 beforeRender 默认 'render'）
+                    await writeResult({
+                        tool: call.tool,
+                        result: finalResult,
+                        ctx: renderCtx,
+                    });
+                }
             }
         }
         if (multi && collected.length > 0) {

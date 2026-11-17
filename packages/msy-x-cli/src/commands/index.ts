@@ -8,7 +8,7 @@ import {
 import { runToolCommand } from '../cli/run';
 import { readConfig } from '../config/store';
 import { resolveSite } from '../config/profiles';
-import { logInfo, logWarn, setQuiet } from '../lib/logger';
+import { logInfo, logWarn, setQuiet, setVerbose } from '../lib/logger';
 import { readStdinIfPiped } from '../lib/stdin';
 import type {
     AuthCredentials,
@@ -155,6 +155,8 @@ const buildContext = async (
         env: process.env,
     });
     setQuiet(options.quiet);
+    // doctor / verified 等不走 runToolCommand 的路径也要点亮 --verbose（D10）
+    setVerbose(options.verbose);
     // --config 覆盖：config/* 全部通过 env.MSY_X_CONFIG 定位文件（paths.ts）
     if (options.configPath !== null) {
         process.env.MSY_X_CONFIG = options.configPath;
@@ -183,6 +185,7 @@ const buildDegradedDoctorContext = async (cmd: Command): Promise<CommandContext>
         env: process.env,
     });
     setQuiet(options.quiet);
+    setVerbose(options.verbose);
     if (options.configPath !== null) {
         process.env.MSY_X_CONFIG = options.configPath;
     }
@@ -399,8 +402,9 @@ const dispatch = async (
     // （--quiet 关闭）；覆盖 search/explores/spaces/dashboards/charts/verified
     warnPageSizeTruncation(opts, ctx);
 
-    // verified：部署未启用内容验证时 supported:false 按成功退 0，
-    // stdout 原样输出服务端 JSON（判定是 verified.ts 的纯函数，本层负责输出）
+    // verified：部署未启用内容验证时 supported:false 按成功退 0，stdout 原样
+    // 输出服务端 JSON —— 经 runVerifiedCommand 的 beforeRender 钩子接入
+    // runToolCommand 统一管道（D11），dry-run / 401 刷新重试与其他命令一致
     if (spec.name === 'verified') {
         await runVerifiedCommand(calls, ctx);
         return;

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFile } from 'node:fs/promises';
 import { CliError } from '../cli/errors';
 import type {
     CommandBuildInput,
@@ -22,7 +23,9 @@ import {
  * - supported:false 判定：structuredContent 与 content 文本两种来源；
  * - runVerifiedCommand：unsupported 按成功退 0（stdout 原样 JSON + stderr 提示）、
  *   正常结果走常规渲染、--dry-run 不建连、401 无凭证不重试
- *   （全部注入假 client，不联网）。
+ *   （全部注入假 client，不联网）；
+ * - 源码级守门（D11）：verified.ts 不得再复制执行管道
+ *   （不 import createMcpClient / executeToolCall / ensureFreshCredentials）。
  */
 
 const UUID = '3f5d1b0e-1111-4222-8333-444455556666';
@@ -286,4 +289,23 @@ test('runVerifiedCommand：401 且无凭证不重试，CliError 原样上抛（�
             return true;
         },
     );
+});
+
+/* ------------------------------------------------------------------ */
+/* 源码级守门（D11）：不得再复制执行管道                                  */
+/* ------------------------------------------------------------------ */
+
+test('D11 守门：verified.ts 不再 import createMcpClient / executeToolCall / ensureFreshCredentials', async () => {
+    const source = await readFile(new URL('./verified.ts', import.meta.url), 'utf8');
+    for (const banned of [
+        'createMcpClient',
+        'executeToolCall',
+        'ensureFreshCredentials',
+    ]) {
+        assert.ok(
+            !source.includes(banned),
+            `verified.ts 不应再出现 ${banned}：执行管道（dry-run / 401 刷新重试 / client 生命周期）统一在 cli/run.ts，` +
+                '不要在命令层复制第二份（独立审查 D11）',
+        );
+    }
 });

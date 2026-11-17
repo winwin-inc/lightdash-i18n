@@ -55,7 +55,7 @@ msy-x auth logout    # 清除本机凭证（幂等，重复执行不报错）
 
 ## 命令速查
 
-全局常用选项：`--site <name|url>`（切换站点）、`--project <uuid>`（指定项目）、`--json/--table/--csv`（输出格式）、`--out <path>`（结果落盘）、`--timeout <ms>`（单次调用超时）。每条命令都支持 `--help` 查看参数与示例。
+全局常用选项：`--site <name|url>`（切换站点）、`--project <uuid>`（指定项目）、`--json/--table/--csv`（输出格式）、`--out <path>`（结果落盘）、`--timeout <ms>`（单次调用超时）、`--verbose`（stderr 打印请求/响应摘要）。每条命令都支持 `--help` 查看参数与示例。
 
 | 命令 | 说明 | 示例 |
 |---|---|---|
@@ -126,8 +126,10 @@ msy-x auth logout    # 清除本机凭证（幂等，重复执行不报错）
 ```bash
 msy-x doctor                # 本地自检：Node 版本、配置文件与权限位、站点解析、凭证
 msy-x doctor --remote       # 加做真实请求：tools/list（工具目录 26 个）与能力探测，验证端到端连通
-MSY_X_DEBUG=1 msy-x info    # stderr 打印请求/响应摘要（令牌已自动脱敏）
+msy-x --verbose info        # stderr 打印请求/响应摘要（令牌已自动脱敏；MSY_X_DEBUG=1 等价）
 ```
+
+- **看 CLI 到底发了什么**：加 `--verbose`（或设 `MSY_X_DEBUG=1`，两者等价取或）。每次 MCP 工具调用在 stderr 打两行摘要：`→ 工具名 参数JSON`（脱敏后超 500 字符截断加 `…`）与 `← 工具名 ok rows=行数 耗时ms 渲染源`（渲染源为 structured/json/fenced-json/csv/xml/none；失败为 `← 工具名 error 错误码 耗时ms`）。PAT、token 类字段与 `Authorization` 值一律脱敏为 `***`；`--quiet` **不**关闭这些日志（quiet 只关 rows 等提示）。
 
 - **登录没弹出浏览器**：headless 环境设 `MSY_X_NO_BROWSER=1`，复制 stderr 里的授权 URL 到本地浏览器完成登录。
 - **怀疑配置问题**：检查 `~/.config/msy-x/config.yaml`（或 `MSY_X_CONFIG` 指向的文件）；`msy-x doctor` 能发现坏 YAML 与缺失字段。
@@ -144,4 +146,4 @@ MSY_X_DEBUG=1 msy-x info    # stderr 打印请求/响应摘要（令牌已自动
 | `MSY_X_CONFIG` | 指定配置文件路径（默认 `~/.config/msy-x/config.yaml`） |
 | `MSY_X_TIMEOUT_MS` | 单次工具调用超时（默认 60000） |
 | `MSY_X_NO_BROWSER` | `1` 时不拉浏览器，只打印授权 URL |
-| `MSY_X_DEBUG` | `1` 时在 stderr 输出请求/响应摘要（凭证脱敏） |
+| `MSY_X_DEBUG` | `1` 时等价于 `--verbose`：stderr 输出请求/响应摘要（凭证脱敏；`--quiet` 不关闭） |

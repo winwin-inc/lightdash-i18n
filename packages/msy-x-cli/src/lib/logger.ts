@@ -5,13 +5,22 @@ import { redact } from './redact';
  *
  * - 所有输出（message 与 data）都先过 redact()，凭证绝不进日志；
  * - `setQuiet(true)` 对应 `--quiet`：关闭 info，保留 warn / error；
- * - `debugLog` 仅在环境变量 `MSY_X_DEBUG=1` 时输出。
+ * - `debugLog` 仅在环境变量 `MSY_X_DEBUG=1` 时输出；
+ * - `verboseLog`（--verbose，D10）：MCP 请求/响应摘要；生效条件为
+ *   `setVerbose(true)`（--verbose）或 `MSY_X_DEBUG=1`，两者取或；
+ *   **不受 `--quiet` 影响**（quiet 只关 rows 等提示，不关排障日志）。
  */
 
 let quiet = false;
+let verbose = false;
 
 export const setQuiet = (value: boolean): void => {
     quiet = value;
+};
+
+/** `--verbose` 开关（cli/run.ts 入口按 ctx.options.verbose 设置，D10） */
+export const setVerbose = (value: boolean): void => {
+    verbose = value;
 };
 
 const isDebugEnabled = (): boolean => process.env.MSY_X_DEBUG === '1';
@@ -50,4 +59,13 @@ export const logError = (message: string, data?: unknown): void => {
 export const debugLog = (message: string, data?: unknown): void => {
     if (!isDebugEnabled()) return;
     writeLine('[debug]', message, data);
+};
+
+/** verbose 生效：--verbose 显式开启，或 MSY_X_DEBUG=1（取或，env 实时读） */
+const isVerboseEnabled = (): boolean =>
+    verbose || process.env.MSY_X_DEBUG === '1';
+
+export const verboseLog = (message: string, data?: unknown): void => {
+    if (!isVerboseEnabled()) return;
+    writeLine('[verbose]', message, data);
 };

@@ -1,16 +1,11 @@
-/* eslint-disable no-await-in-loop, no-continue -- 顺序执行与 401 刷新重试的串行语义与 cli/run.ts 相同（硬性要求）；
-   非目标文本块跳过用 continue 最直白 */
+/* eslint-disable no-continue -- 非目标文本块跳过用 continue 最直白 */
 import { CliError } from '../cli/errors';
-import { writeResult } from '../cli/output';
-import { ensureFreshCredentials } from '../auth/refresh';
-import { readConfig } from '../config/store';
-import { executeToolCall } from '../mcp/callTool';
-import { createMcpClient } from '../mcp/client';
+import { runToolCommand, type RunToolCommandOptions } from '../cli/run';
+import { logWarn } from '../lib/logger';
 import type {
     CommandBuildInput,
     CommandContext,
     CommandSpec,
-    McpClient,
     ToolCall,
     ToolResult,
 } from '../types';
@@ -25,7 +20,11 @@ import type {
  *   此时**按成功退 0**：stdout 原样输出该 JSON，stderr 提示替代命令
  *   （设计稿 §6.2「响应 supported:false 时按成功退 0」）；
  * - 判定是纯函数 `findUnsupportedContentNotice`（不发请求，不发请求的
- *   约束同样适用于 spec.build）；请求执行由集成层调 `runVerifiedCommand`。
+ *   约束同样适用于 spec.build）；
+ * - 执行复用 cli/run.ts 的统一管道（D11：不再复制 dry-run / 401 刷新重试 /
+ *   client 关闭），supported:false 的旁路输出经 runToolCommand 的 beforeRender
+ *   钩子接入：返回 'handled' 跳过常规渲染，其余（401 重试、dry-run、verbose、
+ *   client 生命周期）与其他命令完全一致。
  */
 
 const MAX_PAGE_SIZE = 100;
@@ -162,88 +161,33 @@ export const VERIFIED_UNSUPPORTED_NOTICE =
     '提示：当前部署未启用内容验证，可改用 msy-x charts find / dashboards find';
 
 /* ------------------------------------------------------------------ */
-/* 执行（集成层入口；401 刷新重试语义与 cli/run.ts 一致）                 */
+/* 执行（薄包装：复用 cli/run.ts 统一管道，D11）                         */
 /* ------------------------------------------------------------------ */
 
 export type RunVerifiedDeps = {
-    /** 客户端工厂（默认 createMcpClient）；单测注入假实现 */
-    createClient?: typeof createMcpClient;
+    /** 客户端工厂（透传给 runToolCommand）；单测注入假实现 */
+    createClient?: RunToolCommandOptions['createClient'];
 };
-
-const closeQuietly = (client: McpClient): Promise<void> =>
-    client.close().catch(() => undefined);
 
 export const runVerifiedCommand = async (
     calls: ToolCall[],
     ctx: CommandContext,
     deps: RunVerifiedDeps = {},
 ): Promise<void> => {
-    if (ctx.options.dryRun) {
-        for (const call of calls) {
-            process.stdout.write(
-                `${JSON.stringify({ tool: call.tool, args: call.args })}\n`,
-            );
-        }
-        return;
-    }
-
-    const { timeoutMs } = ctx.options;
-    let { credentials } = ctx;
-
-    const refreshOnAuthError = async (error: unknown): Promise<boolean> => {
-        if (
-            !(error instanceof CliError) ||
-            error.code !== 'AUTH_REQUIRED' ||
-            credentials === null
-        ) {
-            return false;
-        }
-        const config = await readConfig();
-        credentials = await ensureFreshCredentials({ site: ctx.site, credentials, config });
-        return true;
-    };
-
-    const openClient = () =>
-        (deps.createClient ?? createMcpClient)({
-            site: ctx.site,
-            credentials,
-            timeoutMs,
-        });
-
-    let client: McpClient;
-    try {
-        client = await openClient();
-    } catch (error) {
-        if (!(await refreshOnAuthError(error))) throw error;
-        client = await openClient();
-    }
-
-    try {
-        for (const call of calls) {
-            let result: ToolResult;
-            try {
-                result = await executeToolCall({ client, call, timeoutMs });
-            } catch (error) {
-                if (!(await refreshOnAuthError(error))) throw error;
-                await closeQuietly(client);
-                client = await openClient();
-                result = await executeToolCall({ client, call, timeoutMs });
-            }
+    await runToolCommand(calls, ctx, {
+        createClient: deps.createClient,
+        beforeRender: ({ result }) => {
             const notice = findUnsupportedContentNotice(result);
-            if (notice !== null) {
-                // 部署未启用内容验证：按成功退 0（不抛错），
-                // stdout 原样输出服务端 JSON，替代命令提示走 stderr
-                process.stdout.write(`${notice.rawText}\n`);
-                process.stderr.write(`${VERIFIED_UNSUPPORTED_NOTICE}\n`);
-                continue;
+            if (notice === null) {
+                return 'render';
             }
-            await writeResult({
-                tool: call.tool,
-                result,
-                ctx: { ...ctx, credentials },
-            });
-        }
-    } finally {
-        await closeQuietly(client);
-    }
+            // 部署未启用内容验证：按成功退 0（不抛错），
+            // stdout 原样输出服务端 JSON，替代命令提示走 stderr；
+            // 其余执行语义（401 刷新重试 / dry-run / client 生命周期）
+            // 与其他命令一致，全部由 runToolCommand 负责
+            process.stdout.write(`${notice.rawText}\n`);
+            logWarn(VERIFIED_UNSUPPORTED_NOTICE);
+            return 'handled';
+        },
+    });
 };

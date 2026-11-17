@@ -36,7 +36,7 @@ export const GLOBAL_FLAG_SPECS: GlobalFlagSpec[] = [
     { flags: '--config <path>', description: '配置文件路径（默认 ~/.config/msy-x/config.yaml）' },
     { flags: '--dry-run', description: '只打印将要发送的 {tool,args}，不发请求' },
     { flags: '--raw', description: '解析失败时把原始响应打到 stderr' },
-    { flags: '--verbose', description: '输出更多细节（凭证已脱敏）' },
+    { flags: '--verbose', description: 'stderr 打印请求/响应摘要（凭证脱敏；--quiet 不关闭）' },
     { flags: '--quiet', description: '静默模式：stderr 不输出 rows 等提示' },
 ];
 

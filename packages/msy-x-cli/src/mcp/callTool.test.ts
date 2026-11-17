@@ -7,6 +7,7 @@ import path from 'node:path';
 import { UnauthorizedError } from '@modelcontextprotocol/sdk/client/auth.js';
 import { CliError } from '../cli/errors';
 import { ExitCode } from '../cli/exitCodes';
+import { setVerbose } from '../lib/logger';
 import { runToolCommand } from '../cli/run';
 import { defaultConfig, writeConfig } from '../config/store';
 import type {
@@ -17,7 +18,36 @@ import type {
     ToolCall,
     ToolResult,
 } from '../types';
-import { executeToolCall } from './callTool';
+import { executeToolCall, summarizeArgs } from './callTool';
+
+/** 捕获 stderr 写入（verbose 日志断言用，不透传到真实 stderr） */
+const captureStderr = (): { lines: string[]; restore: () => void } => {
+    const original = process.stderr.write.bind(process.stderr);
+    const lines: string[] = [];
+    const write = ((chunk: Uint8Array | string): boolean => {
+        lines.push(Buffer.isBuffer(chunk) ? chunk.toString() : String(chunk));
+        return true;
+    }) as typeof process.stderr.write;
+    process.stderr.write = write;
+    return {
+        lines,
+        restore: () => {
+            process.stderr.write = original;
+        },
+    };
+};
+
+/** MSY_X_DEBUG 环境变量快照/还原 */
+const envDebug = {
+    backup: (): string | undefined => process.env.MSY_X_DEBUG,
+    restore: (previous: string | undefined): void => {
+        if (previous === undefined) {
+            delete process.env.MSY_X_DEBUG;
+        } else {
+            process.env.MSY_X_DEBUG = previous;
+        }
+    },
+};
 
 type CallImpl = (
     call: ToolCall,
@@ -398,5 +428,232 @@ test('runToolCommand：刷新后仍 401 → 退 3（AUTH_REQUIRED，不再二次
             process.env.MSY_X_CONFIG = previousConfig;
         }
         await fixture.closeServer();
+    }
+});
+
+/* ------------------------------------------------------------------
+ * D10：--verbose / MSY_X_DEBUG=1 的请求/响应摘要日志
+ * ------------------------------------------------------------------ */
+
+const okClient = (rows: Array<Record<string, unknown>>): McpClient =>
+    makeClient(async () => ({
+        structuredContent: { rows },
+        content: [],
+        isError: false,
+    }));
+
+test('verbose 未开启：executeToolCall 不打 [verbose]，stdout 不被污染', async () => {
+    const previous = envDebug.backup();
+    const capture = captureStderr();
+    try {
+        delete process.env.MSY_X_DEBUG;
+        setVerbose(false);
+        await executeToolCall({
+            client: okClient([{ a: 1 }]),
+            call,
+            timeoutMs: 1000,
+        });
+        assert.ok(
+            capture.lines.every((line) => !line.includes('[verbose]')),
+            '未开启 verbose 时不得有 [verbose] 行',
+        );
+    } finally {
+        capture.restore();
+        setVerbose(false);
+        envDebug.restore(previous);
+    }
+});
+
+test('--verbose：请求/响应两行（→ 与 ← ok rows=N <ms>ms source=…）', async () => {
+    const previous = envDebug.backup();
+    const capture = captureStderr();
+    try {
+        delete process.env.MSY_X_DEBUG;
+        setVerbose(true);
+        await executeToolCall({
+            client: okClient([{ a: 1 }, { a: 2 }]),
+            call,
+            timeoutMs: 1000,
+        });
+        assert.equal(capture.lines.length, 2);
+        assert.match(capture.lines[0], /^\[verbose\] → list_explores \{"pageSize":10\}\n$/);
+        assert.match(
+            capture.lines[1],
+            /^\[verbose\] ← list_explores ok rows=2 \d+ms source=structured\n$/,
+        );
+    } finally {
+        capture.restore();
+        setVerbose(false);
+        envDebug.restore(previous);
+    }
+});
+
+test('--verbose：失败时 ← <tool> error <code> <ms>ms', async () => {
+    const previous = envDebug.backup();
+    const capture = captureStderr();
+    try {
+        delete process.env.MSY_X_DEBUG;
+        setVerbose(true);
+        await assert.rejects(
+            executeToolCall({
+                client: makeClient(async () => {
+                    throw new Error(
+                        'Error POSTing to endpoint (HTTP 401): Unauthorized',
+                    );
+                }),
+                call,
+                timeoutMs: 1000,
+            }),
+            (error: unknown) => {
+                const cliError = error as Error & { code?: string };
+                assert.equal(cliError.code, 'AUTH_REQUIRED');
+                return true;
+            },
+        );
+        assert.equal(capture.lines.length, 2);
+        assert.match(capture.lines[0], /^\[verbose\] → list_explores /);
+        assert.match(
+            capture.lines[1],
+            /^\[verbose\] ← list_explores error AUTH_REQUIRED \d+ms\n$/,
+        );
+    } finally {
+        capture.restore();
+        setVerbose(false);
+        envDebug.restore(previous);
+    }
+});
+
+test('summarizeArgs：恰好 500 字符不截断，超出截为 500 + …', () => {
+    // {"q":"…"} 共 8 个固定字符，n 个 x → 总长 8+n
+    const exact = summarizeArgs({ q: 'x'.repeat(492) });
+    assert.equal(exact.length, 500);
+    assert.ok(!exact.includes('…'));
+    const over = summarizeArgs({ q: 'x'.repeat(493) });
+    assert.equal(over.length, 501);
+    assert.ok(over.endsWith('…'));
+    assert.ok(over.startsWith('{"q":"xxxx'));
+});
+
+test('--verbose：参数摘要脱敏（apiKey/Authorization/嵌套 token 全 ***）', async () => {
+    const previous = envDebug.backup();
+    const pat = `ldpat_${'a'.repeat(38)}`;
+    const capture = captureStderr();
+    try {
+        delete process.env.MSY_X_DEBUG;
+        setVerbose(true);
+        const secretCall: ToolCall = {
+            tool: 'get_site_info',
+            args: {
+                apiKey: pat,
+                Authorization: 'ApiKey x',
+                nested: { token: 't', keep: 1 },
+            },
+        };
+        await executeToolCall({
+            client: okClient([]),
+            call: secretCall,
+            timeoutMs: 1000,
+        });
+        const request = capture.lines[0];
+        assert.ok(request !== undefined);
+        assert.ok(!request.includes(pat), 'PAT 绝不能出现在请求日志里');
+        assert.ok(!request.includes('ApiKey x'), 'Authorization 值必须脱敏');
+        assert.ok(request.includes('"apiKey":"***"'));
+        assert.ok(request.includes('"Authorization":"***"'));
+        assert.ok(request.includes('"nested":{"token":"***","keep":1}'));
+    } finally {
+        capture.restore();
+        setVerbose(false);
+        envDebug.restore(previous);
+    }
+});
+
+test('runToolCommand：dry-run + --verbose → stderr 有 → …(dry-run)，stdout 只有 JSON', async () => {
+    const previous = envDebug.backup();
+    const capture = captureStderr();
+    try {
+        delete process.env.MSY_X_DEBUG;
+        const ctx: CommandContext = {
+            options: {
+                site: null,
+                projectUuid: null,
+                format: null,
+                envelope: false,
+                out: null,
+                timeoutMs: 1000,
+                mcpUrl: null,
+                authHeader: null,
+                configPath: null,
+                dryRun: true,
+                raw: false,
+                verbose: true,
+                quiet: true,
+            } satisfies GlobalOptions,
+            site: {
+                name: 'x',
+                mcpUrl: 'http://127.0.0.1:1/api/v1/mcp',
+                authMode: 'oauth',
+                authHeader: 'authorization',
+            },
+            credentials: null,
+            format: 'json',
+            startedAt: performance.now(),
+        };
+        const stdout = await captureStdout(() =>
+            runToolCommand({ tool: 'get_site_info', args: {} }, ctx),
+        );
+        assert.equal(capture.lines.length, 1);
+        assert.match(
+            capture.lines[0],
+            /^\[verbose\] → get_site_info \{\} \(dry-run\)\n$/,
+        );
+        assert.equal(stdout, '{"tool":"get_site_info","args":{}}\n');
+    } finally {
+        capture.restore();
+        setVerbose(false);
+        envDebug.restore(previous);
+    }
+});
+
+test('runToolCommand：MSY_X_DEBUG=1 等价（未传 --verbose 也打摘要）', async () => {
+    const previous = envDebug.backup();
+    const capture = captureStderr();
+    try {
+        process.env.MSY_X_DEBUG = '1';
+        const ctx: CommandContext = {
+            options: {
+                site: null,
+                projectUuid: null,
+                format: null,
+                envelope: false,
+                out: null,
+                timeoutMs: 1000,
+                mcpUrl: null,
+                authHeader: null,
+                configPath: null,
+                dryRun: true,
+                raw: false,
+                verbose: false,
+                quiet: true,
+            } satisfies GlobalOptions,
+            site: {
+                name: 'x',
+                mcpUrl: 'http://127.0.0.1:1/api/v1/mcp',
+                authMode: 'oauth',
+                authHeader: 'authorization',
+            },
+            credentials: null,
+            format: 'json',
+            startedAt: performance.now(),
+        };
+        const stdout = await captureStdout(() =>
+            runToolCommand({ tool: 'get_site_info', args: { a: 1 } }, ctx),
+        );
+        assert.match(capture.lines[0], /^\[verbose\] → get_site_info \{"a":1\} \(dry-run\)\n$/);
+        assert.equal(stdout, '{"tool":"get_site_info","args":{"a":1}}\n');
+    } finally {
+        capture.restore();
+        setVerbose(false);
+        envDebug.restore(previous);
     }
 });
