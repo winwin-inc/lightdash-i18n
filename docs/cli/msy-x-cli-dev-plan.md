@@ -187,7 +187,7 @@ packages/msy-x-cli/
 
 | # | 任务 | 状态 / 判据 |
 |---|---|---|
-| P4-1 | `scripts/pack-cli.mjs`：`npm pack` → `dist-msy-x/msy-x-cli-<ver>.tgz` + `.sha256` | ✅ 已实现；临时 prefix 安装后可执行 |
+| P4-1 | `pnpm pack-msyx`（= `pnpm -F msy-x-cli pack:tgz` → `scripts/pack-cli.mjs`）：`npm pack` → `dist-msy-x/msy-x-cli-<ver>.tgz` + `.sha256` | ✅ 已实现；临时 prefix 安装后可执行 |
 | P4-2 | 发布流水线 `.github/workflows/release-msy-x-cli.yml`（tag `msyx-v*`） | ✅ 已实现；见下方发版流程 |
 | P4-3 | `packages/msy-x-cli/README.md` | ✅ 已实现 |
 | P4-4 | 首次发版 + 两篇 docs 补“上线记录”（版本 / tgz 地址 / 验证日期） | ⬜ 待执行（需 repo vars/secrets + 运维） |
@@ -200,6 +200,15 @@ packages/msy-x-cli/
 | `CDN_PATH_PREFIX` | `msy-x` | 前端静态资源在 `msy-x/static/<ver>/`，CLI 在 `msy-x/cli/` |
 | `CDN_BASE_URL` | `https://img0.banmahui.cn` | 公共 CDN，**匿名可读**（已实测：`msy-x/static/...` 返 200） |
 | ⚠️ 不可用 | `https://report-assets.brandct.com` | 同一 k8s 配置里的 `S3_PUBLIC_ENDPOINT`，用于**预签名**下载（私有对象）；豆包 `npm install -g` 无法带签名 |
+
+#### 根脚本一览（`package.json`）
+
+| 脚本 | 作用 |
+|---|---|
+| `pnpm pack-msyx` | 打包 tgz + sha256：`packages/msy-x-cli/dist-msy-x/msy-x-cli-<ver>.tgz` |
+| `pnpm bump-msyx -- <ver>` | 同步 `package.json` 与 `src/lib/version.ts` 的 `CLI_VERSION`，commit，打 `msyx-v<ver>`（`--dry-run` 可用） |
+| `pnpm set-msyx-url -- <url>` | 把公网 tgz 地址写进豆包 `cli.json` 的 `install.default` |
+| `pnpm msy-x-cli-build` / `-test` / `-lint` / `-typecheck` / `-dev` | 包维度开发命令 |
 
 #### 发版流程（首次 0.1.0 同样适用）
 

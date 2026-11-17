@@ -163,6 +163,7 @@
         "msy-x-cli-typecheck": "pnpm -F msy-x-cli typecheck",
         "msy-x-cli-test": "pnpm -F msy-x-cli test",
         "msy-x-cli-lint": "pnpm -F msy-x-cli lint",
+        "pack-msyx": "pnpm -F msy-x-cli pack:tgz",
         "list-mcp-tools": "node scripts/list-mcp-tool-names.mjs"
     },
     "lint-staged": {
