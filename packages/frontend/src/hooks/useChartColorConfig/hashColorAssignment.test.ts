@@ -8,6 +8,7 @@ import {
     getHashColor,
     hexToHSL,
     MIN_COLOR_DIFF,
+    MIN_GENERATED_COLOR_DIFF,
     resolveSyncedHashColor,
 } from './hashColorAssignment';
 
@@ -406,5 +407,236 @@ describe('resolveSyncedHashColor', () => {
             known['其他品牌'],
         );
         expect(PALETTE).toContain(visibleOnly);
+    });
+});
+
+/**
+ * 回归：看板已占色较多时（known 30+），同图 15 个运行期新增系列曾被分配成
+ * 重复色（pickAvoidingColor 候选耗尽后直接返回冲突色）。这里钉住两点：
+ * 1) 饱和场景下同图颜色必须两两不同；
+ * 2) 未饱和场景的颜色与修复前逐项一致（不允许顺带改色）。
+ */
+describe('色位饱和时的唯一性（回归）', () => {
+    const PALETTE_LOCAL = ECHARTS_DEFAULT_COLORS;
+    const visibleKeys = Array.from(
+        { length: 15 },
+        (_, i) =>
+            `SKU-海天味极鲜酱油-${i}-69022651${String(i).padStart(5, '0')}`,
+    );
+
+    const assignedFor = (
+        knownCount: number,
+        keys: string[] = visibleKeys,
+    ): Record<string, string> => {
+        const known = assignKnownHashColors(
+            Array.from({ length: knownCount }, (_, i) => `known-${i}`),
+            PALETTE_LOCAL,
+        );
+        return appendDashboardUnknownHashColors(keys, PALETTE_LOCAL, known, {});
+    };
+
+    test.each([15, 30, 60, 120, 240])(
+        'known=%i 时同图 15 个系列颜色两两不同',
+        (knownCount) => {
+            const assignments = assignedFor(knownCount);
+            const colors = visibleKeys.map((key) => assignments[key]);
+
+            expect(colors).toHaveLength(15);
+            expect(new Set(colors).size).toBe(15);
+        },
+    );
+
+    test('同图 60 个系列（远超调色板长度）仍两两不同', () => {
+        const keys = Array.from(
+            { length: 60 },
+            (_, i) => `SKU-批量-${i}-69022651${String(i).padStart(5, '0')}`,
+        );
+        const assignments = assignedFor(60, keys);
+        const colors = keys.map((key) => assignments[key]);
+
+        expect(new Set(colors).size).toBe(60);
+    });
+
+    test('已知色很少时同图 15 系列仍然两两不同', () => {
+        // 说明：引入生成色阈值（60）后，>调色板长度的图会换一批更可区分的
+        // 颜色（预期内的变化）；「≤9 系列颜色不变」的约束由下面
+        // 「分层阈值」用例单独钉住。
+        [0, 9].forEach((knownCount) => {
+            const assignments = assignedFor(knownCount);
+            const colors = visibleKeys.map((key) => assignments[key]);
+            expect(new Set(colors).size).toBe(15);
+        });
+    });
+
+    test('同一输入重复分配结果稳定（确定性）', () => {
+        expect(assignedFor(60)).toEqual(assignedFor(60));
+    });
+});
+
+/**
+ * 回归：本图避让（appendUnknownHashColors）是标准图渲染期取色的依据。
+ * 即使看板级 known 已占很多颜色，本图可见系列也必须两两色差 ≥ MIN_COLOR_DIFF，
+ * 否则用户看到的是「一堆同色相近似色」（历史上的看板级避让就是这样挤满的）。
+ */
+describe('本图避让：known 规模不影响同图可区分度', () => {
+    const PALETTE_LOCAL = ECHARTS_DEFAULT_COLORS;
+    const visibleKeys = Array.from(
+        { length: 15 },
+        (_, i) => `SKU-本图避让-${i}-69022651${String(i).padStart(5, '0')}`,
+    );
+
+    test.each([0, 9, 30, 60, 120])(
+        'known=%i 时同图 15 系列唯一且最小色差 ≥ MIN_COLOR_DIFF',
+        (knownCount) => {
+            const known = assignKnownHashColors(
+                Array.from({ length: knownCount }, (_, i) => `known-${i}`),
+                PALETTE_LOCAL,
+            );
+            const perChart = appendUnknownHashColors(
+                visibleKeys,
+                PALETTE_LOCAL,
+                known,
+            );
+            const colors = visibleKeys.map((key) => perChart[key]);
+
+            expect(new Set(colors).size).toBe(15);
+            let minDistance = Number.POSITIVE_INFINITY;
+            for (let i = 0; i < colors.length; i += 1) {
+                for (let j = i + 1; j < colors.length; j += 1) {
+                    minDistance = Math.min(
+                        minDistance,
+                        colorDifference(colors[i], colors[j]),
+                    );
+                }
+            }
+            expect(minDistance).toBeGreaterThanOrEqual(MIN_COLOR_DIFF);
+        },
+    );
+});
+
+/**
+ * 分层阈值：主题色板仍按 MIN_COLOR_DIFF=45 使用（小图颜色不变），
+ * 生成色（扩展色 / 色相旋转）要求 ≥ MIN_GENERATED_COLOR_DIFF=60，
+ * 避免把"同色相明暗变体"当成分得开的颜色（实测扩展色最小距离只有 17.5）。
+ */
+describe('分层阈值：小图颜色不变、大图更可区分', () => {
+    const PALETTE_LOCAL = ECHARTS_DEFAULT_COLORS;
+    const brandKeys = (count: number) =>
+        Array.from(
+            { length: count },
+            (_, i) => `品牌-${i}-69022651${String(i).padStart(5, '0')}`,
+        );
+
+    const perChartColors = (count: number, knownCount: number): string[] => {
+        const keys = brandKeys(count);
+        const known = assignKnownHashColors(
+            Array.from({ length: knownCount }, (_, i) => `known-${i}`),
+            PALETTE_LOCAL,
+        );
+        const perChart = appendUnknownHashColors(keys, PALETTE_LOCAL, known);
+        return keys.map((key) => perChart[key]);
+    };
+
+    const minPairDistance = (colors: string[]): number => {
+        let min = Number.POSITIVE_INFINITY;
+        for (let i = 0; i < colors.length; i += 1) {
+            for (let j = i + 1; j < colors.length; j += 1) {
+                min = Math.min(min, colorDifference(colors[i], colors[j]));
+            }
+        }
+        return min;
+    };
+
+    test('5 / 9 个系列（≤ 调色板长度）颜色与引入生成色阈值前完全一致', () => {
+        // 快照取自引入分层阈值之前：小图不允许被顺带改色
+        expect(perChartColors(5, 0)).toEqual([
+            '#91cc75',
+            '#ee6666',
+            '#fac858',
+            '#73c0de',
+            '#3ba272',
+        ]);
+        expect(perChartColors(9, 0)).toEqual([
+            '#91cc75',
+            '#ee6666',
+            '#fac858',
+            '#73c0de',
+            '#3ba272',
+            '#ea7ccc',
+            '#9a60b4',
+            '#5470c6',
+            '#354f9e',
+        ]);
+    });
+
+    test.each([0, 9, 30, 60, 120])(
+        'known=%i 时 15 个系列两两不同且最小色差 ≥ MIN_GENERATED_COLOR_DIFF',
+        (knownCount) => {
+            const colors = perChartColors(15, knownCount);
+
+            expect(new Set(colors).size).toBe(15);
+            expect(minPairDistance(colors)).toBeGreaterThanOrEqual(
+                MIN_GENERATED_COLOR_DIFF,
+            );
+        },
+    );
+
+    test('60 个系列仍两两不同（极端饱和只保证唯一性）', () => {
+        const colors = perChartColors(60, 60);
+
+        expect(new Set(colors).size).toBe(60);
+    });
+});
+
+/**
+ * 容量保护：生成色阈值 60 的有效容量约 16–19 色，池子更大时若继续要求 60，
+ * 会提前耗尽候选并掉进「只保证不重复」的兜底，图内色差反而更差。
+ * 这里用「看板级连续追加」验证：颜色始终唯一，且第一张图不会退到极近色。
+ */
+describe('容量保护：大池子不再追求 60', () => {
+    const PALETTE_LOCAL = ECHARTS_DEFAULT_COLORS;
+    const tileKeys = (tile: number) =>
+        Array.from(
+            { length: 15 },
+            (_, i) =>
+                `SKU-容量-${tile}-${i}-69022651${String(tile * 100 + i).padStart(5, '0')}`,
+        );
+
+    test('3 张图依次注册后仍两两不同，且第一张图的色差不退化', () => {
+        const known = assignKnownHashColors(
+            Array.from({ length: 30 }, (_, i) => `known-${i}`),
+            PALETTE_LOCAL,
+        );
+        let appended: Record<string, string> = {};
+        const perTileColors: string[][] = [];
+
+        for (let tile = 1; tile <= 3; tile += 1) {
+            const keys = tileKeys(tile);
+            const next = appendDashboardUnknownHashColors(
+                keys,
+                PALETTE_LOCAL,
+                known,
+                appended,
+            );
+            appended = next;
+            perTileColors.push(keys.map((key) => next[key]));
+        }
+
+        perTileColors.forEach((colors) => {
+            expect(new Set(colors).size).toBe(15);
+        });
+
+        // 第一张图只与 known 竞争，色差应保持在可用区间（容量保护后 ≈45）
+        let firstTileMin = Number.POSITIVE_INFINITY;
+        const first = perTileColors[0];
+        for (let i = 0; i < first.length; i += 1) {
+            for (let j = i + 1; j < first.length; j += 1) {
+                firstTileMin = Math.min(
+                    firstTileMin,
+                    colorDifference(first[i], first[j]),
+                );
+            }
+        }
+        expect(firstTileMin).toBeGreaterThanOrEqual(MIN_COLOR_DIFF - 0.5);
     });
 });

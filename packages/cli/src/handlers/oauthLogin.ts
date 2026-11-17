@@ -24,6 +24,11 @@ const openBrowser = async (url: string): Promise<void> => {
             await execAsync(`open "${url}"`);
         } else if (platform === 'win32') {
             await execAsync(`start "${url}"`);
+        } else if (process.env.BROWSER) {
+            // Respect $BROWSER first (e.g. WSL: BROWSER=wslview from wslu).
+            // xdg-open only honors $BROWSER in generic mode and requires
+            // xdg-utils to be installed, which bare WSL lacks.
+            await execAsync(`"${process.env.BROWSER}" "${url}"`);
         } else {
             await execAsync(`xdg-open "${url}"`);
         }

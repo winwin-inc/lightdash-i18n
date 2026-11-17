@@ -6,7 +6,23 @@ import {
 } from './colorSyncKeys';
 
 const FALLBACK_COLOR = '#868e96';
+/** 主题色板内部的最小可接受色差（主题色是人工挑选的，阈值不宜过高） */
 export const MIN_COLOR_DIFF = 45;
+/**
+ * 生成色（扩展调色板 / 色相旋转）的最小可接受色差。
+ *
+ * 比主题色更严：扩展色是同色相的明暗变体，实测 36 色里最小两两距离只有
+ * 17.5，视觉上与主色几乎一样（用户会认为"重复"）。生成色要求 ≥60 才会
+ * 被采用，逼着算法走色相旋转，得到真正能区分的颜色。
+ */
+export const MIN_GENERATED_COLOR_DIFF = 60;
+/**
+ * 生成色阈值 60 的有效容量（实测约 16–19 个颜色）。
+ * 已用色超过该数量后，继续要求 60 会提前耗尽候选、掉进「只保证不重复」的
+ * 兜底，图内色差反而更差（实测 known=30 时 29.3，退化到 45 后可回到 ≈46）。
+ * 因此池子超过容量时把生成色阈值降级回 MIN_COLOR_DIFF。
+ */
+export const GENERATED_DIFF_CAPACITY = 20;
 const MAX_AVOID_ATTEMPTS = 100;
 
 type ParsedRgb = { r: number; g: number; b: number };
@@ -154,6 +170,23 @@ export const colorDifference = (color1: string, color2: string): number => {
 const conflictsWithUsed = (color: string, usedColors: string[]): boolean =>
     usedColors.some((used) => colorDifference(color, used) < MIN_COLOR_DIFF);
 
+/**
+ * 生成色用更严的阈值：避免把"同色相明暗变体"当成分得开的颜色。
+ * 池子超过容量后自动降级，避免过早耗尽候选（见 GENERATED_DIFF_CAPACITY）。
+ */
+const generatedDiffThreshold = (usedColors: string[]): number =>
+    usedColors.length >= GENERATED_DIFF_CAPACITY
+        ? MIN_COLOR_DIFF
+        : MIN_GENERATED_COLOR_DIFF;
+
+const conflictsWithUsedGenerated = (
+    color: string,
+    usedColors: string[],
+): boolean => {
+    const threshold = generatedDiffThreshold(usedColors);
+    return usedColors.some((used) => colorDifference(color, used) < threshold);
+};
+
 export const getHashColor = (
     identifier: string,
     colorPalette: string[],
@@ -164,6 +197,54 @@ export const getHashColor = (
     return colorPalette[hashString(identifier) % colorPalette.length];
 };
 
+const clamp = (value: number, min: number, max: number): number =>
+    Math.min(max, Math.max(min, value));
+
+/** 第 1–12 个候选保持历史上的 +30° 步进（既有分配结果不变） */
+const LEGACY_HUE_STEPS = 12;
+const LEGACY_HUE_STEP_DEG = 30;
+/** 之后改用黄金角，让候选色相尽量分散，避免绕回撞色 */
+const GOLDEN_ANGLE_DEG = 137.508;
+
+/**
+ * 第 `attempt` 个候选色。
+ *
+ * 前 12 个与历史实现逐字一致（色相 +30°、饱和度/亮度取 base 的钳制值），
+ * 保证"以前能分配成功"的系列颜色完全不变；从第 13 个起用黄金角扩空间，
+ * 并按圈数轻微摆动饱和度/亮度，避免长尾时反复给出同一个色。
+ */
+const hueCandidateAt = (
+    base: { h: number; s: number; l: number },
+    attempt: number,
+): string => {
+    if (attempt <= LEGACY_HUE_STEPS) {
+        return hslToHex(
+            (base.h + attempt * LEGACY_HUE_STEP_DEG) % 360,
+            clamp(base.s, 0.4, 0.85),
+            clamp(base.l, 0.35, 0.7),
+        );
+    }
+
+    const step = attempt - LEGACY_HUE_STEPS;
+    const hue =
+        (base.h +
+            LEGACY_HUE_STEPS * LEGACY_HUE_STEP_DEG +
+            step * GOLDEN_ANGLE_DEG) %
+        360;
+    // 饱和度/亮度按 3×3 网格循环，配合色相形成更大的候选空间：
+    // 看板级追加（多图共存）时只靠色相可用色有限，图内色差会掉到 15 上下。
+    const saturation = 0.45 + (step % 3) * 0.15;
+    const lightness = 0.4 + (Math.floor(step / 3) % 3) * 0.16;
+    return hslToHex(hue, saturation, lightness);
+};
+
+/**
+ * 同一张图内分配颜色。
+ *
+ * 顺序：主题色 → 扩展色 → 同基色的色相候选。
+ * 色差不足够时**唯一性优先**：最后一轮只要求「不与已用色完全相同」，
+ * 避免历史实现「候选耗尽后直接返回冲突色」导致同图出现重复色。
+ */
 const pickAvoidingColor = (
     identifier: string,
     colorPalette: string[],
@@ -186,25 +267,39 @@ const pickAvoidingColor = (
     const expanded = expandPalette(colorPalette);
     for (let index = colorPalette.length; index < expanded.length; index++) {
         const color = expanded[index];
-        if (!conflictsWithUsed(color, usedColors)) {
+        if (!conflictsWithUsedGenerated(color, usedColors)) {
             return color;
         }
     }
 
     const base = hexToHSL(colorPalette[start]);
-    let color = colorPalette[start];
     for (let attempt = 1; attempt <= MAX_AVOID_ATTEMPTS; attempt++) {
-        color = hslToHex(
-            (base.h + attempt * 30) % 360,
-            Math.max(0.4, Math.min(0.85, base.s)),
-            Math.max(0.35, Math.min(0.7, base.l)),
-        );
-        if (!conflictsWithUsed(color, usedColors)) {
+        const color = hueCandidateAt(base, attempt);
+        if (!conflictsWithUsedGenerated(color, usedColors)) {
             return color;
         }
     }
 
-    return color;
+    // 兜底：色差已不可能全部满足，退化为「只要不重复」
+    const usedNormalized = new Set(usedColors.map(normalizeColor));
+    for (let attempt = 1; attempt <= MAX_AVOID_ATTEMPTS; attempt++) {
+        const color = hueCandidateAt(base, attempt);
+        if (!usedNormalized.has(normalizeColor(color))) {
+            return color;
+        }
+    }
+    for (let step = 1; step <= MAX_AVOID_ATTEMPTS; step++) {
+        const color = hslToHex(
+            base.h,
+            clamp(base.s, 0.4, 0.85),
+            clamp(base.l + step * 0.01, 0.2, 0.9),
+        );
+        if (!usedNormalized.has(normalizeColor(color))) {
+            return color;
+        }
+    }
+
+    return hueCandidateAt(base, MAX_AVOID_ATTEMPTS);
 };
 
 const buildCooccurrenceNeighbors = (
