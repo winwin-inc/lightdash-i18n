@@ -6,7 +6,16 @@ import {
 } from './colorSyncKeys';
 
 const FALLBACK_COLOR = '#868e96';
+/** 主题色板内部的最小可接受色差（主题色是人工挑选的，阈值不宜过高） */
 export const MIN_COLOR_DIFF = 45;
+/**
+ * 生成色（扩展调色板 / 色相旋转）的最小可接受色差。
+ *
+ * 比主题色更严：扩展色是同色相的明暗变体，实测 36 色里最小两两距离只有
+ * 17.5，视觉上与主色几乎一样（用户会认为"重复"）。生成色要求 ≥60 才会
+ * 被采用，逼着算法走色相旋转，得到真正能区分的颜色。
+ */
+export const MIN_GENERATED_COLOR_DIFF = 60;
 const MAX_AVOID_ATTEMPTS = 100;
 
 type ParsedRgb = { r: number; g: number; b: number };
@@ -154,6 +163,15 @@ export const colorDifference = (color1: string, color2: string): number => {
 const conflictsWithUsed = (color: string, usedColors: string[]): boolean =>
     usedColors.some((used) => colorDifference(color, used) < MIN_COLOR_DIFF);
 
+/** 生成色用更严的阈值：避免把"同色相明暗变体"当成分得开的颜色 */
+const conflictsWithUsedGenerated = (
+    color: string,
+    usedColors: string[],
+): boolean =>
+    usedColors.some(
+        (used) => colorDifference(color, used) < MIN_GENERATED_COLOR_DIFF,
+    );
+
 export const getHashColor = (
     identifier: string,
     colorPalette: string[],
@@ -236,7 +254,7 @@ const pickAvoidingColor = (
     const expanded = expandPalette(colorPalette);
     for (let index = colorPalette.length; index < expanded.length; index++) {
         const color = expanded[index];
-        if (!conflictsWithUsed(color, usedColors)) {
+        if (!conflictsWithUsedGenerated(color, usedColors)) {
             return color;
         }
     }
@@ -244,7 +262,7 @@ const pickAvoidingColor = (
     const base = hexToHSL(colorPalette[start]);
     for (let attempt = 1; attempt <= MAX_AVOID_ATTEMPTS; attempt++) {
         const color = hueCandidateAt(base, attempt);
-        if (!conflictsWithUsed(color, usedColors)) {
+        if (!conflictsWithUsedGenerated(color, usedColors)) {
             return color;
         }
     }
