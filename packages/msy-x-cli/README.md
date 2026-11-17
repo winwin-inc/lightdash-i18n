@@ -14,14 +14,14 @@
 # 方式一：npm 源（拿到 npm 账号后）
 npm i -g msy-x-cli
 
-# 方式二：tgz 文件地址（首批分发方式，地址由运营/运维提供）
-npm i -g https://<host>/msy-x-cli-0.1.0.tgz
+# 方式二：公网 tgz（当前发布方式）
+npm i -g https://img0.banmahui.cn/msy-x/cli/msy-x-cli/0.1.1/msy-x-cli-0.1.1.tgz
 ```
 
 验证安装：
 
 ```bash
-msy-x --version    # 输出：msy-x 0.1.0
+msy-x --version    # 输出：msy-x 0.1.1
 msy-x --help
 ```
 
@@ -31,6 +31,7 @@ msy-x --help
 
 ```bash
 msy-x auth login     # 浏览器授权（OAuth）。自动拉起默认浏览器，阻塞等待到授权完成/拒绝/超时
+                     # 简写：msy-x login（等同）、msy-x logout（等同 auth logout）
 msy-x auth status    # 查看登录状态（纯本地判断，离线可用）
 msy-x auth logout    # 清除本机凭证（幂等，重复执行不报错）
 ```
@@ -59,7 +60,7 @@ msy-x auth logout    # 清除本机凭证（幂等，重复执行不报错）
 
 | 命令 | 说明 | 示例 |
 |---|---|---|
-| `auth login` / `status` / `logout` | 登录 / 状态 / 登出（见上节） | `msy-x auth login` |
+| `auth login` / `status` / `logout`（别名 `login` / `logout`） | 登录 / 状态 / 登出（见上节） | `msy-x auth login` |
 | `site` | 查看 / 切换已配置的站点（对应配置里的多站点 profile；临时切换用全局 `--site`） | `msy-x site list` |
 | `info` | 站点与版本信息、当前默认项目（一次调用 3 个工具，输出为单个合并 JSON 对象） | `msy-x info` |
 | `access` | 我的权限与可查范围（拿不准能不能查时先看这个） | `msy-x access --explores` |

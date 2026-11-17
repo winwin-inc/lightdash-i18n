@@ -190,7 +190,7 @@ packages/msy-x-cli/
 | P4-1 | `pnpm pack-msyx`（= `pnpm -F msy-x-cli pack:tgz` → `scripts/pack-cli.mjs`）：`npm pack` → `dist-msy-x/msy-x-cli-<ver>.tgz` + `.sha256` | ✅ 已实现；临时 prefix 安装后可执行 |
 | P4-2 | 发布流水线 `.github/workflows/release-msy-x-cli.yml`（tag `msyx-v*`） | ✅ 已实现；见下方发版流程 |
 | P4-3 | `packages/msy-x-cli/README.md` | ✅ 已实现 |
-| P4-4 | 发版：0.1.0 首发布、0.1.1 补 `login`/`logout` 别名 ✅；剩余为真实站点验收记录 | ⬜ 待补验收记录 |
+| P4-4 | 发版：0.1.0 首发布、0.1.1 补 `login`/`logout` 别名 ✅；✅ 上线记录见下方 | ⬜ 真实站点验收待补 |
 
 #### 分发基线（来自 `../k8s-config` master 的 `lightdash/lightdash-config.yaml`）
 
@@ -219,7 +219,16 @@ packages/msy-x-cli/
 | 品牌站预发 | `https://x.pre.banmahui.cn/api/v1/mcp` | 内置 v2 |
 | 旧版独立包（弃用中） | `https://mcp-x.brandct.com/mcp` / `https://mcp-lightdash.banmahui.cn/mcp` | 会话式 + `x-api-key`；k8s `lightdash-mcp` / `lightdash-internal-mcp` 仍在运行（最新 `mcp-v2.5.8`），退役按去留评估方案 C 走 |
 
-#### 发版流程（首次 0.1.0 同样适用）
+#### 上线记录
+
+| 版本 | 公网 tgz | sha256 | 发布时间 | 变更 |
+|---|---|---|---|---|
+| 0.1.0 | `https://img0.banmahui.cn/msy-x/cli/msy-x-cli/0.1.0/msy-x-cli-0.1.0.tgz` | `43decbb864aca48ac40eccf22abf5c81361c89dec4d4726b3fd4efc509fead26` | 2026-11-17 | 首个发布：35 命令、OAuth/PAT、doctor、verified |
+| 0.1.1 | `https://img0.banmahui.cn/msy-x/cli/msy-x-cli/0.1.1/msy-x-cli-0.1.1.tgz` | `2287f542120768c96b437a562493c7342c2399f43cba57008c19dba0afc05b33` | 2026-11-17 | 顶层 `login`/`logout` 别名；本地凭证命令拒绝 `--dry-run` |
+
+两条均已在公网验证：`curl -sSI` 返回 `200` + `content-type: application/gzip`，且 `npm i -g <url>` 后 `msy-x --version` 正确、`--help` 含 `login`/`logout`。
+
+#### 发版流程（0.1.x 通用）
 
 1. 算好目标 URL（**确定性，可提前拼**）：`https://img0.banmahui.cn/msy-x/cli/msy-x-cli/<ver>/msy-x-cli-<ver>.tgz`
 2. `pnpm set-msyx-url -- <URL>`：把地址写进 `packages/x-doubao-plugin/plugin/com.doubao/cli.json`（只改 `install.default`）
@@ -274,7 +283,7 @@ timeout 180 msy-x dashboards tiles d54853b1-85df-4ab3-8cdf-70a5244640e1
 
 ### 5.4 安装与非交互
 
-- `npm pack` → `npm i -g --prefix /tmp/msy-x-prefix ./msy-x-cli-0.1.0.tgz` → `/tmp/msy-x-prefix/bin/msy-x --version`。
+- `npm pack` → `npm i -g --prefix /tmp/msy-x-prefix ./msy-x-cli-0.1.1.tgz` → `/tmp/msy-x-prefix/bin/msy-x --version`。
 - `msy-x --help < /dev/null`、`msy-x auth status < /dev/null` 不挂起。
 - Windows 手测：`msy-x.cmd` 存在、`cmd /c start` 拉浏览器、回环回调可达、中文 UTF-8 不乱码。
 
