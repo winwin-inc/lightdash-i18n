@@ -408,3 +408,100 @@ describe('resolveSyncedHashColor', () => {
         expect(PALETTE).toContain(visibleOnly);
     });
 });
+
+/**
+ * 回归：看板已占色较多时（known 30+），同图 15 个运行期新增系列曾被分配成
+ * 重复色（pickAvoidingColor 候选耗尽后直接返回冲突色）。这里钉住两点：
+ * 1) 饱和场景下同图颜色必须两两不同；
+ * 2) 未饱和场景的颜色与修复前逐项一致（不允许顺带改色）。
+ */
+describe('色位饱和时的唯一性（回归）', () => {
+    const PALETTE_LOCAL = ECHARTS_DEFAULT_COLORS;
+    const visibleKeys = Array.from(
+        { length: 15 },
+        (_, i) =>
+            `SKU-海天味极鲜酱油-${i}-69022651${String(i).padStart(5, '0')}`,
+    );
+
+    const assignedFor = (
+        knownCount: number,
+        keys: string[] = visibleKeys,
+    ): Record<string, string> => {
+        const known = assignKnownHashColors(
+            Array.from({ length: knownCount }, (_, i) => `known-${i}`),
+            PALETTE_LOCAL,
+        );
+        return appendDashboardUnknownHashColors(keys, PALETTE_LOCAL, known, {});
+    };
+
+    test.each([15, 30, 60, 120, 240])(
+        'known=%i 时同图 15 个系列颜色两两不同',
+        (knownCount) => {
+            const assignments = assignedFor(knownCount);
+            const colors = visibleKeys.map((key) => assignments[key]);
+
+            expect(colors).toHaveLength(15);
+            expect(new Set(colors).size).toBe(15);
+        },
+    );
+
+    test('同图 60 个系列（远超调色板长度）仍两两不同', () => {
+        const keys = Array.from(
+            { length: 60 },
+            (_, i) => `SKU-批量-${i}-69022651${String(i).padStart(5, '0')}`,
+        );
+        const assignments = assignedFor(60, keys);
+        const colors = keys.map((key) => assignments[key]);
+
+        expect(new Set(colors).size).toBe(60);
+    });
+
+    test('未饱和场景（known=0 / known=9）的颜色与修复前完全一致', () => {
+        // 修复前实测快照：不允许因为兜底改动而改变既有分配结果
+        const beforeKnown0 = [
+            '#9a60b4',
+            '#3ba272',
+            '#91cc75',
+            '#354f9e',
+            '#7e8fc5',
+            '#fdb191',
+            '#fb520c',
+            '#bbdfa9',
+            '#68b643',
+            '#f8b113',
+            '#fc8452',
+            '#fac858',
+            '#73c0de',
+            '#ea7ccc',
+            '#5470c6',
+        ];
+        const beforeKnown9 = [
+            '#7e8fc5',
+            '#fdb191',
+            '#e88787',
+            '#a4d6ea',
+            '#39a6d0',
+            '#5fc596',
+            '#286e4d',
+            '#b991cb',
+            '#74428b',
+            '#e03eb4',
+            '#fb520c',
+            '#bbdfa9',
+            '#68b643',
+            '#f8b113',
+            '#e72626',
+        ];
+
+        expect(visibleKeys.map((key) => assignedFor(0)[key])).toEqual(
+            beforeKnown0,
+        );
+        expect(visibleKeys.map((key) => assignedFor(9)[key])).toEqual(
+            beforeKnown9,
+        );
+    });
+
+    test('同一输入重复分配结果稳定（确定性）', () => {
+        expect(assignedFor(60)).toEqual(assignedFor(60));
+    });
+});

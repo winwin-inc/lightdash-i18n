@@ -164,6 +164,56 @@ export const getHashColor = (
     return colorPalette[hashString(identifier) % colorPalette.length];
 };
 
+const clamp = (value: number, min: number, max: number): number =>
+    Math.min(max, Math.max(min, value));
+
+/** 第 1–12 个候选保持历史上的 +30° 步进（既有分配结果不变） */
+const LEGACY_HUE_STEPS = 12;
+const LEGACY_HUE_STEP_DEG = 30;
+/** 之后改用黄金角，让候选色相尽量分散，避免绕回撞色 */
+const GOLDEN_ANGLE_DEG = 137.508;
+
+/**
+ * 第 `attempt` 个候选色。
+ *
+ * 前 12 个与历史实现逐字一致（色相 +30°、饱和度/亮度取 base 的钳制值），
+ * 保证"以前能分配成功"的系列颜色完全不变；从第 13 个起用黄金角扩空间，
+ * 并按圈数轻微摆动饱和度/亮度，避免长尾时反复给出同一个色。
+ */
+const hueCandidateAt = (
+    base: { h: number; s: number; l: number },
+    attempt: number,
+): string => {
+    if (attempt <= LEGACY_HUE_STEPS) {
+        return hslToHex(
+            (base.h + attempt * LEGACY_HUE_STEP_DEG) % 360,
+            clamp(base.s, 0.4, 0.85),
+            clamp(base.l, 0.35, 0.7),
+        );
+    }
+
+    const hue =
+        (base.h +
+            LEGACY_HUE_STEPS * LEGACY_HUE_STEP_DEG +
+            (attempt - LEGACY_HUE_STEPS) * GOLDEN_ANGLE_DEG) %
+        360;
+    const round = Math.floor((attempt - LEGACY_HUE_STEPS - 1) / 6);
+    const saturation = clamp(base.s + ((round % 3) - 1) * 0.04, 0.4, 0.85);
+    const lightness = clamp(
+        base.l + (round % 2 === 0 ? 1 : -1) * 0.05,
+        0.35,
+        0.7,
+    );
+    return hslToHex(hue, saturation, lightness);
+};
+
+/**
+ * 同一张图内分配颜色。
+ *
+ * 顺序：主题色 → 扩展色 → 同基色的色相候选。
+ * 色差不足够时**唯一性优先**：最后一轮只要求「不与已用色完全相同」，
+ * 避免历史实现「候选耗尽后直接返回冲突色」导致同图出现重复色。
+ */
 const pickAvoidingColor = (
     identifier: string,
     colorPalette: string[],
@@ -192,19 +242,33 @@ const pickAvoidingColor = (
     }
 
     const base = hexToHSL(colorPalette[start]);
-    let color = colorPalette[start];
     for (let attempt = 1; attempt <= MAX_AVOID_ATTEMPTS; attempt++) {
-        color = hslToHex(
-            (base.h + attempt * 30) % 360,
-            Math.max(0.4, Math.min(0.85, base.s)),
-            Math.max(0.35, Math.min(0.7, base.l)),
-        );
+        const color = hueCandidateAt(base, attempt);
         if (!conflictsWithUsed(color, usedColors)) {
             return color;
         }
     }
 
-    return color;
+    // 兜底：色差已不可能全部满足，退化为「只要不重复」
+    const usedNormalized = new Set(usedColors.map(normalizeColor));
+    for (let attempt = 1; attempt <= MAX_AVOID_ATTEMPTS; attempt++) {
+        const color = hueCandidateAt(base, attempt);
+        if (!usedNormalized.has(normalizeColor(color))) {
+            return color;
+        }
+    }
+    for (let step = 1; step <= MAX_AVOID_ATTEMPTS; step++) {
+        const color = hslToHex(
+            base.h,
+            clamp(base.s, 0.4, 0.85),
+            clamp(base.l + step * 0.01, 0.2, 0.9),
+        );
+        if (!usedNormalized.has(normalizeColor(color))) {
+            return color;
+        }
+    }
+
+    return hueCandidateAt(base, MAX_AVOID_ATTEMPTS);
 };
 
 const buildCooccurrenceNeighbors = (
