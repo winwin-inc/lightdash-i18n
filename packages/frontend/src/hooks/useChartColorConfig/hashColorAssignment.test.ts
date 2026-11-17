@@ -505,3 +505,44 @@ describe('色位饱和时的唯一性（回归）', () => {
         expect(assignedFor(60)).toEqual(assignedFor(60));
     });
 });
+
+/**
+ * 回归：本图避让（appendUnknownHashColors）是标准图渲染期取色的依据。
+ * 即使看板级 known 已占很多颜色，本图可见系列也必须两两色差 ≥ MIN_COLOR_DIFF，
+ * 否则用户看到的是「一堆同色相近似色」（历史上的看板级避让就是这样挤满的）。
+ */
+describe('本图避让：known 规模不影响同图可区分度', () => {
+    const PALETTE_LOCAL = ECHARTS_DEFAULT_COLORS;
+    const visibleKeys = Array.from(
+        { length: 15 },
+        (_, i) => `SKU-本图避让-${i}-69022651${String(i).padStart(5, '0')}`,
+    );
+
+    test.each([0, 9, 30, 60, 120])(
+        'known=%i 时同图 15 系列唯一且最小色差 ≥ MIN_COLOR_DIFF',
+        (knownCount) => {
+            const known = assignKnownHashColors(
+                Array.from({ length: knownCount }, (_, i) => `known-${i}`),
+                PALETTE_LOCAL,
+            );
+            const perChart = appendUnknownHashColors(
+                visibleKeys,
+                PALETTE_LOCAL,
+                known,
+            );
+            const colors = visibleKeys.map((key) => perChart[key]);
+
+            expect(new Set(colors).size).toBe(15);
+            let minDistance = Number.POSITIVE_INFINITY;
+            for (let i = 0; i < colors.length; i += 1) {
+                for (let j = i + 1; j < colors.length; j += 1) {
+                    minDistance = Math.min(
+                        minDistance,
+                        colorDifference(colors[i], colors[j]),
+                    );
+                }
+            }
+            expect(minDistance).toBeGreaterThanOrEqual(MIN_COLOR_DIFF);
+        },
+    );
+});

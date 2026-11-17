@@ -35,7 +35,10 @@ import {
     lookupSyncedColor,
     pieRowColorKeys,
 } from '../../hooks/useChartColorConfig/colorSyncKeys';
-import { resolveSyncedHashColor } from '../../hooks/useChartColorConfig/hashColorAssignment';
+import {
+    appendUnknownHashColors,
+    resolveSyncedHashColor,
+} from '../../hooks/useChartColorConfig/hashColorAssignment';
 import { type SeriesLike } from '../../hooks/useChartColorConfig/types';
 import { useChartColorConfig } from '../../hooks/useChartColorConfig/useChartColorConfig';
 import {
@@ -191,7 +194,7 @@ const VisualizationProvider: FC<
     const { validPivotDimensions, setPivotDimensions } = usePivotDimensions(
         initialPivotDimensions,
         useSqlPivotResults?.enabled
-            ? unsavedMetricQuery ?? lastValidResultsData?.metricQuery
+            ? (unsavedMetricQuery ?? lastValidResultsData?.metricQuery)
             : lastValidResultsData?.metricQuery,
     );
 
@@ -236,7 +239,27 @@ const VisualizationProvider: FC<
         registerVisibleColorKeys(visibleColorKeys);
     }, [registerVisibleColorKeys, useHashBased, visibleColorKeys]);
 
-    const chartHashAssignments = hashAssignments;
+    /**
+     * 本图色表 = 看板 known 色 + 本图可见系列的避让结果。
+     *
+     * 只对本图的可见集做避让（appendUnknownHashColors），而不是等
+     * useLayoutEffect 把名字注册到看板级色表后再取色：
+     * 看板级色表避让的是「整个看板已占用的颜色」，图一多色位就被挤满，
+     * 后注册的系列只能拿到同色相近似色（甚至重复色）。按本图避让可在
+     * 任意 known 规模下都保证本图 15 个系列两两色差 ≥ MIN_COLOR_DIFF。
+     * 已知（保存过）的系列仍以看板 known 映射为准，跨图同名同色不变。
+     */
+    const chartHashAssignments = useMemo(
+        () =>
+            useHashBased
+                ? appendUnknownHashColors(
+                      visibleColorKeys,
+                      colorPalette,
+                      hashAssignments,
+                  )
+                : hashAssignments,
+        [useHashBased, visibleColorKeys, colorPalette, hashAssignments],
+    );
 
     /** 看板级颜色同步信息，供自定义图表（Vega-Lite）注入 color scale 使用 */
     const colorSync = useMemo(
