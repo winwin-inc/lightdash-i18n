@@ -16,6 +16,13 @@ export const MIN_COLOR_DIFF = 45;
  * 被采用，逼着算法走色相旋转，得到真正能区分的颜色。
  */
 export const MIN_GENERATED_COLOR_DIFF = 60;
+/**
+ * 生成色阈值 60 的有效容量（实测约 16–19 个颜色）。
+ * 已用色超过该数量后，继续要求 60 会提前耗尽候选、掉进「只保证不重复」的
+ * 兜底，图内色差反而更差（实测 known=30 时 29.3，退化到 45 后可回到 ≈46）。
+ * 因此池子超过容量时把生成色阈值降级回 MIN_COLOR_DIFF。
+ */
+export const GENERATED_DIFF_CAPACITY = 20;
 const MAX_AVOID_ATTEMPTS = 100;
 
 type ParsedRgb = { r: number; g: number; b: number };
@@ -163,14 +170,22 @@ export const colorDifference = (color1: string, color2: string): number => {
 const conflictsWithUsed = (color: string, usedColors: string[]): boolean =>
     usedColors.some((used) => colorDifference(color, used) < MIN_COLOR_DIFF);
 
-/** 生成色用更严的阈值：避免把"同色相明暗变体"当成分得开的颜色 */
+/**
+ * 生成色用更严的阈值：避免把"同色相明暗变体"当成分得开的颜色。
+ * 池子超过容量后自动降级，避免过早耗尽候选（见 GENERATED_DIFF_CAPACITY）。
+ */
+const generatedDiffThreshold = (usedColors: string[]): number =>
+    usedColors.length >= GENERATED_DIFF_CAPACITY
+        ? MIN_COLOR_DIFF
+        : MIN_GENERATED_COLOR_DIFF;
+
 const conflictsWithUsedGenerated = (
     color: string,
     usedColors: string[],
-): boolean =>
-    usedColors.some(
-        (used) => colorDifference(color, used) < MIN_GENERATED_COLOR_DIFF,
-    );
+): boolean => {
+    const threshold = generatedDiffThreshold(usedColors);
+    return usedColors.some((used) => colorDifference(color, used) < threshold);
+};
 
 export const getHashColor = (
     identifier: string,
@@ -210,18 +225,16 @@ const hueCandidateAt = (
         );
     }
 
+    const step = attempt - LEGACY_HUE_STEPS;
     const hue =
         (base.h +
             LEGACY_HUE_STEPS * LEGACY_HUE_STEP_DEG +
-            (attempt - LEGACY_HUE_STEPS) * GOLDEN_ANGLE_DEG) %
+            step * GOLDEN_ANGLE_DEG) %
         360;
-    const round = Math.floor((attempt - LEGACY_HUE_STEPS - 1) / 6);
-    const saturation = clamp(base.s + ((round % 3) - 1) * 0.04, 0.4, 0.85);
-    const lightness = clamp(
-        base.l + (round % 2 === 0 ? 1 : -1) * 0.05,
-        0.35,
-        0.7,
-    );
+    // 饱和度/亮度按 3×3 网格循环，配合色相形成更大的候选空间：
+    // 看板级追加（多图共存）时只靠色相可用色有限，图内色差会掉到 15 上下。
+    const saturation = 0.45 + (step % 3) * 0.15;
+    const lightness = 0.4 + (Math.floor(step / 3) % 3) * 0.16;
     return hslToHex(hue, saturation, lightness);
 };
 

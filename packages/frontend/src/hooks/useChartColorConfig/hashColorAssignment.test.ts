@@ -587,3 +587,56 @@ describe('分层阈值：小图颜色不变、大图更可区分', () => {
         expect(new Set(colors).size).toBe(60);
     });
 });
+
+/**
+ * 容量保护：生成色阈值 60 的有效容量约 16–19 色，池子更大时若继续要求 60，
+ * 会提前耗尽候选并掉进「只保证不重复」的兜底，图内色差反而更差。
+ * 这里用「看板级连续追加」验证：颜色始终唯一，且第一张图不会退到极近色。
+ */
+describe('容量保护：大池子不再追求 60', () => {
+    const PALETTE_LOCAL = ECHARTS_DEFAULT_COLORS;
+    const tileKeys = (tile: number) =>
+        Array.from(
+            { length: 15 },
+            (_, i) =>
+                `SKU-容量-${tile}-${i}-69022651${String(tile * 100 + i).padStart(5, '0')}`,
+        );
+
+    test('3 张图依次注册后仍两两不同，且第一张图的色差不退化', () => {
+        const known = assignKnownHashColors(
+            Array.from({ length: 30 }, (_, i) => `known-${i}`),
+            PALETTE_LOCAL,
+        );
+        let appended: Record<string, string> = {};
+        const perTileColors: string[][] = [];
+
+        for (let tile = 1; tile <= 3; tile += 1) {
+            const keys = tileKeys(tile);
+            const next = appendDashboardUnknownHashColors(
+                keys,
+                PALETTE_LOCAL,
+                known,
+                appended,
+            );
+            appended = next;
+            perTileColors.push(keys.map((key) => next[key]));
+        }
+
+        perTileColors.forEach((colors) => {
+            expect(new Set(colors).size).toBe(15);
+        });
+
+        // 第一张图只与 known 竞争，色差应保持在可用区间（容量保护后 ≈45）
+        let firstTileMin = Number.POSITIVE_INFINITY;
+        const first = perTileColors[0];
+        for (let i = 0; i < first.length; i += 1) {
+            for (let j = i + 1; j < first.length; j += 1) {
+                firstTileMin = Math.min(
+                    firstTileMin,
+                    colorDifference(first[i], first[j]),
+                );
+            }
+        }
+        expect(firstTileMin).toBeGreaterThanOrEqual(MIN_COLOR_DIFF - 0.5);
+    });
+});
