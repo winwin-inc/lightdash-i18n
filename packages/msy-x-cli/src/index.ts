@@ -20,6 +20,11 @@ export const buildProgram = (): Command => {
                 '默认站点：x（https://x.brandct.com/api/v1/mcp）',
         )
         .showHelpAfterError('运行 msy-x help [command] 查看用法')
+        // 子命令前的全局选项旧 program，子命令后的旧叶子命令（配合 ancestorOptsOf 合并）
+        .enablePositionalOptions()
+        // stderr 只允许出现我们的单行 JSON（见设计稿 §8.1）；
+        // commander 自己的 "error: ..." 文案会挤在同一行上下文里，屏蔽掉
+        .configureOutput({ writeErr: () => undefined })
         .exitOverride();
     return program;
 };
@@ -27,6 +32,11 @@ export const buildProgram = (): Command => {
 export const main = async (argv: string[]): Promise<number> => {
     const program = buildProgram();
     registerCommands(program);
+    // 裸执行 `msy-x`：打印帮助并以 0 退出（不当作用法错误）
+    if (argv.length <= 2) {
+        program.outputHelp();
+        return ExitCode.OK;
+    }
     try {
         await program.parseAsync(argv);
         return ExitCode.OK;
@@ -48,7 +58,17 @@ export const main = async (argv: string[]): Promise<number> => {
 };
 
 if (require.main === module) {
-    void main(process.argv).then((code) => {
-        process.exitCode = code;
-    });
+    main(process.argv)
+        .then((code) => {
+            process.exitCode = code;
+        })
+        .catch((error: unknown) => {
+            // main 内部已兜底；这里只防 writeError 本身出错（stdout/stderr 不可写等）
+            process.stderr.write(
+                `${JSON.stringify({
+                    error: { code: 'SERVER_ERROR', message: String(error) },
+                })}\n`,
+            );
+            process.exitCode = ExitCode.SERVER_ERROR;
+        });
 }

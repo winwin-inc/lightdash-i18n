@@ -1,0 +1,5 @@
+<searchresults>
+  <field table="pinleibaohsm_cls_top" name="pinleibaohsm_cls_top_name" />
+  <field table="pinleibaohsm_cls_top" name="pinleibaohsm_cls_top_gmv" />
+  <field table="pinleibaohsm_cls_top" name="pinleibaohsm_cls_top_rank" />
+</searchresults>

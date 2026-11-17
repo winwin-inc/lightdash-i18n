@@ -1,0 +1,18 @@
+{
+    "structuredContent": {
+        "rows": [
+            {
+                "date": "2024-01",
+                "region": "华东",
+                "metric": { "value": { "raw": 1234.5, "formatted": "1,234.50" } }
+            },
+            {
+                "date": "2024-02",
+                "region": "华北",
+                "metric": { "value": { "raw": 987.6, "formatted": "987.60" } }
+            }
+        ]
+    },
+    "content": [],
+    "isError": false
+}
