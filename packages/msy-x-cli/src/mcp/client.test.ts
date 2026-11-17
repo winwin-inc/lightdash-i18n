@@ -1,20 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import type {
+import {
     AuthCredentials,
     AuthHeader,
     OAuthCredentials,
     PatCredentials,
-    SiteProfile,
 } from '../types';
 import { buildAuthHeaders, createMcpClient } from './client';
-
-const site = (authHeader: AuthHeader): SiteProfile => ({
-    name: 'x',
-    mcpUrl: 'https://x.example.com/api/v1/mcp',
-    authMode: 'oauth',
-    authHeader,
-});
 
 const oauth: OAuthCredentials = {
     mode: 'oauth',

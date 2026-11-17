@@ -14,15 +14,10 @@ export const readStdinIfPiped = async (
     const chunks: string[] = [];
     return new Promise<string | null>((resolve) => {
         let settled = false;
-        const cleanup = (): void => {
-            stdin.off('data', onData);
-            stdin.off('end', onEnd);
-            stdin.off('error', onError);
-            stdin.off('close', onClose);
-        };
         const finish = (value: string | null): void => {
             if (settled) return;
             settled = true;
+            // eslint-disable-next-line @typescript-eslint/no-use-before-define
             cleanup();
             resolve(value);
         };
@@ -37,6 +32,12 @@ export const readStdinIfPiped = async (
         };
         const onClose = (): void => {
             finish(chunks.length > 0 ? chunks.join('') : null);
+        };
+        const cleanup = (): void => {
+            stdin.off('data', onData);
+            stdin.off('end', onEnd);
+            stdin.off('error', onError);
+            stdin.off('close', onClose);
         };
         stdin.on('data', onData);
         stdin.on('end', onEnd);
