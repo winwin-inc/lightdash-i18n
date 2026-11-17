@@ -59,6 +59,45 @@ test('toJSON 是 stderr 单行契约', () => {
     });
 });
 
+test('D3：detail 携带附加载荷，toJSON 以 error.detail 输出；null 时省略', () => {
+    const detail = {
+        action: 'select_dashboard',
+        candidates: [{ dashboardUuid: 'u1', dashboardName: '看板一' }],
+    };
+    const withDetail = new CliError({
+        code: 'dashboard_selection_required',
+        message: '请选择看板',
+        hint: '用 --dashboard 指定',
+        exitCode: ExitCode.FORBIDDEN,
+        detail,
+    });
+    assert.equal(withDetail.detail, detail);
+    assert.deepEqual(withDetail.toJSON().error.detail, detail);
+    assert.equal(withDetail.exitCode, ExitCode.FORBIDDEN);
+
+    const nullDetail = new CliError({ code: 'USAGE', message: 'x' });
+    assert.equal(nullDetail.detail, null);
+    assert.ok(!('detail' in nullDetail.toJSON().error));
+});
+
+test('D3：code 放宽为 string，非内置 code 未显式传 exitCode 时运行时兜底 5', () => {
+    // 类型层已强制非内置 code 必须显式传 exitCode（见 CliErrorArgs 联合类型）；
+    // 运行时对绕过类型检查的调用兜底 SERVER_ERROR，不让构造函数抛异常
+    const arbitrary = new CliError({
+        code: 'dashboard_not_found',
+        message: '没有找到这个看板',
+        exitCode: ExitCode.FORBIDDEN,
+    });
+    assert.equal(arbitrary.code, 'dashboard_not_found');
+    assert.equal(arbitrary.exitCode, ExitCode.FORBIDDEN);
+
+    const unchecked = new (CliError as unknown as new (args: {
+        code: string;
+        message: string;
+    }) => CliError)({ code: 'something_new', message: 'x' });
+    assert.equal(unchecked.exitCode, ExitCode.SERVER_ERROR);
+});
+
 test('未知异常归一为 SERVER_ERROR，原始信息不丢', () => {
     const error = toCliError(new Error('boom'));
     assert.equal(error.code, 'SERVER_ERROR');

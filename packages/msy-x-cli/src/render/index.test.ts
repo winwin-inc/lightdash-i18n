@@ -65,12 +65,50 @@ test('空行结果：json 降级正常，rows 为 0', () => {
     assert.equal(output.rows, 0);
 });
 
-test('无结构化无 CSV：降级输出，rows 为 null', () => {
+test('无结构化无 CSV：原样输出文本，rows 为 null', () => {
     const output = renderResult(
         makeInput({ result: { structuredContent: undefined, content: [], isError: false } }),
     );
-    assert.equal(output.stdout, '{\n  "csv": "",\n  "rows": []\n}\n');
+    assert.equal(output.stdout, '""\n');
     assert.equal(output.rows, null);
+});
+
+test('D5：text JSON 数据体原样输出（保留顶层键，无 csv 包装）', () => {
+    const body = {
+        results: [{ uuid: 'u1', name: '看板一' }],
+        pagination: { page: 1, pageSize: 25, totalResults: 1 },
+    };
+    const output = renderResult(
+        makeInput({
+            result: {
+                structuredContent: undefined,
+                content: [{ type: 'text', text: JSON.stringify(body) }],
+                isError: false,
+            },
+        }),
+    );
+    assert.deepEqual(JSON.parse(output.stdout), body);
+    assert.ok(!output.stdout.includes('"csv"'));
+    assert.equal(output.rows, 1);
+});
+
+test('D5：真 CSV 源才输出 {csv, rows}', () => {
+    const output = renderResult(
+        makeInput({
+            result: {
+                structuredContent: undefined,
+                content: [{ type: 'text', text: 'a,b\n1,2\n' }],
+                isError: false,
+            },
+        }),
+    );
+    const parsed = JSON.parse(output.stdout) as {
+        csv: string;
+        rows: Array<Record<string, string>>;
+    };
+    assert.deepEqual(Object.keys(parsed), ['csv', 'rows']);
+    assert.equal(parsed.csv, 'a,b\n1,2\n');
+    assert.deepEqual(parsed.rows, [{ a: '1', b: '2' }]);
 });
 
 test('坏 CSV 抛 CliError(PARSE_ERROR) 供上层统一输出', () => {
