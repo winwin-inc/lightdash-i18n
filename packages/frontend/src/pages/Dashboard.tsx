@@ -491,20 +491,19 @@ const Dashboard: FC = () => {
     const hasDashboardTiles = dashboardTiles && dashboardTiles.length > 0;
 
     // 获取图表类型的 tiles（用于颜色同步选择）
+    //
+    // 只列 saved chart：SQL 图表 tile 由 DashboardSqlChartTile 渲染，不读颜色
+    // 同步 context（配色走 organization.chartColors），列进来会让用户勾了却
+    // 完全不生效。
     const chartTiles = useMemo(() => {
         if (!dashboardTiles) return [];
         return dashboardTiles.filter(
             (
                 tile,
             ): tile is DashboardTile & {
-                type:
-                    | DashboardTileTypes.SAVED_CHART
-                    | DashboardTileTypes.SQL_CHART;
+                type: DashboardTileTypes.SAVED_CHART;
             } => {
-                if (
-                    tile.type !== DashboardTileTypes.SAVED_CHART &&
-                    tile.type !== DashboardTileTypes.SQL_CHART
-                ) {
+                if (tile.type !== DashboardTileTypes.SAVED_CHART) {
                     return false;
                 }
                 const name = (
@@ -607,10 +606,26 @@ const Dashboard: FC = () => {
     }, [isDashboardLoading, isEditMode, dashboard?.config?.syncChartColors]);
 
     // 同步 colorPalette 状态
+    //
+    // 只在「已保存的色板真的变了」时同步（首次加载 / 保存后 / 组织色板变更），
+    // 避免 dashboard / organization 查询重取时把编辑态里用户刚选、还没保存的
+    // 色板覆盖掉。
+    const savedColorPaletteKey = useMemo(
+        () =>
+            (
+                dashboard?.config?.colorPalette ??
+                organization?.chartColors ??
+                ECHARTS_DEFAULT_COLORS
+            ).join(','),
+        [dashboard?.config?.colorPalette, organization?.chartColors],
+    );
+    const lastSyncedPaletteKeyRef = useRef<string | null>(null);
+
     useEffect(() => {
         if (isDashboardLoading) return;
+        if (lastSyncedPaletteKeyRef.current === savedColorPaletteKey) return;
 
-        // 编辑模式和查看模式都需要同步 colorPalette
+        lastSyncedPaletteKeyRef.current = savedColorPaletteKey;
         setDashboardColorPalette(
             dashboard?.config?.colorPalette ??
                 organization?.chartColors ??
@@ -618,6 +633,7 @@ const Dashboard: FC = () => {
         );
     }, [
         isDashboardLoading,
+        savedColorPaletteKey,
         dashboard?.config?.colorPalette,
         organization?.chartColors,
     ]);
@@ -1351,7 +1367,7 @@ const Dashboard: FC = () => {
                                                             >
                                                                 <Group
                                                                     gap={4}
-                                                                    wrap="nowrap"
+                                                                    wrap="wrap"
                                                                 >
                                                                     <Text
                                                                         size="xs"
@@ -1362,35 +1378,30 @@ const Dashboard: FC = () => {
                                                                             preset.name,
                                                                         )}
                                                                     </Text>
-                                                                    {preset.colors
-                                                                        .slice(
-                                                                            0,
-                                                                            10,
-                                                                        )
-                                                                        .map(
-                                                                            (
-                                                                                color,
-                                                                                idx,
-                                                                            ) => (
-                                                                                <Box
-                                                                                    key={
-                                                                                        idx
-                                                                                    }
-                                                                                    w={
-                                                                                        10
-                                                                                    }
-                                                                                    h={
-                                                                                        10
-                                                                                    }
-                                                                                    bg={
-                                                                                        color
-                                                                                    }
-                                                                                    style={{
-                                                                                        borderRadius: 2,
-                                                                                    }}
-                                                                                />
-                                                                            ),
-                                                                        )}
+                                                                    {preset.colors.map(
+                                                                        (
+                                                                            color,
+                                                                            idx,
+                                                                        ) => (
+                                                                            <Box
+                                                                                key={
+                                                                                    idx
+                                                                                }
+                                                                                w={
+                                                                                    10
+                                                                                }
+                                                                                h={
+                                                                                    10
+                                                                                }
+                                                                                bg={
+                                                                                    color
+                                                                                }
+                                                                                style={{
+                                                                                    borderRadius: 2,
+                                                                                }}
+                                                                            />
+                                                                        ),
+                                                                    )}
                                                                 </Group>
                                                             </Button>
                                                         );
@@ -1519,7 +1530,9 @@ const Dashboard: FC = () => {
                                                                                                         size="xs"
                                                                                                         c="dimmed"
                                                                                                     >
-                                                                                                        {chartTypeLabel}
+                                                                                                        {
+                                                                                                            chartTypeLabel
+                                                                                                        }
                                                                                                     </Text>
                                                                                                 )}
                                                                                             </Group>

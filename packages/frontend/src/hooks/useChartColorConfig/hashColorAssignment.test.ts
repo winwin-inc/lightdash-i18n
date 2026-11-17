@@ -640,3 +640,96 @@ describe('容量保护：大池子不再追求 60', () => {
         expect(firstTileMin).toBeGreaterThanOrEqual(MIN_COLOR_DIFF - 0.5);
     });
 });
+
+/**
+ * 回归：看板已保存系列很多时，运行期新增的系列（筛选后新出现/新增）仍应
+ * 优先使用调色板纯色，而不是被看板级已用色挤成同色相变体。
+ * 依据：标准图取色只以 known 为已知映射、对本图可见集做避让。
+ */
+describe('运行期新增系列优先使用调色板纯色', () => {
+    const PALETTE_LOCAL = [
+        '#FF00FF',
+        '#00FFFF',
+        '#FFFF00',
+        '#FF0080',
+        '#00FF00',
+        '#00FF80',
+        '#8000FF',
+        '#FF8000',
+        '#FF0088',
+        '#00FF88',
+        '#0088FF',
+        '#88FF00',
+        '#FF8800',
+        '#8800FF',
+        '#0088FF',
+        '#FF00CC',
+        '#CCFF00',
+        '#00CCFF',
+        '#CC00FF',
+        '#FFCC00',
+    ];
+    const normalized = PALETTE_LOCAL.map((color) => color.toLowerCase());
+
+    const tileKeys = (tile: number, count = 8) =>
+        Array.from(
+            { length: count },
+            (_, i) =>
+                `图${tile}-系列-${i}-69022651${String(tile * 100 + i).padStart(5, '0')}`,
+        );
+
+    test('20 个已保存系列 + 8 个运行期系列 → 8/8 命中调色板且两两不同', () => {
+        const knownGroups = [tileKeys(1), tileKeys(2), tileKeys(3)];
+        const known = assignKnownHashColors(
+            knownGroups.flat(),
+            PALETTE_LOCAL,
+            {},
+            knownGroups,
+        );
+        const runtimeKeys = tileKeys(9);
+        const assignments = appendUnknownHashColors(
+            runtimeKeys,
+            PALETTE_LOCAL,
+            known,
+        );
+        const colors = runtimeKeys.map((key) => assignments[key]);
+
+        expect(new Set(colors).size).toBe(8);
+        colors.forEach((color) => {
+            expect(normalized).toContain(color.toLowerCase());
+        });
+    });
+
+    test('25 个运行期系列 + 20 色板 → 先用尽调色板，再生成，且全部唯一', () => {
+        const keys = tileKeys(9, 25);
+        const assignments = appendUnknownHashColors(keys, PALETTE_LOCAL, {});
+        const colors = keys.map((key) => assignments[key]);
+        const distinctPaletteColors = new Set(normalized);
+        const paletteHits = colors.filter((color) =>
+            distinctPaletteColors.has(color.toLowerCase()),
+        );
+
+        expect(new Set(colors).size).toBe(25);
+        // dataMatrix 20 色里有 1 个重复 + 4 对 8 距离的近重复，在
+        // MIN_COLOR_DIFF=45 下可用容量实测 15；超出后走生成色，但仍必须唯一。
+        expect(paletteHits.length).toBeGreaterThanOrEqual(15);
+    });
+
+    test('打乱输入顺序结果一致（纯函数、不依赖渲染顺序）', () => {
+        const keys = tileKeys(9);
+        const shuffled = [...keys].reverse();
+        const a = appendUnknownHashColors(keys, PALETTE_LOCAL, {});
+        const b = appendUnknownHashColors(shuffled, PALETTE_LOCAL, {});
+
+        expect(keys.map((key) => a[key])).toEqual(keys.map((key) => b[key]));
+    });
+
+    test('空调色板走兜底色，不抛错', () => {
+        const keys = tileKeys(9);
+        const assignments = appendUnknownHashColors(keys, [], {});
+
+        keys.forEach((key) => {
+            expect(assignments[key]).toBe('#868e96');
+        });
+    });
+});
