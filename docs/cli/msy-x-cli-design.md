@@ -238,6 +238,7 @@ msy-x auth login
 - `--limit`：默认 500，受服务端 `LIGHTDASH_MAX_LIMIT` / `ai.copilot.maxQueryLimit` 封顶；`--page-size` 上限 100，本地截断并在 stderr 告警。
 - `projectUuid` **总是可以传**：非强制看板模式下服务端会丢弃未知键（不报错），强制看板模式下它是门控依据；本地不缓存项目，直接用服务端四级兜底链。
 - 所有命令 `--help` 必须带一条**真实可跑**的示例（取自 `docs/mcp/马上赢 X 平台 MCP 上手指南.md` 的 `pinleibaohsm_*` / `cls_insight_*`）。
+- 例外：文档里没有公开真实 UUID 的命令（`charts get/run` 的 `<chartUuid>`、`dashboards list --space` 的 `<spaceUuid>`）用占位符 + 注释给获取路径（如 `# 先由 msy-x charts find 获取`），**不得**拿看板 UUID 冒充 chart/space UUID。
 - `--dry-run` 打印将要发送的 `{tool, arguments}`，不发请求（豆包/agent 排障与单测都用它）。
 - `--file -` 从 stdin 读；仅在 stdin 非 TTY 时允许，避免挂死。
 

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { mkdtemp, rm as rmDir, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm as rmDir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { Command } from 'commander';
@@ -757,6 +757,25 @@ const runProgram = async (argv: string[]): Promise<string> =>
         await program.parseAsync(argv, { from: 'user' });
     });
 
+/** 与 captureStdout 同构：捕获 stderr（提示/告警验证），透传不吞 */
+const captureStderr = async (fn: () => Promise<void>): Promise<string> => {
+    const chunks: string[] = [];
+    const original = process.stderr.write.bind(process.stderr);
+    const write = ((chunk: unknown): boolean => {
+        if (typeof chunk === 'string') {
+            chunks.push(chunk);
+        }
+        return original(chunk as Parameters<typeof original>[0]);
+    }) as typeof process.stderr.write;
+    process.stderr.write = write;
+    try {
+        await fn();
+    } finally {
+        process.stderr.write = original;
+    }
+    return chunks.join('');
+};
+
 test('挂载端到端：query --dry-run 输出 run_semantic_metric_query', async () => {
     const previous = process.env.MSY_X_CONFIG;
     process.env.MSY_X_CONFIG = '/tmp/msy-x-cli-integration-none.yaml';
@@ -895,7 +914,8 @@ test('挂载端到端：doctor 本地检查输出逐行 [status] name — detail
     const previous = process.env.MSY_X_CONFIG;
     process.env.MSY_X_CONFIG = '/tmp/msy-x-cli-integration-none.yaml';
     try {
-        const out = await runProgram(['doctor']);
+        // 显式 --table：D6 后 doctor 读已解析的 ctx.format（测试环境非 TTY 默认 json）
+        const out = await runProgram(['doctor', '--table']);
         const lines = out
             .split('\n')
             .map((line) => line.trim())
@@ -978,4 +998,430 @@ test('挂载端到端：doctor --remote 未登录退 3（stdout 检查行 + stde
         stderrText.includes('AUTH_REQUIRED'),
         `stderr 应含单行错误 JSON：${stderrText}`,
     );
+});
+
+/* ------------------------------------------------------------------ */
+/* D6/T8：doctor 非 TTY 默认 JSON（读已解析的 ctx.format）              */
+/* ------------------------------------------------------------------ */
+
+test('挂载端到端 D6/T8：doctor 管道（非 TTY）默认输出 JSON', async () => {
+    const previous = process.env.MSY_X_CONFIG;
+    process.env.MSY_X_CONFIG = '/tmp/msy-x-cli-integration-none.yaml';
+    const { isTTY } = process.stdout;
+    process.stdout.isTTY = undefined; // 模拟管道/重定向
+    try {
+        const out = await runProgram(['doctor']);
+        const jsonLine = out
+            .split('\n')
+            .map((line) => line.trim())
+            .find((line) => line.startsWith('{"ok"'));
+        assert.ok(jsonLine !== undefined, `非 TTY 应默认 JSON：${out}`);
+        const parsed = JSON.parse(jsonLine) as {
+            ok: boolean;
+            checks: Array<{ name: string; status: string }>;
+        };
+        assert.equal(typeof parsed.ok, 'boolean');
+        assert.ok(parsed.checks.length >= 4);
+        assert.ok(parsed.checks.some((item) => item.name === 'node-version'));
+    } finally {
+        process.stdout.isTTY = isTTY;
+        if (previous === undefined) {
+            delete process.env.MSY_X_CONFIG;
+        } else {
+            process.env.MSY_X_CONFIG = previous;
+        }
+    }
+});
+
+/* ------------------------------------------------------------------ */
+/* D7/T10：xml / none 文本源的输出契约                                   */
+/* ------------------------------------------------------------------ */
+
+const XML_TEXT = '<explores><explore name="pinleibaohsm_cls_top"/></explores>';
+const MARKDOWN_TEXT = '# 概览\n\n先用 explores list 找表，再用 query 取数。';
+
+const xmlResult: ToolResult = {
+    content: [{ type: 'text', text: XML_TEXT }],
+    isError: false,
+};
+
+const markdownResult: ToolResult = {
+    content: [{ type: 'text', text: MARKDOWN_TEXT }],
+    isError: false,
+};
+
+/** writeResult 一次性写出整个 JSON 文档（单行或缩进多行），直接整体解析 */
+const parseCapturedJson = (captured: string): Record<string, unknown> => {
+    const text = captured.trim();
+    assert.ok(text.startsWith('{'), `未捕获 JSON 输出：${captured}`);
+    return JSON.parse(text) as Record<string, unknown>;
+};
+
+test('D7/T10：xml 源（find_explores）--json 输出 {"text":…}', async () => {
+    const { writeResult } = await import('../cli/output');
+    const out = await captureStdout(() =>
+        writeResult({ tool: 'find_explores', result: xmlResult, ctx: makeCtx() }),
+    );
+    assert.deepEqual(parseCapturedJson(out), { text: XML_TEXT });
+});
+
+test('D7/T10：markdown 源（get_mcp_docs）--json 输出 {"text":…}', async () => {
+    const { writeResult } = await import('../cli/output');
+    const out = await captureStdout(() =>
+        writeResult({ tool: 'get_mcp_docs', result: markdownResult, ctx: makeCtx() }),
+    );
+    assert.deepEqual(parseCapturedJson(out), { text: MARKDOWN_TEXT });
+});
+
+test('D7/T10：xml 源 --envelope 输出 {ok,tool,data:{text},meta}，meta 含 projectUuid（D8）', async () => {
+    const { writeResult } = await import('../cli/output');
+    const ctx = makeCtx({ envelope: true, projectUuid: 'proj-uuid-1' });
+    const out = await captureStdout(() =>
+        writeResult({ tool: 'find_explores', result: xmlResult, ctx }),
+    );
+    const parsed = parseCapturedJson(out) as unknown as {
+        ok: boolean;
+        tool: string;
+        data: { text: string };
+        meta: Record<string, unknown>;
+    };
+    assert.equal(parsed.ok, true);
+    assert.equal(parsed.tool, 'find_explores');
+    assert.deepEqual(parsed.data, { text: XML_TEXT });
+    assert.deepEqual(Object.keys(parsed.meta), ['site', 'projectUuid', 'durationMs']);
+    assert.equal(parsed.meta.projectUuid, 'proj-uuid-1');
+});
+
+test('D8：--envelope 未指定 projectUuid 时 meta.projectUuid 为 null', async () => {
+    const { writeResult } = await import('../cli/output');
+    const ctx = makeCtx({ envelope: true }); // projectUuid: null
+    const out = await captureStdout(() =>
+        writeResult({ tool: 'find_explores', result: xmlResult, ctx }),
+    );
+    const parsed = parseCapturedJson(out) as unknown as {
+        meta: Record<string, unknown>;
+    };
+    assert.deepEqual(Object.keys(parsed.meta), ['site', 'projectUuid', 'durationMs']);
+    assert.equal(parsed.meta.projectUuid, null);
+});
+
+test('D7/T10：xml 源 table 模式原样输出文本并在 stderr 提示非表格文本', async () => {
+    const { writeResult } = await import('../cli/output');
+    const ctx = { ...makeCtx({ quiet: false }), format: 'table' as const };
+    let stdout = '';
+    const stderrText = await captureStderr(async () => {
+        stdout = await captureStdout(() =>
+            writeResult({ tool: 'find_explores', result: xmlResult, ctx }),
+        );
+    });
+    assert.ok(stdout.includes(XML_TEXT), `table 模式应原样输出文本：${stdout}`);
+    assert.ok(!stdout.includes('{"text"'), `table 模式不应输出 JSON 包装：${stdout}`);
+    assert.ok(
+        stderrText.includes('该工具返回非表格文本'),
+        `stderr 应提示非表格文本：${stderrText}`,
+    );
+});
+
+test('D7/T10：xml 源 --out 写 {"text":…} JSON（非裸文本），stdout 只回摘要', async () => {
+    const { writeResult } = await import('../cli/output');
+    const outPath = `/tmp/msy-x-cli-text-out-${process.pid}.json`;
+    try {
+        // 解析后 format=table（TTY 默认）也要落 JSON：文件只写 JSON/CSV
+        const ctx = { ...makeCtx({ out: outPath, quiet: false }), format: 'table' as const };
+        const out = await captureStdout(() =>
+            writeResult({ tool: 'find_explores', result: xmlResult, ctx }),
+        );
+        const summary = JSON.parse(
+            out.split('\n').filter((line) => line.startsWith('{')).pop() ?? '',
+        ) as { written: string; rows: number | null; bytes: number };
+        assert.equal(summary.written, outPath);
+        assert.equal(summary.rows, null, 'xml 源无行数据');
+        assert.ok(summary.bytes > 0);
+        const fileText = await readFile(outPath, 'utf8');
+        assert.deepEqual(JSON.parse(fileText), { text: XML_TEXT });
+    } finally {
+        await rmDir(outPath, { force: true });
+    }
+});
+
+/* ------------------------------------------------------------------ */
+/* D14/T7：多调用命令（info，3 个工具）的合并输出                         */
+/* ------------------------------------------------------------------ */
+
+const INFO_RESPONSES: Record<string, unknown> = {
+    get_site_info: { siteUrl: 'https://x.brandct.com', total: 7 },
+    get_lightdash_version: { version: '0.2000.0' },
+    get_current_project: { projectUuid: 'p1', name: '品牌CT' },
+};
+
+const makeInfoClient = (state: { calls: string[] }): McpClient => ({
+    listTools: async () => [],
+    callTool: async (call: ToolCall) => {
+        state.calls.push(call.tool);
+        return textResult(INFO_RESPONSES[call.tool] ?? {});
+    },
+    close: async () => undefined,
+});
+
+const INFO_CALLS: ToolCall[] = [
+    { tool: 'get_site_info', args: {} },
+    { tool: 'get_lightdash_version', args: {} },
+    { tool: 'get_current_project', args: {} },
+];
+
+test('D14/T7：多调用命令 stdout 输出单个合并 JSON 对象（JSON.parse 成功）', async () => {
+    const state = { calls: [] as string[] };
+    const out = await captureStdout(() =>
+        runToolCommand(INFO_CALLS, makeCtx(), {
+            createClient: async () => makeInfoClient(state),
+        }),
+    );
+    const parsed = JSON.parse(out.trim()) as Record<string, unknown>;
+    assert.deepEqual(Object.keys(parsed), [
+        'get_site_info',
+        'get_lightdash_version',
+        'get_current_project',
+    ]);
+    assert.deepEqual(parsed.get_site_info, INFO_RESPONSES.get_site_info);
+    assert.deepEqual(parsed.get_current_project, INFO_RESPONSES.get_current_project);
+    assert.deepEqual(state.calls, [
+        'get_site_info',
+        'get_lightdash_version',
+        'get_current_project',
+    ]);
+});
+
+test('D14/T7：多调用命令 --out 一次写盘不覆盖，stdout 只回 {written,calls,bytes}', async () => {
+    const state = { calls: [] as string[] };
+    const outPath = `/tmp/msy-x-cli-multi-out-${process.pid}.json`;
+    try {
+        const ctx = makeCtx({ out: outPath });
+        const out = await captureStdout(() =>
+            runToolCommand(INFO_CALLS, ctx, {
+                createClient: async () => makeInfoClient(state),
+            }),
+        );
+        const summaryLines = out
+            .split('\n')
+            .filter((line) => line.trim().startsWith('{'));
+        assert.equal(summaryLines.length, 1, `stdout 应只有一条摘要：${out}`);
+        const summary = JSON.parse(summaryLines[0] as string) as {
+            written: string;
+            calls: number;
+            bytes: number;
+        };
+        assert.equal(summary.written, outPath);
+        assert.equal(summary.calls, 3);
+        assert.ok(summary.bytes > 0);
+        const fileParsed = JSON.parse(await readFile(outPath, 'utf8')) as Record<
+            string,
+            unknown
+        >;
+        assert.deepEqual(Object.keys(fileParsed), [
+            'get_site_info',
+            'get_lightdash_version',
+            'get_current_project',
+        ]);
+        assert.ok(!('written' in fileParsed), '文件内容应是数据本体而非摘要');
+    } finally {
+        await rmDir(outPath, { force: true });
+    }
+});
+
+test('D14：多调用命令 --envelope 时 data 为合并对象、tool 为逗号连接的工具名', async () => {
+    const state = { calls: [] as string[] };
+    const ctx = makeCtx({ envelope: true, projectUuid: 'proj-uuid-1' });
+    const out = await captureStdout(() =>
+        runToolCommand(INFO_CALLS, ctx, {
+            createClient: async () => makeInfoClient(state),
+        }),
+    );
+    const parsed = JSON.parse(out.trim()) as {
+        ok: boolean;
+        tool: string;
+        data: Record<string, unknown>;
+        meta: Record<string, unknown>;
+    };
+    assert.equal(parsed.ok, true);
+    assert.equal(parsed.tool, 'get_site_info,get_lightdash_version,get_current_project');
+    assert.deepEqual(Object.keys(parsed.data), [
+        'get_site_info',
+        'get_lightdash_version',
+        'get_current_project',
+    ]);
+    assert.equal(parsed.meta.projectUuid, 'proj-uuid-1');
+});
+
+/* ------------------------------------------------------------------ */
+/* D9/T11：--page-size > 100 截断告警                                    */
+/* ------------------------------------------------------------------ */
+
+test('D9/T11：search --page-size 300 → 截断到 100 且 stderr 出现告警', async () => {
+    const previous = process.env.MSY_X_CONFIG;
+    process.env.MSY_X_CONFIG = '/tmp/msy-x-cli-integration-none.yaml';
+    try {
+        let stdout = '';
+        const stderrText = await captureStderr(async () => {
+            stdout = await runProgram([
+                'search',
+                'foo',
+                '--page-size',
+                '300',
+                '--dry-run',
+            ]);
+        });
+        const parsed = dryRunLineOf(stdout) as {
+            tool: string;
+            args: { pageSize?: number };
+        };
+        assert.equal(parsed.tool, 'find_content');
+        assert.equal(parsed.args.pageSize, 100, '应截断到 100');
+        assert.ok(
+            stderrText.includes('--page-size 300'),
+            `告警应含原始值：${stderrText}`,
+        );
+        assert.ok(
+            stderrText.includes('100') && stderrText.includes('截断'),
+            `告警应说明截断：${stderrText}`,
+        );
+    } finally {
+        if (previous === undefined) {
+            delete process.env.MSY_X_CONFIG;
+        } else {
+            process.env.MSY_X_CONFIG = previous;
+        }
+    }
+});
+
+test('D9/T11：--quiet 关闭截断告警', async () => {
+    const previous = process.env.MSY_X_CONFIG;
+    process.env.MSY_X_CONFIG = '/tmp/msy-x-cli-integration-none.yaml';
+    try {
+        const stderrText = await captureStderr(async () => {
+            await runProgram(['search', 'foo', '--page-size', '300', '--quiet', '--dry-run']);
+        });
+        assert.ok(
+            !stderrText.includes('截断'),
+            `--quiet 不应输出截断告警：${stderrText}`,
+        );
+    } finally {
+        if (previous === undefined) {
+            delete process.env.MSY_X_CONFIG;
+        } else {
+            process.env.MSY_X_CONFIG = previous;
+        }
+    }
+});
+
+test('D9/T11：verified --page-size 300 同样告警（runVerifiedCommand 路径）', async () => {
+    const previous = process.env.MSY_X_CONFIG;
+    process.env.MSY_X_CONFIG = '/tmp/msy-x-cli-integration-none.yaml';
+    try {
+        const stderrText = await captureStderr(async () => {
+            await runProgram(['verified', '--page-size', '300', '--dry-run']);
+        });
+        assert.ok(
+            stderrText.includes('--page-size 300') && stderrText.includes('截断'),
+            `verified 也应告警：${stderrText}`,
+        );
+    } finally {
+        if (previous === undefined) {
+            delete process.env.MSY_X_CONFIG;
+        } else {
+            process.env.MSY_X_CONFIG = previous;
+        }
+    }
+});
+
+/* ------------------------------------------------------------------ */
+/* D18/T12：call --args 与全局 --json 的解析                             */
+/* ------------------------------------------------------------------ */
+
+test('D18/T12：call --args 传工具入参，全局 --json 恢复输出格式语义', async () => {
+    const previous = process.env.MSY_X_CONFIG;
+    process.env.MSY_X_CONFIG = '/tmp/msy-x-cli-integration-none.yaml';
+    try {
+        // --args 提供工具入参；--json 是全局输出格式 flag（布尔），二者共存不冲突
+        const out = await runProgram([
+            'call',
+            'get_site_info',
+            '--args',
+            '{"a":1}',
+            '--json',
+            '--dry-run',
+        ]);
+        const parsed = dryRunLineOf(out) as {
+            tool: string;
+            args: Record<string, unknown>;
+        };
+        assert.equal(parsed.tool, 'get_site_info');
+        assert.deepEqual(parsed.args, { a: 1 });
+    } finally {
+        if (previous === undefined) {
+            delete process.env.MSY_X_CONFIG;
+        } else {
+            process.env.MSY_X_CONFIG = previous;
+        }
+    }
+});
+
+test('D18/T12：call --args 与 --file 互斥 → USAGE', async () => {
+    const previous = process.env.MSY_X_CONFIG;
+    process.env.MSY_X_CONFIG = '/tmp/msy-x-cli-integration-none.yaml';
+    try {
+        await assert.rejects(
+            runProgram([
+                'call',
+                'get_site_info',
+                '--args',
+                '{}',
+                '--file',
+                'x.json',
+                '--dry-run',
+            ]),
+            (error: unknown) => {
+                assert.ok(error instanceof CliError);
+                assert.equal(error.code, 'USAGE');
+                assert.ok(
+                    `${error.message}`.includes('--args 与 --file 互斥'),
+                    `应提示互斥：${error.message}`,
+                );
+                return true;
+            },
+        );
+    } finally {
+        if (previous === undefined) {
+            delete process.env.MSY_X_CONFIG;
+        } else {
+            process.env.MSY_X_CONFIG = previous;
+        }
+    }
+});
+
+test('D18/T12：call 的 --json 不再吃参数值（解析为布尔 flag，旧写法 --json <obj> 的值被丢弃）', async () => {
+    const previous = process.env.MSY_X_CONFIG;
+    process.env.MSY_X_CONFIG = '/tmp/msy-x-cli-integration-none.yaml';
+    try {
+        // 旧写法 --json '<obj>'：--json 是全局布尔 flag（输出格式），
+        // '<obj>' 成为单位参数被丢弃 → 入参为空对象（不再是工具参数）
+        const out = await runProgram([
+            'call',
+            'get_site_info',
+            '--json',
+            '{}',
+            '--dry-run',
+        ]);
+        const parsed = dryRunLineOf(out) as {
+            tool: string;
+            args: Record<string, unknown>;
+        };
+        assert.equal(parsed.tool, 'get_site_info');
+        assert.deepEqual(parsed.args, {}, '旧写法的 JSON 值不再被当成工具入参');
+    } finally {
+        if (previous === undefined) {
+            delete process.env.MSY_X_CONFIG;
+        } else {
+            process.env.MSY_X_CONFIG = previous;
+        }
+    }
 });

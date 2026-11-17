@@ -9,6 +9,13 @@ export type RenderJsonParams = {
     durationMs: number;
     /** renderResult 已探测过的渲染源，避免重复解析 */
     picked: PickRowsResult;
+    /**
+     * `--envelope` 的 meta.projectUuid（D8）：cli/output 管道恒传（null 或值），
+     * 直接调用不传时该键省略（render 单测的既有形态不变）。
+     */
+    projectUuid?: string | null;
+    /** 数据体覆写（D7：xml/none 文本源在 output 管道里输出 {"text":"…"}） */
+    payload?: unknown;
 };
 
 const hasStructuredObject = (value: unknown): value is Record<string, unknown> =>
@@ -66,8 +73,9 @@ export const buildJsonPayload = (
 
 /** JSON 输出：2 空格缩进、稳定键序、结尾换行 */
 export const renderJson = (params: RenderJsonParams): string => {
-    const { tool, result, envelope, site, durationMs, picked } = params;
-    const data = buildJsonPayload(result, picked);
+    const { tool, result, envelope, site, durationMs, picked, projectUuid, payload } =
+        params;
+    const data = payload !== undefined ? payload : buildJsonPayload(result, picked);
 
     let output: string;
     if (envelope) {
@@ -76,7 +84,12 @@ export const renderJson = (params: RenderJsonParams): string => {
                 ok: true,
                 tool,
                 data,
-                meta: { site, durationMs },
+                meta: {
+                    site,
+                    // D8：projectUuid 有则带值、无则 null（直接调用未传时省略该键）
+                    ...(projectUuid !== undefined ? { projectUuid } : {}),
+                    durationMs,
+                },
             },
             null,
             2,

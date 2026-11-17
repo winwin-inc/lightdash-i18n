@@ -21,7 +21,7 @@
 | 命令 | 作用 | 对应 MCP 工具 |
 |---|---|---|
 | `msy-x site list` / `site use <name>` | 多站点管理：列出 / 切换当前站点（本地 config，不发请求） | 本地 config |
-| `msy-x info` | 站点、版本、当前项目一览。注意：顺序调用 3 个工具，stdout 是**3 个串联 JSON 文档**（每工具一条，见 §4）；要单文档请用下方单工具命令（如 `project show`） | `get_site_info` + `get_lightdash_version` + `get_current_project` |
+| `msy-x info` | 站点、版本、当前项目一览。一次顺序调用 3 个工具，stdout 是**单个合并 JSON 对象**（键为工具名：`get_site_info` / `get_lightdash_version` / `get_current_project`，`JSON.parse(stdout)` 可直接解析）；`--out` 把该对象一次写盘，stdout 只回 `{"written":…,"calls":3,"bytes":N}` | `get_site_info` + `get_lightdash_version` + `get_current_project` |
 | `msy-x project list` / `project use <uuid>` / `project show` | 项目列表 / 切换（写服务端默认项目）/ 查看 | `list_projects` / `set_project` / `get_current_project` |
 | `msy-x access [--explores]` | 我的组织角色与各项目权限（`--explores` 附带每项目可用表） | `get_my_access` |
 | `msy-x explores list [--search <q>] [--page <n>] [--page-size <n>]` | 按表名过滤列出的表（**没有 `explores find` 子命令**） | `list_explores` |
@@ -41,7 +41,7 @@
 | `msy-x verified [--page <n>] [--page-size <n>] [--full]` | 列出项目里已认证（内容验证）的图表与看板 | `list_verified_content` |
 | `msy-x doctor [--remote] [--json]` | 自检本地配置与凭证；`--remote` 加做真实连通与服务端能力验证 | `initialize` + `tools/list` + 探测 |
 | `msy-x tools list [--verbose]` / `describe <name>` | 列出 / 描述可用工具（本地目录；`--verbose` 附输入 schema） | `tools/list` |
-| `msy-x call <tool> [--json '<obj>' | --file <path>]` | 逃生口：任意工具透传（新工具无需等 CLI 发版；`call` 的 `--json` 是**工具入参**，不是输出格式） | 任意 `tools/call` |
+| `msy-x call <tool> [--args '<obj>' | --file <path>]` | 逃生口：任意工具透传（新工具无需等 CLI 发版；`--args` 是**工具入参** JSON，全局 `--json` / `--table` 才是输出格式） | 任意 `tools/call` |
 | `msy-x docs [topic] [--text]` | 查看 MCP 使用文档（markdown；`--text` 纯文本） | `get_mcp_docs` |
 
 常用全局选项：`--site <name|url>`、`--project <uuid>`、`--json/--table/--csv`、`--envelope`、
@@ -93,17 +93,19 @@ msy-x query -e cls_insight_list --metrics cls_insight_list_total_cls4_amount --d
 - `--filter fieldId=value` 多次传即 AND；多值 `a,b` 按 equals；复杂条件用 `--filters-json` 或 `--file`。
 - 复刻看板 TOP N 时**不要传 `--sort`**（服务端排序不稳定），`--limit` 拉全量后自行排序。
 - 默认不传 `--limit`；用户要明细时才传并明确告知条数。
-- `--page-size` 上限 100，超过会被本地截断到 100。
+- `--page-size` 上限 100，超过会被本地截断到 100（stderr 告警，`--quiet` 关闭）。
 
 ## 4. 输出契约
 
-- **非 TTY 下 stdout 只有 JSON 数据**：表格颜色、进度、提示、错误全走 stderr；agent 只解析 stdout。
+- **非 TTY 下 stdout 只有 JSON 数据**：表格颜色、进度、提示、错误全走 stderr；agent 只解析 stdout（`doctor` 同口径：非 TTY 默认 JSON）。
 - 默认输出工具返回的**数据体本身**（解析后的 JSON：保留 `pagination` / `results` 等顶层键）；
   工具返回 CSV 文本时（如 `query flat`）输出 `{csv, rows}` 包装。
+- 返回 XML / Markdown 等非表格文本的工具（`find_explores` / `find_fields` / `docs`）：
+  JSON 模式输出 `{"text":"…"}`；表格模式原样输出文本并在 stderr 提示「该工具返回非表格文本」。
 - 结构化内容（`structuredContent`）原样输出；`--envelope` 时包一层 `{ok, tool, data, meta}`，
-  `data` 即数据体。
-- 例外：`info` 是多工具命令，stdout 为按调用顺序串联的多个 JSON 文档（每工具一条）；只想要单个
-  JSON 文档时用单工具命令（`project show` / `access` / `query` 等）。
+  `data` 即数据体，`meta` 含 `site` / `projectUuid`（未指定为 `null`）/ `durationMs`。
+- 多工具命令（`info`）：stdout 是**单个合并 JSON 对象**（键为工具名，按调用顺序）；
+  `--out` 一次写盘不覆盖，stdout 只回 `{"written":…,"calls":3,"bytes":N}`。
 - 结果里的 `webUrl` 可直接给用户跳转网页版。
 - 错误输出（stderr，单行 JSON）：`{"error":{"code":"…","message":"…","hint":"…"}}`，
   `code` 英文稳定、`message`/`hint` 中文；带附加载荷时多一个 `error.detail`（见 §6 门控）。

@@ -1,7 +1,7 @@
 /* eslint-disable no-await-in-loop -- 顺序执行（设计稿 §6.3：数组逐条顺序 executeToolCall）与
    401 刷新重试的串行语义都是硬性要求 */
 import { CliError } from './errors';
-import { writeResult } from './output';
+import { writeMultiResult, writeResult } from './output';
 import { ensureFreshCredentials } from '../auth/refresh';
 import { readConfig } from '../config/store';
 import { executeToolCall } from '../mcp/callTool';
@@ -15,7 +15,9 @@ import type { CommandContext, McpClient, ToolCall, ToolResult } from '../types';
  * - 否则 createMcpClient → 顺序 executeToolCall → cli/output.writeResult；
  * - 401（AUTH_REQUIRED）：先 ensureFreshCredentials 刷新凭证，再换新客户端重试一次；
  *   未登录（无凭证）不重试，直接抛给顶层；
- * - finally 关闭客户端。
+ * - finally 关闭客户端；
+ * - 多调用命令（>1 条 ToolCall，目前仅 `info`）：结果收集后由 writeMultiResult
+ *   一次输出单个合并 JSON 对象（`--out` 一次写盘不覆盖，D14）；单条调用语义不变。
  */
 
 export type RunToolCommandOptions = {
@@ -34,6 +36,8 @@ export const runToolCommand = async (
     runOptions?: RunToolCommandOptions,
 ): Promise<void> => {
     const list: ToolCall[] = Array.isArray(calls) ? calls : [calls];
+    // 多调用（>1 条）：收集后一次输出单个合并 JSON 对象（D14）
+    const multi = list.length > 1;
     const { site, options } = ctx;
     const { timeoutMs } = options;
 
@@ -80,6 +84,7 @@ export const runToolCommand = async (
         client = await openClient();
     }
 
+    const collected: Array<{ tool: string; result: ToolResult }> = [];
     try {
         for (const call of list) {
             let result: ToolResult;
@@ -95,11 +100,18 @@ export const runToolCommand = async (
                 runOptions?.transformResult !== undefined
                     ? runOptions.transformResult(result)
                     : result;
-            await writeResult({
-                tool: call.tool,
-                result: finalResult,
-                ctx: { ...ctx, credentials },
-            });
+            if (multi) {
+                collected.push({ tool: call.tool, result: finalResult });
+            } else {
+                await writeResult({
+                    tool: call.tool,
+                    result: finalResult,
+                    ctx: { ...ctx, credentials },
+                });
+            }
+        }
+        if (multi && collected.length > 0) {
+            await writeMultiResult({ calls: collected, ctx: { ...ctx, credentials } });
         }
     } finally {
         await closeQuietly(client);

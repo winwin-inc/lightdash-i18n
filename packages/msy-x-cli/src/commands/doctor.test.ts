@@ -9,6 +9,7 @@ import type {
     CommandContext,
     GlobalOptions,
     McpClient,
+    OutputFormat,
     ToolDescriptor,
     ToolResult,
 } from '../types';
@@ -58,6 +59,8 @@ const baseOptions: GlobalOptions = {
 const makeCtx = (overrides: {
     options?: Partial<GlobalOptions>;
     credentials?: AuthCredentials | null;
+    /** 已解析的输出格式（D6：runDoctor 读 ctx.format 而非 options.format） */
+    format?: OutputFormat;
 } = {}): CommandContext => ({
     options: { ...baseOptions, ...overrides.options },
     site: {
@@ -67,7 +70,7 @@ const makeCtx = (overrides: {
         authHeader: 'authorization',
     },
     credentials: overrides.credentials === undefined ? OAUTH_CREDENTIALS : overrides.credentials,
-    format: 'json',
+    format: overrides.format ?? 'table',
     startedAt: performance.now(),
 });
 
@@ -290,15 +293,45 @@ test('doctor Node < 20 → node-version fail、退 2', async () => {
 });
 
 /* ------------------------------------------------------------------ */
-/* --json 形状                                                        */
+/* 输出格式（D6/T8：读已解析的 ctx.format，非 TTY 默认 JSON 同口径）      */
 /* ------------------------------------------------------------------ */
+
+test('D6/T8：runDoctor 读已解析的 ctx.format（options.format 为 null 也输出 JSON）', async () => {
+    const env = await makeConfigEnv();
+    try {
+        // options.format 为 null（未显式给 --json），但解析后的 ctx.format=json
+        // （非 TTY 默认）→ 必须输出 JSON；旧实现读 options.format 会误出文本行
+        const ctx = makeCtx({ format: 'json' });
+        assert.equal(ctx.options.format, null, '前置：未显式指定 --json');
+        const result = await runDoctor({ remote: false }, ctx, localDeps(env));
+        const payload = JSON.parse(result.stdout) as { ok: boolean };
+        assert.equal(payload.ok, true);
+    } finally {
+        await rm(path.dirname(env.MSY_X_CONFIG as string), { recursive: true, force: true });
+    }
+});
+
+test('doctor ctx.format=table：输出逐行 [status] 文本（TTY 默认）', async () => {
+    const env = await makeConfigEnv();
+    try {
+        const result = await runDoctor(
+            { remote: false },
+            makeCtx({ format: 'table' }),
+            localDeps(env),
+        );
+        assert.match(result.stdout, /^\[ok\] node-version — /);
+        assert.ok(!result.stdout.startsWith('{'));
+    } finally {
+        await rm(path.dirname(env.MSY_X_CONFIG as string), { recursive: true, force: true });
+    }
+});
 
 test('doctor --json：输出 { ok, checks } 且 ok=false 时含 fail 项', async () => {
     const env = await makeConfigEnv();
     try {
         const result = await runDoctor(
             { remote: false },
-            makeCtx({ options: { format: 'json' } }),
+            makeCtx({ options: { format: 'json' }, format: 'json' }),
             localDeps(env),
         );
         const payload = JSON.parse(result.stdout) as {

@@ -127,7 +127,7 @@ export const chartsCommands: CommandSpec[] = [
                 description: '包含 metric query、chart config 与参数',
             },
         ],
-        example: 'msy-x charts get abc123de-1111-4222-8333-444455556666 --full',
+        example: 'msy-x charts get <chartUuid> --full   # chartUuid 先由 msy-x charts find 获取',
         dataCommand: false,
         build: (input: CommandBuildInput): ToolCall[] => {
             const chartUuid = input.args.chartUuid?.trim();
@@ -161,7 +161,7 @@ export const chartsCommands: CommandSpec[] = [
             },
         ],
         example:
-            'msy-x charts run abc123de-1111-4222-8333-444455556666 --limit 50 --value-format formatted',
+            'msy-x charts run <chartUuid> --limit 50 --value-format formatted   # chartUuid 先由 msy-x charts find 获取',
         dataCommand: true,
         build: (input: CommandBuildInput): ToolCall[] => {
             const chartUuid = input.args.chartUuid?.trim();

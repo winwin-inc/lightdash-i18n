@@ -27,7 +27,8 @@ import type {
  *   再用 `run_metric_query` 对不存在的 explore 做能力探测（§10.4 判别键修复）：
  *   错误含 `Invalid literal value` → 服务端镜像缺修复（fail，退 5）；
  *   其它业务错误（explore 不存在/权限）→ 修复已就绪（ok）；
- * - 输出：默认逐行 `[ok]/[warn]/[fail] name — detail`；`--json` 输出
+ * - 输出：默认逐行 `[ok]/[warn]/[fail] name — detail`；ctx.format 为 json
+ *   （含非 TTY 默认与显式 --json，与其它命令同口径）时输出
  *   `{ ok, checks }`（ok = 无 fail）；
  * - 退出码（fail 类别优先级 local > auth > network > server）：
  *   本地配置类 → 2；登录/鉴权 → 3；远程不可达/超时 → 6；服务端能力缺失 → 5；
@@ -601,8 +602,10 @@ export const runDoctor = async (
         };
     }
 
+    // D6：用已解析的 ctx.format（非 TTY 默认 json），与其它命令一致；
+    // 不再用未解析的 ctx.options.format（管道下丢 JSON）
     const stdout =
-        ctx.options.format === 'json'
+        ctx.format === 'json'
             ? renderDoctorJson(ok, doctorChecks)
             : renderLines(doctorChecks);
     return { stdout, exitCode, error };

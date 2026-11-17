@@ -279,6 +279,24 @@ const runQueryFile = async (
 /* 分发                                                                */
 /* ------------------------------------------------------------------ */
 
+/** 服务端 pageSize 上限（与各命令文件内的 MAX_PAGE_SIZE 一致） */
+const PAGE_SIZE_LIMIT = 100;
+
+/** D9：--page-size 超过上限时 build 已本地截断，stderr 告警（--quiet 关闭） */
+const warnPageSizeTruncation = (
+    opts: Record<string, unknown>,
+    ctx: CommandContext,
+): void => {
+    if (ctx.options.quiet) return;
+    const raw = str(opts.pageSize);
+    if (raw === null) return;
+    const requested = Number(raw);
+    if (!Number.isInteger(requested) || requested <= PAGE_SIZE_LIMIT) return;
+    logWarn(
+        `--page-size ${requested} 超过服务端上限 ${PAGE_SIZE_LIMIT}，已本地截断为 ${PAGE_SIZE_LIMIT}`,
+    );
+};
+
 const dispatch = async (
     spec: CommandSpec,
     cmd: Command,
@@ -356,7 +374,7 @@ const dispatch = async (
     if (spec.name === 'call <tool>') {
         await runCallCommand({
             tool: positional.tool ?? '',
-            argsJson: str(opts.json) ?? undefined,
+            argsJson: str(opts.args) ?? undefined,
             file: str(opts.file) ?? undefined,
             ctx,
         });
@@ -376,6 +394,10 @@ const dispatch = async (
         projectUuid: ctx.options.projectUuid,
     };
     const calls = spec.build(input);
+
+    // D9：--page-size 超过服务端上限 100 → build 已本地截断，stderr 告警
+    // （--quiet 关闭）；覆盖 search/explores/spaces/dashboards/charts/verified
+    warnPageSizeTruncation(opts, ctx);
 
     // verified：部署未启用内容验证时 supported:false 按成功退 0，
     // stdout 原样输出服务端 JSON（判定是 verified.ts 的纯函数，本层负责输出）

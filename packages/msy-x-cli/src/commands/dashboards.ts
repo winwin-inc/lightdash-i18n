@@ -154,7 +154,7 @@ export const dashboardsCommands: CommandSpec[] = [
             },
             { flags: '--full', description: '返回完整内容摘要' },
         ],
-        example: 'msy-x dashboards list --space 3f5d1b0e-1111-4222-8333-444455556666',
+        example: 'msy-x dashboards list --space <spaceUuid>   # spaceUuid 先由 msy-x spaces list 获取',
         dataCommand: false,
         build: (input: CommandBuildInput): ToolCall[] => {
             const { space } = input.options;

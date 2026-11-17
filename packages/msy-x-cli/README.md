@@ -61,7 +61,7 @@ msy-x auth logout    # 清除本机凭证（幂等，重复执行不报错）
 |---|---|---|
 | `auth login` / `status` / `logout` | 登录 / 状态 / 登出（见上节） | `msy-x auth login` |
 | `site` | 查看 / 切换已配置的站点（对应配置里的多站点 profile；临时切换用全局 `--site`） | `msy-x site list` |
-| `info` | 站点与版本信息、当前默认项目 | `msy-x info` |
+| `info` | 站点与版本信息、当前默认项目（一次调用 3 个工具，输出为单个合并 JSON 对象） | `msy-x info` |
 | `access` | 我的权限与可查范围（拿不准能不能查时先看这个） | `msy-x access --explores` |
 | `project list` | 列出我有权限的项目 | `msy-x project list` |
 | `project use <uuid>` | 设置服务端默认项目 | `msy-x project use 3667f682-4080-44a4-8365-49f405936e09` |
@@ -88,7 +88,7 @@ msy-x auth logout    # 清除本机凭证（幂等，重复执行不报错）
 | `verified` | 列出已认证内容（站点未启用该功能时原样输出服务端提示并退 0） | `msy-x verified` |
 | `docs [topic]` | 平台 MCP 使用文档（如 overview / query_workflow） | `msy-x docs query_workflow` |
 | `tools list` / `tools describe <n>` | 列出服务端当前全部工具（新工具自动可见） | `msy-x tools list` |
-| `call <tool> --json '<obj>'` | 直通任意 MCP 工具（兜底通道，新工具无需等 CLI 升级） | `msy-x call search_field_values --json '{"table":"pinleibaohsm_cls_top","fieldId":"pinleibaohsm_cls_top_period"}'` |
+| `call <tool> --args '<obj>'` | 直通任意 MCP 工具（`--args` 传工具入参 JSON，`--file` 从文件读；兜底通道，新工具无需等 CLI 升级） | `msy-x call search_field_values --args '{"table":"pinleibaohsm_cls_top","fieldId":"pinleibaohsm_cls_top_period"}'` |
 | `doctor` | 自检配置、凭证与（`--remote` 时）服务端连通性及能力 | `msy-x doctor --remote` |
 
 ## 输出约定
@@ -96,7 +96,11 @@ msy-x auth logout    # 清除本机凭证（幂等，重复执行不报错）
 - **stdout 只有数据**：进度、提示、警告、错误一律走 stderr。脚本与 agent 只需解析 stdout。
 - 默认格式：终端（TTY）下输出表格；**管道 / 重定向（非 TTY）下默认输出 JSON**。
 - 显式指定优先：`--json` / `--table` / `--csv`。`--csv` 仅对数据类命令（`query`、`query flat`、`charts run`、`dashboards run`）有效，其余命令传了会报参数错误。
+- `--envelope`：JSON 外包一层 `{ok,tool,data,meta}`，`meta` 含 `site`、`projectUuid`（未指定时为 `null`）与 `durationMs`。
+- 返回 XML / Markdown 等非表格文本的工具（如 `find_explores`、`docs`）：JSON 模式输出 `{"text":"…"}`；表格模式原样打印文本并在 stderr 提示「该工具返回非表格文本」。
+- 多工具命令（目前仅 `info`）：stdout 输出**单个合并 JSON 对象**（键为工具名）；`--out` 把该对象一次写入文件，stdout 只回 `{"written":"<abs>","calls":3,"bytes":N}`。
 - `--out <path>`：完整结果写入文件（JSON/CSV），stdout 只回一条摘要 `{"written":"/abs/path","rows":100,"bytes":5321}`。大结果集建议落盘，避免灌满终端。
+- `--page-size` 上限 100：超过会被本地截断到 100，并在 stderr 告警（`--quiet` 关闭）。
 - JSON 错误统一为单行：`{"error":{"code":"AUTH_REQUIRED","message":"…","hint":"运行 msy-x auth login 重新登录"}}`。`code` 是稳定英文串（供程序分支），`message`/`hint` 为中文（供人读）。
 
 ## 退出码
