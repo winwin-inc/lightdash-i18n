@@ -1,0 +1,41 @@
+{
+    "name": "msy-x-cli",
+    "version": "0.1.0",
+    "license": "MIT",
+    "description": "马上赢 X 平台 MCP 命令行客户端（Streamable HTTP；OAuth DCR + PAT）",
+    "bin": {
+        "msy-x": "dist/index.js"
+    },
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "files": [
+        "dist/**/*",
+        "README.md"
+    ],
+    "engines": {
+        "node": ">=20"
+    },
+    "publishConfig": {
+        "access": "public"
+    },
+    "scripts": {
+        "build": "tsc --build tsconfig.json --force",
+        "typecheck": "tsc --project tsconfig.json --noEmit",
+        "lint": "eslint -c ./.eslintrc.js src/**/*.ts",
+        "fix-lint": "eslint -c ./.eslintrc.js --fix src/**/*.ts",
+        "test": "tsx --test src/**/*.test.ts",
+        "dev": "tsx src/index.ts",
+        "pack:tgz": "pnpm build && node scripts/pack-cli.mjs"
+    },
+    "dependencies": {
+        "@modelcontextprotocol/sdk": "^1.17.5",
+        "commander": "^9.2.0",
+        "csv-parse": "^5.5.6",
+        "js-yaml": "^4.1.0",
+        "zod": "^3.23.8"
+    },
+    "devDependencies": {
+        "tsx": "^4.19.2",
+        "typescript": "5.5.4"
+    }
+}

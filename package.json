@@ -156,6 +156,11 @@
         "bump-version": "node scripts/bump-workspace-version.mjs",
         "bump-cli": "node scripts/bump-cli-version.mjs",
         "bump-mcp": "node scripts/bump-versions.mjs",
+        "msy-x-cli-build": "pnpm -F msy-x-cli build",
+        "msy-x-cli-dev": "pnpm -F msy-x-cli dev",
+        "msy-x-cli-typecheck": "pnpm -F msy-x-cli typecheck",
+        "msy-x-cli-test": "pnpm -F msy-x-cli test",
+        "msy-x-cli-lint": "pnpm -F msy-x-cli lint",
         "list-mcp-tools": "node scripts/list-mcp-tool-names.mjs"
     },
     "lint-staged": {
