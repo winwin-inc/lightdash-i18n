@@ -234,20 +234,23 @@ const VisualizationProvider: FC<
 
     const registerVisibleColorKeys = useRegisterDashboardVisibleColorKeys();
 
+    // 注册仍保留（供 Vega 通道的跨图共现/后续能力使用），但 ECharts 取色已改为
+    // 只依赖 known + 本图可见集，不再消费看板追加表。
     useLayoutEffect(() => {
         if (!useHashBased) return;
         registerVisibleColorKeys(visibleColorKeys);
     }, [registerVisibleColorKeys, useHashBased, visibleColorKeys]);
 
     /**
-     * 本图色表 = 看板 known 色 + 本图可见系列的避让结果。
+     * 本图色表（ECharts 通道）= 看板 known 色 + 本图可见系列的避让结果。
      *
-     * 只对本图的可见集做避让（appendUnknownHashColors），而不是等
-     * useLayoutEffect 把名字注册到看板级色表后再取色：
-     * 看板级色表避让的是「整个看板已占用的颜色」，图一多色位就被挤满，
-     * 后注册的系列只能拿到同色相近似色（甚至重复色）。按本图避让可在
-     * 任意 known 规模下都保证本图 15 个系列两两色差 ≥ MIN_COLOR_DIFF。
-     * 已知（保存过）的系列仍以看板 known 映射为准，跨图同名同色不变。
+     * 只以 `knownHashAssignments`（看板已保存系列）为已知映射，**不再叠加看板级
+     * 追加表**：追加表避让的是「整块看板已占用的颜色」，看板一多色位就被挤满，
+     * 运行期新增的系列只能拿到同色相变体（实测 20 色板下 0/8 命中调色板）。
+     * 现在运行期系列优先用调色板纯色、本图内保证不重复；已保存系列仍以看板
+     * known 映射为准，跨图同名同色不变。
+     *
+     * 注意：Vega 通道（colorSync.hashAssignments）仍使用看板表，保持旧行为。
      */
     const chartHashAssignments = useMemo(
         () =>
@@ -255,10 +258,10 @@ const VisualizationProvider: FC<
                 ? appendUnknownHashColors(
                       visibleColorKeys,
                       colorPalette,
-                      hashAssignments,
+                      knownHashAssignments,
                   )
-                : hashAssignments,
-        [useHashBased, visibleColorKeys, colorPalette, hashAssignments],
+                : knownHashAssignments,
+        [useHashBased, visibleColorKeys, colorPalette, knownHashAssignments],
     );
 
     /** 看板级颜色同步信息，供自定义图表（Vega-Lite）注入 color scale 使用 */
@@ -267,14 +270,15 @@ const VisualizationProvider: FC<
             enabled: useHashBased,
             palette: colorPalette,
             knownHashAssignments: knownHashAssignments ?? {},
-            hashAssignments: chartHashAssignments,
+            // Vega 通道保持看板表（known + 看板追加），行为不变
+            hashAssignments,
             registerVisibleColorKeys,
         }),
         [
             useHashBased,
             colorPalette,
             knownHashAssignments,
-            chartHashAssignments,
+            hashAssignments,
             registerVisibleColorKeys,
         ],
     );

@@ -167,9 +167,6 @@ export const colorDifference = (color1: string, color2: string): number => {
         : Number.POSITIVE_INFINITY;
 };
 
-const conflictsWithUsed = (color: string, usedColors: string[]): boolean =>
-    usedColors.some((used) => colorDifference(color, used) < MIN_COLOR_DIFF);
-
 /**
  * 生成色用更严的阈值：避免把"同色相明暗变体"当成分得开的颜色。
  * 池子超过容量后自动降级，避免过早耗尽候选（见 GENERATED_DIFF_CAPACITY）。
@@ -257,9 +254,13 @@ const pickAvoidingColor = (
     const hash = hashString(identifier);
     const start = hash % colorPalette.length;
 
+    // 主题色「忠于原色」：只跳过已被本图用掉的颜色（完全相同），不再按色差
+    // 阈值拒绝——单色系色板（商务/复古）的深浅过渡是设计意图，按阈值拒绝会让
+    // 用户选中色板后看到一堆别处的颜色。
+    const usedPaletteColors = new Set(usedColors.map(normalizeColor));
     for (let offset = 0; offset < colorPalette.length; offset++) {
         const color = colorPalette[(start + offset) % colorPalette.length];
-        if (!conflictsWithUsed(color, usedColors)) {
+        if (!usedPaletteColors.has(normalizeColor(color))) {
             return color;
         }
     }

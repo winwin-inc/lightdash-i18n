@@ -1,6 +1,6 @@
 # msy-x-cli 设计文档
 
-> 版本对应：0.1.1　｜　文档状态：已实现，随 0.1.1 发布
+> 版本对应：0.1.1（扫码登录为 0.2.0 新增，服务端需 ≥ 2.7.5）　｜　文档状态：已实现
 >
 > 本文是自包含的对外契约文档，不依赖任何内部文档或代码路径。使用步骤见同目录《msy-x-cli 使用手册》。
 
@@ -215,6 +215,37 @@ auth login
 `auth status` 为**纯本地离线判定**（凭证存在且未过期，或存在 refresh token）；真实可用性由 `doctor --remote` 验证。
 
 为兼容习惯，另外提供两个顶层别名：`msy-x login`（= `auth login`）、`msy-x logout`（= `auth logout`）。别名与规范命令走同一实现，**没有**独立的语义分支；`auth status` 不提供别名（避免与 `doctor` / `info` 混淆）。本地凭证命令不支持 `--dry-run`（会直接报用法错误，而不是静默写盘）。
+
+### 6.4 设备码（扫码）登录
+
+无浏览器环境（WSL / SSH / 容器）用 `msy-x auth login --qr` 走 RFC 8628 设备码流程，与浏览器 OAuth 并存、互不影响。
+
+```text
+CLI                                 服务端
+ |-- POST /api/v1/oauth/device ----->| 生成 device_code + user_code（10 分钟有效）
+ |<-- verification_uri_complete -----| client_id = msy-x-cli（预注册公开客户端）
+ |   终端渲染二维码 + 明文 user_code    |
+ |   手机扫码 → 确认页点同意 ---------->| GET/POST /api/v1/oauth/device/activate（需登录态）
+ |-- POST /api/v1/oauth/device/token->| 轮询换 token（一次性消费）
+ |<-- access_token + refresh_token --| 与浏览器 OAuth 同构，refresh 复用
+```
+
+| 项 | 契约 |
+|---|---|
+| 授权端点 | `POST {site}/api/v1/oauth/device`、`GET/POST {site}/api/v1/oauth/device/activate`、`POST {site}/api/v1/oauth/device/token` |
+| 公开客户端 | `msy-x-cli`（迁移预注册，`scope=mcp:read`，无 client_secret） |
+| 会话存储 | **服务端 Postgres（`oauth2_device_codes`）**，多副本共享；不得依赖进程内存 |
+| 有效期 | 设备码 10 分钟；确认页只能用一次；进行中会话上限 1 万，超出 `/device` 返回 429 `slow_down` |
+| 轮询 | 服务端 `interval=5`（秒）；CLI 遵守该值，收到 `slow_down` 追加 5s，`interval` 缺失/非法时兜底 5s |
+| 会话状态 | `pending` →（用户确认）`authorized` →（CLI 兑换）`consumed`；或 `pending` → `denied`。状态迁移全部用原子 `UPDATE ... WHERE status=...`，并发双批准/双兑换只成功一次 |
+| 失败语义 | `authorization_pending` 继续等；`expired_token` / `access_denied` / `invalid_grant` → 退 `3`，凭证不落盘；`server_error`（500，签发环节瞬时故障）与 5xx/网络错误 → CLI 在 deadline 内继续重试，超时后按类别退 `6`（网络）或 `3`（服务端） |
+| 签发失败自愈 | 兑换前先把会话标 `consumed`，`createDeviceToken` 抛错则回退为 `authorized`（best-effort）+ 返回 500 `server_error`，下一轮轮询可重试，无需重新扫码 |
+| 无浏览器检测 | WSL 且未配置 `$BROWSER`、PATH 中无 `xdg-open`/`wslview` 时自动降级为扫码，并在 stderr 提示 |
+| 能力探测 | `msy-x doctor --remote` 的 `device-flow` 项：用未注册 client_id 探 `POST /device`，返回 `400 unauthorized_client` 视为端点存在 |
+
+**部署前提**：服务端镜像 ≥ 2.7.5（2.7.4 首次引入端点，但会话存在进程内存，多副本下扫码约 50% 报 `Invalid Code`）。旧站点上 CLI 报「站点不支持扫码登录（镜像需 ≥ 2.7.5）」或 `invalid_grant`，可用 `--no-browser` 或 `--token <pat>` 绕过。
+
+**已知限制**：`POST /device` 与 `POST /device/token` **没有限流**，仅靠「进行中会话 ≤ 1 万」的全局上限（超出返回 429 `slow_down`）。该上限是跨副本共享的单一闸门，持续灌请求可在 TTL（10 分钟）内把真实用户挡在 429。建议在入口网关/Ingress 对 `/api/v1/oauth/device*` 做 IP 级限速；代码内的限流/失败计数属后续工作。
 
 ---
 

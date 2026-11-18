@@ -2,6 +2,8 @@
 
 > 状态：**P0–P3 已实现，0.1.1 已发布；P4 剩真实站点验收**（2026-11-17）。契约以 [设计文档](./msy-x-cli-design.md) 为准，使用说明见 [使用手册](./msy-x-cli-usage.md)；本文只写实施顺序、测试与发布（内部文档，可含内部引用）。
 >
+> **2026-11-18 追加**：扫码登录（RFC 8628）多副本失效已修——设备码会话从进程内存迁至 Postgres `oauth2_device_codes`（服务端 ≥ 2.7.5），CLI 侧补 `invalid_grant`/404/`interval` NaN 处理与 `doctor --remote` 的 `device-flow` 探测。**0.2.0 发版 tag 需等此修复上线并完成生产扫码验收**。
+>
 > 已完成：配置/鉴权/MCP 客户端/渲染/35 个命令/doctor/verified/打包脚本/豆包 CLI 连接器；独立审查的 P0+P1（401 映射、门控 detail、text JSON 原样输出、Skill 文档）已修。
 > 待办：P4 公网 tgz 与 npm 发布、真实站点验收（OAuth 登录 + `values`/`query flat` 冒烟）、P2 尾巴（见设计稿审查清单）。
 >
@@ -311,6 +313,7 @@ timeout 180 msy-x dashboards tiles d54853b1-85df-4ab3-8cdf-70a5244640e1
 | 6 | 服务端新增工具导致 CLI 落后 | `call` 兜底 + `tools list` 自动可见；映射测试提示补齐 |
 | 7 | 强制看板模式把常用查询拦成 `4` | 错误里原样透出服务端文案与候选看板，文档给 `--dashboard` 用法 |
 | 8 | 后端 `type` 判别键被剥离导致 `run_metric_query` / `search_field_values` 二次 parse 失败（设计稿 §10.4） | **已修复**（`mcpToolArgs.withToolDiscriminator` + 回归测试），随主站镜像发布；在 x 站升级前 `query` 走 `run_semantic_metric_query` 主路径、`query flat` 标实验、`values` 失败提示改用 `query --dimensions` |
+| 9 | **设备码会话存进程内存**：生产 `replicas: 2` + headless Service，CLI 的 `POST /device` 与手机 `GET /device/activate` 落到不同 pod → 约 50% 报 `Invalid Code` / `invalid_grant`；CLI 与手机无共同 cookie，粘滞会话无效 | **已修复（2.7.5）**：会话改存 Postgres `oauth2_device_codes`（`expires_at` 用 `TIMESTAMPTZ` 与 `now()` 比较），四个端点全部走共享存储；新增 router 层“两实例共享存储”回归测试；`doctor --remote` 增加 `device-flow` 探测；单副本环境（本地 dev / pre）无法复现，验收必须走双副本或该测试 |
 
 **回滚**：卸载 CLI（`npm uninstall -g msy-x-cli`）+ 从 `cli.json` 移除连接器即可；不影响现有 MCP 连接器与站点。
 

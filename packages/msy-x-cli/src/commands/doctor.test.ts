@@ -393,6 +393,19 @@ const businessErrorResult = (text: string): ToolResult => ({
     isError: true,
 });
 
+/** 设备码探测假 fetch：只需 status/json 可用（checkDeviceFlow 的调用形态） */
+const fakeDeviceFlowFetch =
+    (
+        status: number,
+        body: Record<string, unknown> = { error: 'unauthorized_client' },
+    ): typeof globalThis.fetch =>
+    async () =>
+        ({ status, json: async () => body }) as unknown as Response;
+
+/** 设备码探测网络失败 fetch：直接抛 TypeError（不产生真实 DNS 请求） */
+const offlineDeviceFlowFetch = (): Promise<Response> =>
+    Promise.reject(new TypeError('offline'));
+
 test('doctor --remote 未登录 → remote-auth fail + auth login hint、退 3、不建连', async () => {
     const env = await makeConfigEnv();
     try {
@@ -401,6 +414,7 @@ test('doctor --remote 未登录 → remote-auth fail + auth login hint、退 3�
             makeCtx({ credentials: null }),
             {
                 ...localDeps(env),
+                fetchFn: offlineDeviceFlowFetch,
                 createClient: async () => {
                     throw new Error('未登录时不应创建客户端');
                 },
@@ -410,7 +424,17 @@ test('doctor --remote 未登录 → remote-auth fail + auth login hint、退 3�
         const remoteAuth = byName(lines, 'remote-auth');
         assert.equal(remoteAuth.status, 'fail');
         assert.ok(remoteAuth.detail.includes('auth login'));
-        assert.ok(!lines.some((line) => line.name === 'tools-catalog'), '未登录应跳过后续远程检查');
+        assert.deepEqual(
+            lines.map((line) => line.name),
+            [
+                'node-version',
+                'config-permissions',
+                'site-resolution',
+                'credentials',
+                'remote-auth',
+            ],
+            '未登录应只报 remote-auth，跳过全部远程检查',
+        );
         assert.equal(result.exitCode, 3);
         assert.equal(result.error?.code, 'AUTH_REQUIRED');
         assert.equal(result.error?.hint, '运行 msy-x auth login 重新登录');
@@ -430,15 +454,33 @@ test('doctor --remote：26 个工具 + 探测业务错误 → tools-catalog ok�
         const result = await runDoctor(
             { remote: true },
             makeCtx(),
-            { ...localDeps(env), createClient: async () => fake.client },
+            {
+                ...localDeps(env),
+                fetchFn: fakeDeviceFlowFetch(400),
+                createClient: async () => fake.client,
+            },
         );
         const lines = parseLines(result.stdout);
+        assert.deepEqual(
+            lines.map((line) => line.name),
+            [
+                'node-version',
+                'config-permissions',
+                'site-resolution',
+                'credentials',
+                'remote-auth',
+                'tools-catalog',
+                'capability-probe',
+                'device-flow',
+            ],
+        );
         assert.equal(byName(lines, 'remote-auth').status, 'ok');
         assert.equal(byName(lines, 'tools-catalog').status, 'ok');
         const probe = byName(lines, 'capability-probe');
         assert.equal(probe.status, 'ok');
         assert.ok(probe.detail.includes('判别键修复已就绪'));
         assert.ok(probe.detail.includes('业务错误'));
+        assert.equal(byName(lines, 'device-flow').status, 'ok');
         assert.equal(result.exitCode, 0);
     } finally {
         await rm(path.dirname(env.MSY_X_CONFIG as string), { recursive: true, force: true });
@@ -459,13 +501,29 @@ test('doctor --remote：tools 数量/名单不符 → warn 并列出新增/缺�
         const result = await runDoctor(
             { remote: true },
             makeCtx(),
-            { ...localDeps(env), createClient: async () => fake.client },
+            {
+                ...localDeps(env),
+                fetchFn: fakeDeviceFlowFetch(400),
+                createClient: async () => fake.client,
+            },
         );
-        const catalog = byName(parseLines(result.stdout), 'tools-catalog');
+        const lines = parseLines(result.stdout);
+        assert.deepEqual(lines.map((line) => line.name), [
+            'node-version',
+            'config-permissions',
+            'site-resolution',
+            'credentials',
+            'remote-auth',
+            'tools-catalog',
+            'capability-probe',
+            'device-flow',
+        ]);
+        const catalog = byName(lines, 'tools-catalog');
         assert.equal(catalog.status, 'warn');
         assert.ok(catalog.detail.includes('26 个'), `应报告实际数量：${catalog.detail}`);
         assert.ok(catalog.detail.includes('extra_new_tool'), `应列新增：${catalog.detail}`);
         assert.ok(catalog.detail.includes('find_content'), `应列缺失：${catalog.detail}`);
+        assert.equal(byName(lines, 'device-flow').status, 'ok');
         assert.equal(result.exitCode, 0, 'warn 不影响退出码');
     } finally {
         await rm(path.dirname(env.MSY_X_CONFIG as string), { recursive: true, force: true });
@@ -483,13 +541,29 @@ test('doctor --remote：Invalid literal value → capability-probe fail、退 5'
         const result = await runDoctor(
             { remote: true },
             makeCtx(),
-            { ...localDeps(env), createClient: async () => fake.client },
+            {
+                ...localDeps(env),
+                fetchFn: fakeDeviceFlowFetch(400),
+                createClient: async () => fake.client,
+            },
         );
-        const probe = byName(parseLines(result.stdout), 'capability-probe');
+        const lines = parseLines(result.stdout);
+        assert.deepEqual(lines.map((line) => line.name), [
+            'node-version',
+            'config-permissions',
+            'site-resolution',
+            'credentials',
+            'remote-auth',
+            'tools-catalog',
+            'capability-probe',
+            'device-flow',
+        ]);
+        const probe = byName(lines, 'capability-probe');
         assert.equal(probe.status, 'fail');
         assert.ok(probe.detail.includes('判别键修复'));
         assert.ok(probe.detail.includes('run_metric_query / search_field_values'));
         assert.ok(probe.detail.includes('升级主站'));
+        assert.equal(byName(lines, 'device-flow').status, 'ok');
         assert.equal(result.exitCode, 5);
         assert.equal(result.error?.code, 'SERVER_ERROR');
     } finally {
@@ -506,11 +580,27 @@ test('doctor --remote：探测工具不存在 → capability-probe warn（不声
         const result = await runDoctor(
             { remote: true },
             makeCtx(),
-            { ...localDeps(env), createClient: async () => fake.client },
+            {
+                ...localDeps(env),
+                fetchFn: fakeDeviceFlowFetch(400),
+                createClient: async () => fake.client,
+            },
         );
-        const probe = byName(parseLines(result.stdout), 'capability-probe');
+        const lines = parseLines(result.stdout);
+        assert.deepEqual(lines.map((line) => line.name), [
+            'node-version',
+            'config-permissions',
+            'site-resolution',
+            'credentials',
+            'remote-auth',
+            'tools-catalog',
+            'capability-probe',
+            'device-flow',
+        ]);
+        const probe = byName(lines, 'capability-probe');
         assert.equal(probe.status, 'warn');
         assert.ok(probe.detail.includes('未暴露 run_metric_query'));
+        assert.equal(byName(lines, 'device-flow').status, 'ok');
         assert.equal(result.exitCode, 0);
     } finally {
         await rm(path.dirname(env.MSY_X_CONFIG as string), { recursive: true, force: true });
@@ -528,10 +618,26 @@ test('doctor --remote：403/看板门控类业务错误 → capability-probe ok'
         const result = await runDoctor(
             { remote: true },
             makeCtx(),
-            { ...localDeps(env), createClient: async () => fake.client },
+            {
+                ...localDeps(env),
+                fetchFn: fakeDeviceFlowFetch(400),
+                createClient: async () => fake.client,
+            },
         );
-        const probe = byName(parseLines(result.stdout), 'capability-probe');
+        const lines = parseLines(result.stdout);
+        assert.deepEqual(lines.map((line) => line.name), [
+            'node-version',
+            'config-permissions',
+            'site-resolution',
+            'credentials',
+            'remote-auth',
+            'tools-catalog',
+            'capability-probe',
+            'device-flow',
+        ]);
+        const probe = byName(lines, 'capability-probe');
         assert.equal(probe.status, 'ok');
+        assert.equal(byName(lines, 'device-flow').status, 'ok');
         assert.equal(result.exitCode, 0);
     } finally {
         await rm(path.dirname(env.MSY_X_CONFIG as string), { recursive: true, force: true });
@@ -546,6 +652,7 @@ test('doctor --remote：网络不可达 → remote-connect fail、退 6', async 
             makeCtx(),
             {
                 ...localDeps(env),
+                fetchFn: offlineDeviceFlowFetch,
                 createClient: async () => {
                     throw new CliError({
                         code: 'NETWORK',
@@ -555,11 +662,143 @@ test('doctor --remote：网络不可达 → remote-connect fail、退 6', async 
                 },
             },
         );
-        const remoteConnect = byName(parseLines(result.stdout), 'remote-connect');
+        const lines = parseLines(result.stdout);
+        const remoteConnect = byName(lines, 'remote-connect');
         assert.equal(remoteConnect.status, 'fail');
-        assert.ok(!parseLines(result.stdout).some((line) => line.name === 'tools-catalog'));
+        assert.deepEqual(
+            lines.map((line) => line.name),
+            [
+                'node-version',
+                'config-permissions',
+                'site-resolution',
+                'credentials',
+                'remote-auth',
+                'remote-connect',
+            ],
+            '建连失败应只报 remote-auth 与 remote-connect',
+        );
         assert.equal(result.exitCode, 6);
         assert.equal(result.error?.code, 'NETWORK');
+    } finally {
+        await rm(path.dirname(env.MSY_X_CONFIG as string), { recursive: true, force: true });
+    }
+});
+
+/* ------------------------------------------------------------------ */
+/* --remote：device-flow 设备码端点探测（注入假 fetch，不联网）          */
+/* ------------------------------------------------------------------ */
+
+test('doctor --remote：设备码端点 400 unauthorized_client → device-flow ok、退 0', async () => {
+    const env = await makeConfigEnv();
+    const fake = fakeCatalogClient({
+        probeResult: businessErrorResult(
+            'Not found: explore __msy_x_doctor_probe__ does not exist',
+        ),
+    });
+    try {
+        const result = await runDoctor(
+            { remote: true },
+            makeCtx(),
+            {
+                ...localDeps(env),
+                fetchFn: fakeDeviceFlowFetch(400),
+                createClient: async () => fake.client,
+            },
+        );
+        const lines = parseLines(result.stdout);
+        assert.deepEqual(lines.map((line) => line.name), [
+            'node-version',
+            'config-permissions',
+            'site-resolution',
+            'credentials',
+            'remote-auth',
+            'tools-catalog',
+            'capability-probe',
+            'device-flow',
+        ]);
+        const deviceFlow = byName(lines, 'device-flow');
+        assert.equal(deviceFlow.status, 'ok');
+        assert.ok(deviceFlow.detail.includes('auth login --qr'));
+        assert.equal(result.exitCode, 0);
+        assert.equal(result.error, null);
+    } finally {
+        await rm(path.dirname(env.MSY_X_CONFIG as string), { recursive: true, force: true });
+    }
+});
+
+test('doctor --remote：设备码端点 404 → device-flow fail、退 5、提示站点不支持扫码登录', async () => {
+    const env = await makeConfigEnv();
+    const fake = fakeCatalogClient({
+        probeResult: businessErrorResult(
+            'Not found: explore __msy_x_doctor_probe__ does not exist',
+        ),
+    });
+    try {
+        const result = await runDoctor(
+            { remote: true },
+            makeCtx(),
+            {
+                ...localDeps(env),
+                fetchFn: fakeDeviceFlowFetch(404),
+                createClient: async () => fake.client,
+            },
+        );
+        const lines = parseLines(result.stdout);
+        assert.deepEqual(lines.map((line) => line.name), [
+            'node-version',
+            'config-permissions',
+            'site-resolution',
+            'credentials',
+            'remote-auth',
+            'tools-catalog',
+            'capability-probe',
+            'device-flow',
+        ]);
+        const deviceFlow = byName(lines, 'device-flow');
+        assert.equal(deviceFlow.status, 'fail');
+        assert.ok(deviceFlow.detail.includes('站点不支持扫码登录'));
+        assert.ok(deviceFlow.detail.includes('2.7.5'));
+        assert.equal(result.exitCode, 5);
+        assert.equal(result.error?.code, 'SERVER_ERROR');
+    } finally {
+        await rm(path.dirname(env.MSY_X_CONFIG as string), { recursive: true, force: true });
+    }
+});
+
+test('doctor --remote：设备码端点网络失败 → device-flow warn、整体仍退 0', async () => {
+    const env = await makeConfigEnv();
+    const fake = fakeCatalogClient({
+        probeResult: businessErrorResult(
+            'Not found: explore __msy_x_doctor_probe__ does not exist',
+        ),
+    });
+    try {
+        const result = await runDoctor(
+            { remote: true },
+            makeCtx(),
+            {
+                ...localDeps(env),
+                fetchFn: offlineDeviceFlowFetch,
+                createClient: async () => fake.client,
+            },
+        );
+        const lines = parseLines(result.stdout);
+        assert.deepEqual(lines.map((line) => line.name), [
+            'node-version',
+            'config-permissions',
+            'site-resolution',
+            'credentials',
+            'remote-auth',
+            'tools-catalog',
+            'capability-probe',
+            'device-flow',
+        ]);
+        const deviceFlow = byName(lines, 'device-flow');
+        assert.equal(deviceFlow.status, 'warn');
+        assert.ok(deviceFlow.detail.includes('设备码端点探测请求失败'));
+        assert.ok(deviceFlow.detail.includes('offline'));
+        assert.equal(result.exitCode, 0, '仅 warn 不影响退出码');
+        assert.equal(result.error, null);
     } finally {
         await rm(path.dirname(env.MSY_X_CONFIG as string), { recursive: true, force: true });
     }
