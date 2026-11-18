@@ -25,6 +25,9 @@ export const DEVICE_CLIENT_ID = 'msy-x-cli';
 
 const DEVICE_GRANT_TYPE = 'urn:ietf:params:oauth:grant-type:device_code';
 
+/** 后端 device_code 默认有效期（RFC 8628 / lightdash 均为 10 分钟） */
+const DEFAULT_DEVICE_CODE_TTL_MS = 10 * 60 * 1000;
+
 export type DeviceAuthorizationResponse = {
     device_code: string;
     user_code: string;
@@ -100,9 +103,30 @@ export const loginWithDeviceQr = async ({
             },
         );
         if (!response.ok) {
-            throw new Error(
-                `POST /device ${response.status} ${await response.text()}`,
-            );
+            const rawBody = await response.text();
+            let bodyError: unknown;
+            try {
+                bodyError = (JSON.parse(rawBody) as Record<string, unknown>)
+                    .error;
+            } catch {
+                bodyError = undefined;
+            }
+            if (response.status === 404) {
+                throw new CliError({
+                    code: 'AUTH_REQUIRED',
+                    message:
+                        '站点不支持扫码登录：镜像需 ≥ 2.7.5（2.7.4 的设备码会话存内存，多副本会随机失败）',
+                    hint: '改用 msy-x auth login --no-browser 或 --token <pat>',
+                });
+            }
+            if (response.status === 429 || bodyError === 'slow_down') {
+                throw new CliError({
+                    code: 'AUTH_REQUIRED',
+                    message: '申请设备码被限流，请稍后重试',
+                    hint: '稍等片刻后重新运行 msy-x auth login --qr',
+                });
+            }
+            throw new Error(`POST /device ${response.status} ${rawBody}`);
         }
         authorization = (await response.json()) as DeviceAuthorizationResponse;
     } catch (error) {
@@ -123,18 +147,59 @@ export const loginWithDeviceQr = async ({
     print('');
 
     // 3. 轮询 token
-    const deadline = Date.now() + (timeoutMs ?? authorization.expires_in * 1000);
+    // expires_in 缺失/非法时 undefined * 1000 = NaN，deadline 立刻到期、直接报超时
+    const serverExpiresIn = authorization.expires_in;
+    const sessionLifetimeMs =
+        Number.isFinite(serverExpiresIn) && serverExpiresIn > 0
+            ? serverExpiresIn * 1000
+            : DEFAULT_DEVICE_CODE_TTL_MS;
+    const deadline = Date.now() + (timeoutMs ?? sessionLifetimeMs);
+    // interval 缺失/非法时 undefined * 1000 = NaN，?? 不兜 NaN，sleep(NaN) 变 0ms 热轮询
+    const serverInterval = authorization.interval;
     let intervalMs =
-        pollIntervalMs ?? authorization.interval * 1000 ?? 5_000;
+        pollIntervalMs ??
+        (Number.isFinite(serverInterval) && serverInterval > 0
+            ? serverInterval * 1000
+            : 5_000);
+    /**
+     * 轮询内三类分流（deadline 兜底，不新增无限重试）：
+     * - 继续等：authorization_pending / slow_down（+5s）；
+     * - 可重试：HTTP 5xx、JSON 解析失败、网络 TypeError → sleep(interval) 后
+     *   continue，记录 lastRetryableError（网络类 / 服务端类）；
+     * - 终态：expired_token / access_denied / invalid_grant、非 2xx 且
+     *   error 不在上述集合的 4xx。
+     */
+    let lastRetryableError: {
+        kind: 'network' | 'server';
+        message: string;
+    } | null = null;
     for (;;) {
         if (Date.now() >= deadline) {
+            if (lastRetryableError?.kind === 'network') {
+                throw new CliError({
+                    code: 'NETWORK',
+                    message: `设备码登录超时：${lastRetryableError.message}`,
+                    hint: '检查网络 / 代理 / 站点地址后重试 msy-x auth login --qr',
+                });
+            }
+            if (lastRetryableError) {
+                throw new CliError({
+                    code: 'AUTH_REQUIRED',
+                    message: `设备码登录超时：服务端暂时不可用（${lastRetryableError.message}）`,
+                    hint: '稍后重试 msy-x auth login --qr',
+                });
+            }
             throw new CliError({
                 code: 'AUTH_REQUIRED',
                 message: '设备码登录超时（未在有效期内确认）',
                 hint: '重新运行 msy-x auth login --qr',
             });
         }
-        let body: Record<string, unknown>;
+
+        let body: Record<string, unknown> | null = null;
+        // 本轮的可重试失败（5xx / 解析失败 / 网络 TypeError），null 表示本轮无
+        let retryable: { kind: 'network' | 'server'; message: string } | null =
+            null;
         try {
             const response = await doFetch(
                 `${authorizationServerUrl}/device/token`,
@@ -150,9 +215,19 @@ export const loginWithDeviceQr = async ({
                     }).toString(),
                 },
             );
-            body = (await response.json()) as Record<string, unknown>;
-            if (!response.ok) {
-                const errorCode = body.error;
+            // 注意：undici 的 response.json() 解析失败抛的是 TypeError，
+            // 必须在此先行捕获并归类为「服务端类」，否则会被外层
+            // TypeError 分支误判成网络问题。
+            try {
+                body = (await response.json()) as Record<string, unknown>;
+            } catch {
+                retryable = {
+                    kind: 'server',
+                    message: `POST /device/token 返回非 JSON 响应（HTTP ${response.status}）`,
+                };
+            }
+            if (!retryable && !response.ok) {
+                const errorCode = body?.error;
                 if (errorCode === 'authorization_pending') {
                     debugLog('device token: authorization_pending');
                 } else if (errorCode === 'slow_down') {
@@ -170,6 +245,18 @@ export const loginWithDeviceQr = async ({
                         message: '用户在确认页拒绝了本次登录',
                         hint: '重新运行 msy-x auth login --qr',
                     });
+                } else if (errorCode === 'invalid_grant') {
+                    throw new CliError({
+                        code: 'AUTH_REQUIRED',
+                        message: '设备码无效或已过期（服务端未找到该会话）',
+                        hint: '重新运行 msy-x auth login --qr',
+                    });
+                } else if (response.status >= 500) {
+                    // 5xx 视为服务端暂时不可用，可重试而非终态
+                    retryable = {
+                        kind: 'server',
+                        message: `POST /device/token ${response.status} ${JSON.stringify(body)}`,
+                    };
                 } else {
                     throw new Error(
                         `POST /device/token ${response.status} ${JSON.stringify(body)}`,
@@ -177,10 +264,32 @@ export const loginWithDeviceQr = async ({
                 }
             }
         } catch (error) {
-            throw toDeviceError(error, '设备码换 token 失败');
+            if (error instanceof CliError) {
+                // 终态错误（expired_token / access_denied / invalid_grant /
+                // 未知 4xx → toDeviceError 包装后的 AUTH_REQUIRED）
+                throw error;
+            }
+            if (error instanceof TypeError) {
+                // fetch 网络层失败（连接拒绝 / DNS / TLS 等），可重试
+                retryable = {
+                    kind: 'network',
+                    message: `POST /device/token 网络请求失败：${error.message}`,
+                };
+            } else if (!retryable) {
+                throw toDeviceError(error, '设备码换 token 失败');
+            }
         }
 
-        if (typeof body.access_token === 'string') {
+        if (retryable) {
+            lastRetryableError = retryable;
+            debugLog(
+                `device token: 可重试错误（${retryable.kind}），${intervalMs}ms 后重试：${retryable.message}`,
+            );
+            await sleep(intervalMs);
+            continue;
+        }
+
+        if (body && typeof body.access_token === 'string') {
             // 4. 与浏览器 OAuth 同构的凭证（公开客户端无 secret；无回调地址）
             return tokensToCredentials({
                 tokens: {
