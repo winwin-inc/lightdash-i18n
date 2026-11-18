@@ -67,6 +67,37 @@ import { type useVisualizationContext } from './useVisualizationContext';
 
 const EMPTY_COLOR_MAP: Record<string, string> = {};
 
+/* ------------------------------------------------------------------------
+ * 开发期颜色同步诊断（仅 import.meta.env.DEV 生效，生产构建会被 tree-shake）
+ *
+ * 用浏览器控制台检查 `window.__msyColorSync`：
+ * - useHashBased：本图是否真的参与了看板颜色同步
+ * - paletteSize / visibleKeys / assignments：本图色表实际覆盖了哪些系列名
+ * - misses：取色时在色表里找不到、已回退到无避让哈希（会造成同图撞色）的系列名
+ * --------------------------------------------------------------------- */
+type ColorSyncDebugPayload = {
+    useHashBased: boolean;
+    paletteSize: number;
+    visibleKeys: string[];
+    assignments: Record<string, string>;
+    misses: string[];
+};
+
+const colorSyncMisses = new Set<string>();
+
+const recordColorSyncMiss = (identifier: string): void => {
+    if (colorSyncMisses.size < 200) colorSyncMisses.add(identifier);
+};
+
+const publishColorSyncDebug = (
+    payload: Omit<ColorSyncDebugPayload, 'misses'>,
+): void => {
+    (globalThis as unknown as Record<string, unknown>).__msyColorSync = {
+        ...payload,
+        misses: [...colorSyncMisses],
+    };
+};
+
 export type VisualizationProviderProps = {
     minimal?: boolean;
     isDashboard?: boolean;
@@ -216,6 +247,18 @@ const VisualizationProvider: FC<
                     calculateSeriesLikeIdentifier(series)[1];
                 if (completeIdentifier) keys.push(completeIdentifier);
             });
+
+            // 透视系列名补齐：computedSeries 可能为空（结果为空 / layout 不全）
+            // 或与真实渲染的系列形状不一致，此时色表会缺 key，取色回退到
+            // getHashColor（无避让）→ 同图撞色。这里直接以透视结果的
+            // pivotDetails 为准把本图会出现的系列名全部收进来。
+            resultsData?.pivotDetails?.valuesColumns?.forEach((column) => {
+                column.pivotValues?.forEach(({ value }) => {
+                    if (value !== null && value !== undefined) {
+                        keys.push(String(value));
+                    }
+                });
+            });
         }
 
         if (chartConfig.type === ChartType.PIE) {
@@ -266,6 +309,23 @@ const VisualizationProvider: FC<
                 : knownHashAssignments,
         [useHashBased, visibleColorKeys, colorPalette, knownHashAssignments],
     );
+
+    if (import.meta.env.DEV) {
+        // eslint-disable-next-line react-hooks/rules-of-hooks
+        useEffect(() => {
+            publishColorSyncDebug({
+                useHashBased,
+                paletteSize: colorPalette.length,
+                visibleKeys: visibleColorKeys,
+                assignments: chartHashAssignments,
+            });
+        }, [
+            useHashBased,
+            colorPalette,
+            visibleColorKeys,
+            chartHashAssignments,
+        ]);
+    }
 
     /** 看板级颜色同步信息，供自定义图表（Vega-Lite）注入 color scale 使用 */
     const colorSync = useMemo(
@@ -515,6 +575,11 @@ const VisualizationProvider: FC<
                     chartHashAssignments,
                 );
                 if (mapped) return mapped;
+                // 开发期诊断：命中不到色表时记录真实系列名，便于定位
+                // 「调色板没覆盖 / 同图撞色」到底是不是 key 没对齐
+                if (import.meta.env.DEV && completeIdentifier) {
+                    recordColorSyncMiss(completeIdentifier);
+                }
             } else {
                 const serieId = seriesIdentifier.join('.');
                 const metadata =
