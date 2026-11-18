@@ -750,7 +750,6 @@ export type LoggingConfig = {
     filePath: string;
 };
 
-
 export type LightdashSecrets = {
     active: string;
     fallbacks: readonly string[];
@@ -1411,6 +1410,11 @@ type AuthSnowflakeConfig = {
 
 export type AuthConfig = {
     disablePasswordAuthentication: boolean;
+    /** 设备码确认页按站点域名匹配登录提示（微信/钉钉），未命中退到通用扫码提示 */
+    deviceLoginHintDomains: {
+        wechat: string[];
+        dingtalk: string[];
+    };
     /**
      * @deprecated Group Sync is deprecated. https://github.com/lightdash/lightdash/issues/12430
      */
@@ -1452,6 +1456,13 @@ export type SmtpConfig = {
 };
 
 const DEFAULT_JOB_TIMEOUT = 1000 * 60 * 10; // 10 minutes
+
+/** 逗号分隔的域名列表 → 小写、去空白的域名数组 */
+const parseDomainList = (value: string | undefined): string[] =>
+    (value ?? '')
+        .split(',')
+        .map((entry) => entry.trim().toLowerCase())
+        .filter((entry) => entry !== '');
 
 const parseSandboxProvider = (
     value: string | undefined,
@@ -1678,7 +1689,6 @@ const parseAppRuntimeConfig = (siteUrl: string): AppRuntimeConfig => {
             process.env.LIGHTDASH_APP_SAMPLE_DATA_ENABLED !== 'false',
     };
 };
-
 
 export const parseConfig = (): LightdashConfig => {
     const lightdashSecret = process.env.LIGHTDASH_SECRET;
@@ -1916,6 +1926,12 @@ export const parseConfig = (): LightdashConfig => {
             },
             disablePasswordAuthentication:
                 process.env.AUTH_DISABLE_PASSWORD_AUTHENTICATION === 'true',
+            deviceLoginHintDomains: {
+                wechat: parseDomainList(process.env.LOGIN_HINT_WECHAT_DOMAINS),
+                dingtalk: parseDomainList(
+                    process.env.LOGIN_HINT_DINGTALK_DOMAINS,
+                ),
+            },
             enableGroupSync: process.env.AUTH_ENABLE_GROUP_SYNC === 'true',
             enableOidcLinking: process.env.AUTH_ENABLE_OIDC_LINKING === 'true',
             enableOidcToEmailLinking:
@@ -2074,9 +2090,8 @@ export const parseConfig = (): LightdashConfig => {
             exportMaxRows:
                 getIntegerFromEnvironmentVariable('EXPORT_MAX_ROWS') || 1000000,
             exportMaxPivotCells:
-                getIntegerFromEnvironmentVariable(
-                    'EXPORT_MAX_PIVOT_CELLS',
-                ) || 2000000,
+                getIntegerFromEnvironmentVariable('EXPORT_MAX_PIVOT_CELLS') ||
+                2000000,
         },
         chart: {
             versionHistory: {

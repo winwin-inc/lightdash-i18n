@@ -87,7 +87,7 @@ const OAUTH_RESPONSE_TEMPLATE = `
 const OAUTH_AUTHORIZE_TEMPLATE = `
 <html>
     <head>
-        <title>Authorize Application</title>
+        <title>授权确认</title>
         <style>
             {{{styles}}}
             .container, .container p, .container strong, .container form { text-align: center; }
@@ -122,25 +122,24 @@ const OAUTH_AUTHORIZE_TEMPLATE = `
     <body>
         <div class="stack">
             <form class="container" method="POST" action="{{action}}">
-                <h1>Authorize Application</h1>
+                <h1>授权确认</h1>
                 <p class="oauth-desc">
-                    You are about to grant access to your Lightdash account using OAuth.<br/>
-                    This is a secure way to let trusted applications access your account without sharing your password.<br/>
-                    Approving will allow the client below to perform actions on your behalf, according to the requested permissions.
+                    该应用正在请求通过 OAuth 访问你的账号。<br/>
+                    允许后，以下应用将按其申请的权限代表你执行操作，无需分享你的密码。
                 </p>
-                <p>Client: <b>{{client_id}}</b></p>
-                <p>Scope: <b>{{scope}}</b></p>
+                <p>应用： <b>{{client_id}}</b></p>
+                <p>权限范围： <b>{{scope}}</b></p>
                 
                 {{#each hiddenInputs}}
                 <input type="hidden" name="{{name}}" value="{{value}}" />
                 {{/each}}
                 
-                <p>Authenticate as user: <b>{{user.firstName}} {{user.lastName}}</b></p>
-                <p>on organization: <b>{{user.organizationName}}</b></p>
+                <p>登录身份： <b>{{user.firstName}} {{user.lastName}}</b></p>
+                <p>所属组织： <b>{{user.organizationName}}</b></p>
 
                 <div class="oauth-btn-row">
-                    <button type="submit" name="approve" value="true" class="oauth-btn approve">Approve</button>
-                    <button type="submit" name="approve" value="false" class="oauth-btn deny">Deny</button>
+                    <button type="submit" name="approve" value="true" class="oauth-btn approve">允许</button>
+                    <button type="submit" name="approve" value="false" class="oauth-btn deny">拒绝</button>
                 </div>
             </form>
         </div>
@@ -161,7 +160,7 @@ const OAUTH_ICONS = {
 const OAUTH_REDIRECT_TEMPLATE = `
 <html>
     <head>
-        <title>Redirecting...</title>
+        <title>正在跳转…</title>
         <style>
             {{{styles}}}
             .spinner {
@@ -196,9 +195,9 @@ const OAUTH_REDIRECT_TEMPLATE = `
         <div class="stack">
             <div class="container">
                 <div class="spinner"></div>
-                <h1>Redirecting...</h1>
+                <h1>正在跳转…</h1>
                 <p>{{message}}</p>
-                <p>If you are not redirected automatically, <a href="{{{redirectUrl}}}" class="redirect-link">click here</a>.</p>
+                <p>若未自动跳转，请 <a href="{{{redirectUrl}}}" class="redirect-link">点击这里</a>。</p>
             </div>
         </div>
     </body>
@@ -209,7 +208,7 @@ const OAUTH_REDIRECT_TEMPLATE = `
 const OAUTH_DEVICE_TEMPLATE = `
 <html>
     <head>
-        <title>Terminal Login</title>
+        <title>终端登录确认</title>
         <style>
             {{{styles}}}
             .container, .container p, .container form { text-align: center; }
@@ -247,23 +246,32 @@ const OAUTH_DEVICE_TEMPLATE = `
             .oauth-btn.deny:hover {
                 background: #B32525;
             }
+            .login-hint {
+                font-size: 13px;
+                color: #6b7280;
+                line-height: 1.5;
+                margin: 14px 0 0;
+            }
         </style>
     </head>
     <body>
         <div class="stack">
             <form class="container" method="POST" action="{{action}}">
-                <h1>Terminal Login</h1>
-                <p>A Lightdash CLI session is requesting access to your account.</p>
-                <p>Verify this code matches the one shown in your terminal:</p>
+                <h1>终端登录确认</h1>
+                <p>一个 CLI 会话正在请求访问你的账号。</p>
+                <p>请核对下方验证码与终端中显示的是否一致：</p>
                 <div class="user-code">{{userCode}}</div>
+                {{#if loginHint}}
+                <p class="login-hint">{{loginHint}}</p>
+                {{/if}}
                 {{#each hiddenInputs}}
                 <input type="hidden" name="{{name}}" value="{{value}}" />
                 {{/each}}
-                <p>Authenticate as user: <b>{{user.firstName}} {{user.lastName}}</b></p>
-                <p>on organization: <b>{{user.organizationName}}</b></p>
+                <p>登录身份： <b>{{user.firstName}} {{user.lastName}}</b></p>
+                <p>所属组织： <b>{{user.organizationName}}</b></p>
                 <div class="oauth-btn-row">
-                    <button type="submit" name="approve" value="true" class="oauth-btn approve">Approve</button>
-                    <button type="submit" name="approve" value="false" class="oauth-btn deny">Deny</button>
+                    <button type="submit" name="approve" value="true" class="oauth-btn approve">允许</button>
+                    <button type="submit" name="approve" value="false" class="oauth-btn deny">拒绝</button>
                 </div>
             </form>
         </div>
@@ -310,6 +318,8 @@ export interface OAuthDeviceParams {
     userCode: string;
     user: OAuthUser;
     hiddenInputs: OAuthHiddenInput[];
+    /** 按站点域名生成的登录方式提示；空字符串则不渲染 */
+    loginHint?: string;
 }
 
 /**
@@ -334,11 +344,8 @@ export const generateOAuthResponseHtml = (
  * Generates a success OAuth response
  */
 export const generateOAuthSuccessResponse = (
-    title: string = 'Authentication Successful!',
-    messages: string[] = [
-        'You have been successfully authenticated with Lightdash.',
-        'You can close this window and return to the CLI.',
-    ],
+    title: string = '登录成功！',
+    messages: string[] = ['你已成功登录。', '你可以关闭此窗口并返回 CLI。'],
 ): string => generateOAuthResponseHtml('success', title, messages, 'success');
 
 /**
@@ -352,7 +359,7 @@ export const generateOAuthErrorResponse = (
     generateOAuthResponseHtml(
         'error',
         title,
-        [...messages, 'You can close this window and try again.'],
+        [...messages, '你可以关闭此窗口后重试。'],
         iconType,
     );
 
@@ -389,3 +396,45 @@ export const generateOAuthDevicePage = (params: OAuthDeviceParams): string =>
         styles: oauthPageStyles,
         ...params,
     });
+
+const WECHAT_LOGIN_HINT = '本平台使用微信扫码登录。';
+const DINGTALK_LOGIN_HINT = '本平台使用钉钉扫码登录。';
+const GENERIC_LOGIN_HINT = '本平台使用扫码方式登录。';
+
+/** 按站点域名匹配登录方式提示的域名清单（支持精确或子域后缀匹配） */
+export type DeviceLoginHintDomains = {
+    wechat: string[];
+    dingtalk: string[];
+};
+
+const hostnameMatchesAny = (hostname: string, domains: string[]): boolean =>
+    domains.some((entry) => {
+        const domain = entry.trim().toLowerCase();
+        return (
+            domain !== '' &&
+            (hostname === domain || hostname.endsWith(`.${domain}`))
+        );
+    });
+
+/**
+ * 按站点域名解析设备码确认页的登录提示文案：
+ * 微信登录平台、钉钉登录平台分别提示，都不命中时退到通用扫码提示。
+ */
+export const resolveDeviceLoginHint = (
+    siteUrl: string,
+    domains: DeviceLoginHintDomains,
+): string => {
+    let hostname: string;
+    try {
+        hostname = new URL(siteUrl).hostname.toLowerCase();
+    } catch {
+        return GENERIC_LOGIN_HINT;
+    }
+    if (hostnameMatchesAny(hostname, domains.wechat)) {
+        return WECHAT_LOGIN_HINT;
+    }
+    if (hostnameMatchesAny(hostname, domains.dingtalk)) {
+        return DINGTALK_LOGIN_HINT;
+    }
+    return GENERIC_LOGIN_HINT;
+};
