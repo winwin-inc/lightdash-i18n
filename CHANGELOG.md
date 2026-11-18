@@ -7,7 +7,7 @@
 > -   自 **v2.0** 起产品主版本独立编号
 
 
-## v2.7.5 (待发布)
+## v2.7.5 (2026-11-18)
 
 -   **内置 MCP：修复扫码登录在多副本下失效（重要）**
     -   现象：`msy-x auth login --qr` 手机扫码后约 50% 概率报 `Invalid Code`（`The code "XXXX-XXXX" is not valid.`），或换 token 时报 `invalid_grant`
