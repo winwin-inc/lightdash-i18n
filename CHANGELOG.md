@@ -7,6 +7,23 @@
 > -   自 **v2.0** 起产品主版本独立编号
 
 
+## v2.7.5 (待发布)
+
+-   **内置 MCP：修复扫码登录在多副本下失效（重要）**
+    -   现象：`msy-x auth login --qr` 手机扫码后约 50% 概率报 `Invalid Code`（`The code "XXXX-XXXX" is not valid.`），或换 token 时报 `invalid_grant`
+    -   根因：RFC 8628 设备码会话此前存在 `oauthRouter` 的**进程内存 Map** 里，代码注释假设「后端单实例」；实际生产 `lightdash` / `lightdash-internal` 均为 `replicas: 2` + headless Service，CLI 的 `POST /device` 与手机的 `GET /device/activate` 会落到不同 pod，查不到 code。CLI 与手机浏览器无共同 cookie，粘滞会话无法解决
+    -   修复：新增迁移 `oauth2_device_codes` 表，设备码会话改存 Postgres，四个端点全部走共享存储；`expires_at` 用 `TIMESTAMPTZ` 与 `now()` 比较，避免无时区列在非 UTC 会话时区下误判过期
+    -   顺带收紧：批准/拒绝改为原子 `UPDATE ... WHERE status='pending' AND expires_at > now()`（并发双批准只成功一次）；换 token 改为先原子标 `consumed` 再签发（先消费后签发阶段失败会回退为 `authorized` 并返回 500 `server_error`，下一轮轮询可重试，无需重新扫码）；四个设备码 handler 补 try/catch → `next(error)`（Express 4 不会自动转发 async 拒绝，DB 异常此前会让请求悬挂而非 500）；`user_code` 由 DB UNIQUE 约束并冲突重试
+    -   已知限制：`POST /device` 与 `/device/token` **无限流**，仅靠跨副本共享的「进行中会话 ≤ 1 万」全局上限（超出 429），建议入口网关按 IP 限速；`deleteExpiredDeviceCodes` 无批量上限（积压时单请求承担一次大 DELETE），列入后续工作
+    -   部署注意：**先执行迁移再滚镜像**（新旧版本可共存，旧 pod 仍走内存，重启即丢）；迁移需在品牌站与内部站两个库各跑一次
+-   **命令行工具（msy-x-cli）**
+    -   设备码流程健壮性：`interval` 缺失/非法时回退 5s（此前 `NaN` 会退化成 0ms 热轮询）；`expires_in` 缺失时回退 10 分钟；`invalid_grant` 单独映射为「设备码无效或已过期」；5xx / 非 JSON 响应 / 网络抖动不再直接判终态，而是在 deadline 内继续轮询（网络类超时退 6，服务端类退 3）；`POST /device` 返回 404 时明确提示「站点不支持扫码登录（镜像需 ≥ 2.7.5）」，429 提示稍后重试
+    -   `doctor --remote` 新增 `device-flow` 探测项：用未注册 client_id 探 `POST /device`，`400 unauthorized_client` 视为端点就绪，404 判 fail 并提示镜像版本要求
+-   **发版脚本**
+    -   `scripts/bump-workspace-version.mjs` 跳过 `packages/msy-x-cli`：该包独立发版（`pnpm bump-msyx`），此前被主站版本连带 bump 成 `2.7.4`，与 `src/lib/version.ts` 的 `CLI_VERSION` 脱节
+-   **文档**
+    -   `docs/cli/msy-x-cli-design.md` 补 §6.4 设备码（扫码）登录契约（端点、会话存储、有效期、失败语义、部署前提）与 `device-flow` 探测说明
+
 ## v2.7.4 (2026-11-17)
 
 -   **内置 MCP：修复查询工具判别键丢失（重要）**
