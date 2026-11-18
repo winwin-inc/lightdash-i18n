@@ -69,7 +69,7 @@ import DashboardProvider from '../providers/Dashboard/DashboardProvider';
 import useDashboardContext from '../providers/Dashboard/useDashboardContext';
 import DashboardChartColorSyncProvider from '../providers/DashboardChartColorSync/DashboardChartColorSyncProvider';
 import '../styles/react-grid.css';
-import COLOR_PALETTE_PRESETS from './palettePresets';
+import COLOR_PALETTE_PRESETS, { matchesColorPalette } from './palettePresets';
 
 /** 查看模式无 sync 列表时复用，避免每次 render 新建 [] 触发颜色同步 effect */
 const EMPTY_SYNC_TILE_UUIDS: string[] = [];
@@ -1188,13 +1188,10 @@ const Dashboard: FC = () => {
                                                 {COLOR_PALETTE_PRESETS.map(
                                                     (preset) => {
                                                         const isSelected =
-                                                            dashboardColorPalette &&
-                                                            dashboardColorPalette.join(
-                                                                ',',
-                                                            ) ===
-                                                                preset.colors.join(
-                                                                    ',',
-                                                                );
+                                                            matchesColorPalette(
+                                                                preset,
+                                                                dashboardColorPalette,
+                                                            );
                                                         return (
                                                             <Button
                                                                 key={
