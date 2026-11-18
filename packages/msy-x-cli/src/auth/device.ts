@@ -144,10 +144,7 @@ export const loginWithDeviceQr = async ({
     qrcode.generate(authorization.verification_uri_complete, { small: true });
     print('');
     print(
-        `无法扫码时，在任意设备浏览器打开：${authorization.verification_uri_complete}`,
-    );
-    print(
-        '提示：微信内打开若要求重新登录或提示未授权，请点右上角 ··· →「在浏览器打开」；PC 浏览器打开同样有效。',
+        `无法扫码时，在浏览器打开上述链接（微信内请选「在浏览器打开」）：${authorization.verification_uri_complete}`,
     );
     print('');
 
