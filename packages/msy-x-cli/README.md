@@ -79,6 +79,8 @@ msy-x auth login                     # 浏览器授权；简写 msy-x login
 msy-x auth login --site inner        # 只登内部平台（先看上一节「站点与项目」）
 MSY_X_NO_BROWSER=1 msy-x auth login  # headless：授权 URL 打到 stderr
 msy-x auth login --qr                # 扫码（WSL 无可用浏览器时也会自动降级到这条）
+                                     # 注意：不要在微信内置浏览器里确认——cookie 会随机丢失，
+                                     # 用 PC 浏览器或手机系统浏览器打开终端里的链接
 
 # PAT（服务账号 / CI）
 msy-x auth login --site inner --token ldpat_xxx   # 或用环境变量 MSY_X_PAT
