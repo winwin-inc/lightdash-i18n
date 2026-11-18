@@ -227,6 +227,7 @@ packages/msy-x-cli/
 |---|---|---|---|---|
 | 0.1.0 | `https://img0.banmahui.cn/msy-x/cli/msy-x-cli/0.1.0/msy-x-cli-0.1.0.tgz` | `43decbb864aca48ac40eccf22abf5c81361c89dec4d4726b3fd4efc509fead26` | 2026-11-17 | 首个发布：35 命令、OAuth/PAT、doctor、verified |
 | 0.1.1 | `https://img0.banmahui.cn/msy-x/cli/msy-x-cli/0.1.1/msy-x-cli-0.1.1.tgz` | `2287f542120768c96b437a562493c7342c2399f43cba57008c19dba0afc05b33` | 2026-11-17 | 顶层 `login`/`logout` 别名；本地凭证命令拒绝 `--dry-run` |
+| 0.2.0 | `https://img0.banmahui.cn/msy-x/cli/msy-x-cli/0.2.0/msy-x-cli-0.2.0.tgz` | `6352ea0b9d269f07f771637c24cc6c950d4c7e1cc9db9b4660f02e5deed5420f` | 2026-11-18 | 扫码登录（RFC 8628 设备码）；WSL 无浏览器自动降级；扫码引导与兜底提示文案优化 |
 
 两条均已在公网验证：`curl -sSI` 返回 `200` + `content-type: application/gzip`，且 `npm i -g <url>` 后 `msy-x --version` 正确、`--help` 含 `login`/`logout`。
 
