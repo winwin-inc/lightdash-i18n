@@ -7,9 +7,11 @@ import {
     generateOAuthSuccessResponse,
     getErrorMessage,
     OAuthIntrospectResponse,
+    resolveDeviceLoginHint,
 } from '@lightdash/common';
 import OAuth2Server from '@node-oauth/oauth2-server';
 import express from 'express';
+import { lightdashConfig } from '../config/lightdashConfig';
 import Logger from '../logging/logger';
 import {
     DEFAULT_OAUTH_CLIENT_ID,
@@ -47,7 +49,7 @@ oauthRouter.get('/authorize', async (req, res, next) => {
         code_challenge_method,
     } = req.query;
     if (!client_id || !redirect_uri) {
-        return res.status(400).send('Missing required parameters');
+        return res.status(400).send('缺少必要参数');
     }
 
     // Render authorize page using Handlebars template
@@ -123,10 +125,10 @@ oauthRouter.post('/authorize', async (req, res) => {
         );
     }
     if (!req.user) {
-        return res.status(401).send('Unauthorized');
+        return res.status(401).send('未登录');
     }
     if (!req.user.userId || !req.user.organizationUuid) {
-        return res.status(400).send('Missing userUuid or organizationUuid');
+        return res.status(400).send('缺少用户或组织信息');
     }
 
     // Normalize scope parameter directly on the request object
@@ -540,9 +542,9 @@ oauthRouter.get('/device/activate', async (req, res, next) => {
         if (!session) {
             res.status(400);
             res.send(
-                generateOAuthErrorResponse('Invalid Code', [
-                    `The code "${userCode}" is not valid.`,
-                    'Check the code shown in your terminal and try again.',
+                generateOAuthErrorResponse('验证码无效', [
+                    `验证码「${userCode}」无效。`,
+                    '请核对终端中显示的验证码后重试。',
                 ]),
             );
             return;
@@ -551,9 +553,9 @@ oauthRouter.get('/device/activate', async (req, res, next) => {
             await oauthService.deleteDeviceCode(session.deviceCode);
             res.status(400);
             res.send(
-                generateOAuthErrorResponse('Code Expired', [
-                    'This code has expired.',
-                    'Run the login command again in your terminal to get a new code.',
+                generateOAuthErrorResponse('验证码已过期', [
+                    '该验证码已过期。',
+                    '请在终端重新运行登录命令获取新的验证码。',
                 ]),
             );
             return;
@@ -561,9 +563,9 @@ oauthRouter.get('/device/activate', async (req, res, next) => {
         if (session.status !== 'pending') {
             res.status(400);
             res.send(
-                generateOAuthErrorResponse('Code Already Used', [
-                    'This code has already been used.',
-                    'Run the login command again in your terminal to get a new code.',
+                generateOAuthErrorResponse('验证码已被使用', [
+                    '该验证码已被使用。',
+                    '请在终端重新运行登录命令获取新的验证码。',
                 ]),
             );
             return;
@@ -580,6 +582,10 @@ oauthRouter.get('/device/activate', async (req, res, next) => {
                     organizationName: req.user.organizationName!,
                 },
                 hiddenInputs: [{ name: 'user_code', value: session.userCode }],
+                loginHint: resolveDeviceLoginHint(
+                    lightdashConfig.auth.oidc.metadataDocumentEndpoint,
+                    lightdashConfig.auth.deviceLoginHintDomains,
+                ),
             }),
         );
     } catch (error) {
@@ -591,11 +597,11 @@ oauthRouter.get('/device/activate', async (req, res, next) => {
 oauthRouter.post('/device/activate', async (req, res, next) => {
     try {
         if (!req.user) {
-            res.status(401).send('Unauthorized');
+            res.status(401).send('未登录');
             return;
         }
         if (!req.user.userId || !req.user.organizationUuid) {
-            res.status(400).send('Missing userUuid or organizationUuid');
+            res.status(400).send('缺少用户或组织信息');
             return;
         }
         const userCode = String(req.body?.user_code || '').toUpperCase();
@@ -608,9 +614,9 @@ oauthRouter.post('/device/activate', async (req, res, next) => {
                 await oauthService.deleteDeviceCode(session.deviceCode);
             res.status(400);
             res.send(
-                generateOAuthErrorResponse('Invalid Code', [
-                    'The code is invalid or has expired.',
-                    'Run the login command again in your terminal to get a new code.',
+                generateOAuthErrorResponse('验证码无效', [
+                    '验证码无效或已过期。',
+                    '请在终端重新运行登录命令获取新的验证码。',
                 ]),
             );
             return;
@@ -618,7 +624,7 @@ oauthRouter.post('/device/activate', async (req, res, next) => {
         if (session.status !== 'pending') {
             res.status(400);
             res.send(
-                generateOAuthErrorResponse('Code Already Used', [
+                generateOAuthErrorResponse('验证码已被使用', [
                     'This code has already been used.',
                 ]),
             );
@@ -636,8 +642,8 @@ oauthRouter.post('/device/activate', async (req, res, next) => {
             }
             res.status(200);
             res.send(
-                generateOAuthErrorResponse('Access Denied', [
-                    'You denied the terminal login request.',
+                generateOAuthErrorResponse('已拒绝登录', [
+                    '你已拒绝本次终端登录请求。',
                     'You can close this window and return to the CLI.',
                 ]),
             );
@@ -653,7 +659,7 @@ oauthRouter.post('/device/activate', async (req, res, next) => {
             // Another request (or replica) resolved this code first
             res.status(400);
             res.send(
-                generateOAuthErrorResponse('Code Already Used', [
+                generateOAuthErrorResponse('验证码已被使用', [
                     'This code has already been used.',
                 ]),
             );
@@ -664,9 +670,9 @@ oauthRouter.post('/device/activate', async (req, res, next) => {
         );
         res.set('Content-Type', 'text/html');
         res.send(
-            generateOAuthSuccessResponse('Terminal Login Approved!', [
-                'You can close this window and return to your terminal.',
-                'The login will complete automatically within a few seconds.',
+            generateOAuthSuccessResponse('终端登录成功！', [
+                '你可以关闭此窗口并返回终端。',
+                '登录将在几秒内自动完成。',
             ]),
         );
     } catch (error) {

@@ -413,7 +413,7 @@ describe('oauthRouter device flow (shared store across replicas)', () => {
         );
         expect(activatePage.status).toEqual(200);
         expect(activatePage.headers['content-type']).toContain('text/html');
-        expect(activatePage.text).toContain('Terminal Login');
+        expect(activatePage.text).toContain('终端登录确认');
         expect(activatePage.text).toContain(device.user_code);
 
         // 3. user approves on replica B (browser form post, no approve field)
@@ -422,7 +422,7 @@ describe('oauthRouter device flow (shared store across replicas)', () => {
         });
         expect(approval.status).toEqual(200);
         expect(approval.headers['content-type']).toContain('text/html');
-        expect(approval.text).toContain('Terminal Login Approved!');
+        expect(approval.text).toContain('终端登录成功！');
 
         // the shared store now holds the authorization
         const stored = await service.getDeviceCodeSessionByUserCode(
@@ -492,7 +492,7 @@ describe('oauthRouter device flow (shared store across replicas)', () => {
             approve: 'false',
         });
         expect(denial.status).toEqual(200);
-        expect(denial.text).toContain('Access Denied');
+        expect(denial.text).toContain('已拒绝登录');
         expect(
             await service.getDeviceCodeSessionByUserCode(device.user_code),
         ).toMatchObject({ status: 'denied' });
@@ -518,7 +518,7 @@ describe('oauthRouter device flow (shared store across replicas)', () => {
             '/device/activate?user_code=EXPI-RED1',
         );
         expect(activatePage.status).toEqual(400);
-        expect(activatePage.text).toContain('Code Expired');
+        expect(activatePage.text).toContain('验证码已过期');
 
         service.seed({
             deviceCode: 'expired-device-2',
@@ -539,7 +539,7 @@ describe('oauthRouter device flow (shared store across replicas)', () => {
             '/device/activate?user_code=NOPE-CODE',
         );
         expect(response.status).toEqual(400);
-        expect(response.text).toContain('Invalid Code');
+        expect(response.text).toContain('验证码无效');
     });
 
     it('rejects approving the same code twice', async () => {
@@ -549,13 +549,13 @@ describe('oauthRouter device flow (shared store across replicas)', () => {
             user_code: device.user_code,
         });
         expect(first.status).toEqual(200);
-        expect(first.text).toContain('Terminal Login Approved!');
+        expect(first.text).toContain('终端登录成功！');
 
         const second = await postForm(appA.baseUrl, '/device/activate', {
             user_code: device.user_code,
         });
         expect(second.status).toEqual(400);
-        expect(second.text).toContain('Code Already Used');
+        expect(second.text).toContain('验证码已被使用');
     });
 
     it('rejects the device flow for clients that are not pre-registered', async () => {
@@ -612,7 +612,7 @@ describe('oauthRouter device flow (shared store across replicas)', () => {
             `/device/activate?user_code=${device.user_code}`,
         );
         expect(activatePage.status).toEqual(400);
-        expect(activatePage.text).toContain('Invalid Code');
+        expect(activatePage.text).toContain('验证码无效');
 
         const token = await postJson(appC.baseUrl, '/device/token', {
             grant_type: DEVICE_GRANT_TYPE,
@@ -680,7 +680,7 @@ describe('oauthRouter device flow (shared store across replicas)', () => {
             '/device/activate?user_code=CONS-UMED1',
         );
         expect(activatePage.status).toEqual(400);
-        expect(activatePage.text).toContain('Code Already Used');
+        expect(activatePage.text).toContain('验证码已被使用');
     });
 
     it('answers 500 within 1s when the store throws (next(error) chain, no hang)', async () => {

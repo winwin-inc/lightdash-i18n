@@ -37,6 +37,7 @@ import {
 } from '../../hooks/useChartColorConfig/colorSyncKeys';
 import {
     assignVisibleChartColors,
+    createChartColorAllocator,
     resolveSyncedHashColor,
 } from '../../hooks/useChartColorConfig/hashColorAssignment';
 import { type SeriesLike } from '../../hooks/useChartColorConfig/types';
@@ -310,6 +311,25 @@ const VisualizationProvider: FC<
         [useHashBased, visibleColorKeys, colorPalette, knownHashAssignments],
     );
 
+    /**
+     * 本图取色器：以 chartHashAssignments 为种子，遇到色表未覆盖的系列名时
+     * 现场分配（仍在本图内避让），保证不会回退到无避让的纯哈希而撞色。
+     */
+    const chartColorAllocator = useMemo(
+        () =>
+            createChartColorAllocator({
+                colorPalette,
+                seedAssignments: chartHashAssignments,
+            }),
+        [colorPalette, chartHashAssignments],
+    );
+
+    const resolveChartColor = useCallback(
+        (identifier: string): string | undefined =>
+            chartColorAllocator.resolve(identifier),
+        [chartColorAllocator],
+    );
+
     if (import.meta.env.DEV) {
         // eslint-disable-next-line react-hooks/rules-of-hooks
         useEffect(() => {
@@ -351,6 +371,7 @@ const VisualizationProvider: FC<
             colorPalette,
             useHashBased,
             hashAssignments: chartHashAssignments,
+            resolveColor: resolveChartColor,
         });
 
     // cartesian config related
@@ -406,11 +427,13 @@ const VisualizationProvider: FC<
                 sortedSeriesIdentifiers.map((identifier) => {
                     const parts = identifier.split('|');
                     const value = parts[parts.length - 1] ?? identifier;
-                    const color = resolveSyncedHashColor(
-                        value,
-                        colorPalette,
-                        chartHashAssignments,
-                    );
+                    const color =
+                        resolveChartColor(value) ??
+                        resolveSyncedHashColor(
+                            value,
+                            colorPalette,
+                            chartHashAssignments,
+                        );
                     return [identifier, color];
                 }),
             );
@@ -430,6 +453,7 @@ const VisualizationProvider: FC<
         computedSeries,
         useHashBased,
         chartHashAssignments,
+        resolveChartColor,
     ]);
 
     const handleChartConfigChange = useCallback(
@@ -526,11 +550,12 @@ const VisualizationProvider: FC<
                 return Object.fromEntries(
                     identifiers.map((identifier) => [
                         identifier,
-                        resolveSyncedHashColor(
-                            identifier,
-                            colorPalette,
-                            chartHashAssignments,
-                        ),
+                        resolveChartColor(identifier) ??
+                            resolveSyncedHashColor(
+                                identifier,
+                                colorPalette,
+                                chartHashAssignments,
+                            ),
                     ]),
                 );
             }
@@ -542,7 +567,13 @@ const VisualizationProvider: FC<
                 ]),
             );
         },
-        [chartHashAssignments, colorPalette, getGroupColor, useHashBased],
+        [
+            chartHashAssignments,
+            colorPalette,
+            getGroupColor,
+            resolveChartColor,
+            useHashBased,
+        ],
     );
 
     const isCalculateSeriesColorEnabled = useFeatureFlagEnabled(
@@ -570,6 +601,8 @@ const VisualizationProvider: FC<
             const completeIdentifier = seriesIdentifier[1] ?? '';
 
             if (useHashBased) {
+                const resolved = resolveChartColor(completeIdentifier);
+                if (resolved) return resolved;
                 const mapped = lookupSyncedColor(
                     completeIdentifier,
                     chartHashAssignments,
@@ -633,6 +666,7 @@ const VisualizationProvider: FC<
             chartHashAssignments,
             itemsMap,
             isCalculateSeriesColorEnabled,
+            resolveChartColor,
             useHashBased,
         ],
     );
