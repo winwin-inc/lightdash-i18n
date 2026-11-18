@@ -167,6 +167,9 @@ export const colorDifference = (color1: string, color2: string): number => {
         : Number.POSITIVE_INFINITY;
 };
 
+const conflictsWithUsed = (color: string, usedColors: string[]): boolean =>
+    usedColors.some((used) => colorDifference(color, used) < MIN_COLOR_DIFF);
+
 /**
  * 生成色用更严的阈值：避免把"同色相明暗变体"当成分得开的颜色。
  * 池子超过容量后自动降级，避免过早耗尽候选（见 GENERATED_DIFF_CAPACITY）。
@@ -254,13 +257,9 @@ const pickAvoidingColor = (
     const hash = hashString(identifier);
     const start = hash % colorPalette.length;
 
-    // 主题色「忠于原色」：只跳过已被本图用掉的颜色（完全相同），不再按色差
-    // 阈值拒绝——单色系色板（商务/复古）的深浅过渡是设计意图，按阈值拒绝会让
-    // 用户选中色板后看到一堆别处的颜色。
-    const usedPaletteColors = new Set(usedColors.map(normalizeColor));
     for (let offset = 0; offset < colorPalette.length; offset++) {
         const color = colorPalette[(start + offset) % colorPalette.length];
-        if (!usedPaletteColors.has(normalizeColor(color))) {
+        if (!conflictsWithUsed(color, usedColors)) {
             return color;
         }
     }
@@ -366,8 +365,6 @@ export const assignKnownHashColors = (
 /**
  * 看板级追加未知名：只给还没有颜色的名字分配。
  * 占色范围是全部已知色 + 已经追加过的未知名，不看当前图还剩哪些系列。
- * 同一批次待分配名按 UTF-16 码元排序后再逐个避让：不同图/不同注册顺序下，
- * 同一批新增名得到相同的分配结果，跨图同名同色不依赖注册顺序。
  * 已有名字原样返回；无新 key 时复用 appendedAssignments 引用。
  */
 export const appendDashboardUnknownHashColors = (
@@ -393,13 +390,7 @@ export const appendDashboardUnknownHashColors = (
         ...Object.values(next),
     ];
 
-    // 显式按 UTF-16 码元排序，不依赖 normalizeColorSyncKeys 的顺带排序；
-    // 保证同批次分配与传入顺序无关（确定性）。
-    const sortedUnknown = [...unknown].sort((a, b) =>
-        a < b ? -1 : a > b ? 1 : 0,
-    );
-
-    sortedUnknown.forEach((key) => {
+    unknown.forEach((key) => {
         const color = pickAvoidingColor(key, colorPalette, usedColors);
         next[key] = color;
         usedColors.push(color);
@@ -468,122 +459,6 @@ export const appendUnknownHashColors = (
     cacheForKnown.set(cacheKey, assignments);
 
     return assignments;
-};
-
-/**
- * 按本图容量分配颜色（ECharts 通道口径）。
- *
- * 看板级合并表（appendDashboardUnknownHashColors）按「整板不重复系列名」
- * 避让，几十个商品名很快占满调色板，单图即使只有 9 条线也会退化成
- * 生成色（实测 40 名 → 20 个颜色落在调色板外）。本函数只看本图：
- * 本图可见系列数 ≤ 调色板去重颜色数时，每条系列都拿到调色板里的原始
- * 颜色且两两不同；只有本图自身超过容量时，才用生成色补足。
- *
- * 分配顺序（key 归一化后按 UTF-16 排序，与输入顺序无关，确定性）：
- * 1. preferred 基准色：key 在看板基准表里有值、该色属于**当前**调色板
- *    （归一化比较）且本图未占用 → 直接继承（保持已保存/跨图稳定）。
- *    过期调色板的色一律忽略——用户切换调色板后必须立刻全部变成
- *    新调色板的色，绝不硬用旧值。
- * 2. 哈希基准色：base = palette[hash(key) % len]，未被本图占用则用；
- *    否则从 base 起线性探测调色板取第一个本图未用的色。
- * 3. 生成色：本图调色板色耗尽（本图系列数 > 调色板去重色数）后沿用
- *    既有生成逻辑（expandPalette / hueCandidateAt / conflictsWithUsedGenerated），
- *    仍保证本图内两两不重复。
- *
- * 跨图同名同色由哈希基准色的确定性与 preferred 继承保证；与本图可读性
- * 冲突时以本图优先（对方图若有空闲基准色会通过各自的 preferred 继承回去）。
- */
-export const assignVisibleChartColors = ({
-    visibleKeys,
-    colorPalette,
-    preferredAssignments,
-}: {
-    /** 本图可见系列名 */
-    visibleKeys: string[];
-    /** 当前选中的调色板 */
-    colorPalette: string[];
-    /** 看板级基准色（knownHashAssignments），仅作参考继承 */
-    preferredAssignments: Record<string, string>;
-}): Record<string, string> => {
-    const sortedKeys = normalizeColorSyncKeys(visibleKeys);
-    const assignments: Record<string, string> = {};
-
-    if (!colorPalette || colorPalette.length === 0) {
-        // 空调色板：preferred 里的任何色都不可能属于「当前调色板」，占位色兜底
-        sortedKeys.forEach((key) => {
-            assignments[key] = FALLBACK_COLOR;
-        });
-        return assignments;
-    }
-
-    const paletteColors = new Set(colorPalette.map(normalizeColor));
-    const usedColors: string[] = [];
-
-    // 第 1 轮：继承「仍在当前调色板内且本图未占用」的基准色
-    const pendingKeys = sortedKeys.filter((key) => {
-        const preferred = lookupSyncedColor(key, preferredAssignments);
-        if (!preferred) return true;
-        const normalized = normalizeColor(preferred);
-        if (!paletteColors.has(normalized)) return true; // 过期调色板色：忽略
-        if (usedColors.some((used) => normalizeColor(used) === normalized)) {
-            return true; // 本图已被同名优先级更高的 key 占用
-        }
-        assignments[key] = preferred;
-        usedColors.push(preferred);
-        return false;
-    });
-
-    // 第 2 + 3 轮：pickAvoidingColor 的主题色段即「base 起线性探测调色板」，
-    // 调色板耗尽后自动进入生成色段（expandPalette / hueCandidateAt /
-    // conflictsWithUsedGenerated），与本文件既有口径完全一致
-    pendingKeys.forEach((key) => {
-        const color = pickAvoidingColor(key, colorPalette, usedColors);
-        assignments[key] = color;
-        usedColors.push(color);
-    });
-
-    return assignments;
-};
-
-/**
- * 本图颜色分配器：给「色表里没覆盖到」的系列名兜底，保证不撞色。
- *
- * 历史 bug：取色时 `lookupSyncedColor` 没命中就直接 `getHashColor`（纯哈希取模、无避让），
- * 20 色板上 10 个系列名必有几对撞色。本分配器以预先算好的本图色表为种子，
- * 遇到未覆盖的名字时才按 `pickAvoidingColor` 分配（仍只在本图内避让），
- * 因此任何渲染系列都不会回到无避让的 hash 路径。
- *
- * 注意：分配是惰性、累加的（与 encountered 顺序有关），同一个 allocator 实例在
- * 同一批渲染里结果稳定；新建实例（调色板/种子变化）时重置。
- */
-export const createChartColorAllocator = ({
-    colorPalette,
-    seedAssignments,
-}: {
-    colorPalette: string[];
-    seedAssignments: Record<string, string>;
-}): {
-    resolve: (identifier: string) => string | undefined;
-} => {
-    const usedColors = Object.values(seedAssignments);
-    const extraAssignments: Record<string, string> = {};
-
-    return {
-        resolve(identifier: string): string | undefined {
-            const key = identifier ? toColorSyncKey(identifier) : '';
-            if (!key) return undefined;
-
-            const hit =
-                lookupSyncedColor(key, seedAssignments) ??
-                lookupSyncedColor(key, extraAssignments);
-            if (hit) return hit;
-
-            const color = pickAvoidingColor(key, colorPalette, usedColors);
-            usedColors.push(color);
-            extraAssignments[key] = color;
-            return color;
-        },
-    };
 };
 
 /**
