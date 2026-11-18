@@ -1184,6 +1184,67 @@ const Dashboard: FC = () => {
                                                     'Select color palette',
                                                 )}
                                             </Text>
+                                            {/* 调色板只是「给已勾选的图表上色」，
+                                                白名单为空时选色板不会有任何效果，
+                                                这里显式提示并提供一键全选。 */}
+                                            {chartTiles.length === 0 ? (
+                                                <Text
+                                                    size="xs"
+                                                    c="dimmed"
+                                                    mb="xs"
+                                                >
+                                                    {t(
+                                                        'dashboard.color_sync_no_tiles',
+                                                        '本看板没有可同步颜色的图表（SQL 图表暂不支持）',
+                                                    )}
+                                                </Text>
+                                            ) : syncChartTileUuids.length ===
+                                              0 ? (
+                                                <Box mb="xs">
+                                                    <Text size="xs" c="red">
+                                                        {t(
+                                                            'dashboard.color_sync_none_selected',
+                                                            '尚未勾选图表：选中的调色板不会生效',
+                                                        )}
+                                                    </Text>
+                                                    <Button
+                                                        size="xs"
+                                                        variant="subtle"
+                                                        mt={4}
+                                                        onClick={() =>
+                                                            setSyncChartTileUuids(
+                                                                chartTiles.map(
+                                                                    (tile) =>
+                                                                        tile.uuid,
+                                                                ),
+                                                            )
+                                                        }
+                                                    >
+                                                        {t(
+                                                            'dashboard.color_sync_select_all',
+                                                            '全选 {{count}} 张图表',
+                                                            {
+                                                                count: chartTiles.length,
+                                                            },
+                                                        )}
+                                                    </Button>
+                                                </Box>
+                                            ) : (
+                                                <Text
+                                                    size="xs"
+                                                    c="dimmed"
+                                                    mb="xs"
+                                                >
+                                                    {t(
+                                                        'dashboard.color_sync_selected_count',
+                                                        '已同步 {{count}} / {{total}} 张图表',
+                                                        {
+                                                            count: syncChartTileUuids.length,
+                                                            total: chartTiles.length,
+                                                        },
+                                                    )}
+                                                </Text>
+                                            )}
                                             <Stack>
                                                 {COLOR_PALETTE_PRESETS.map(
                                                     (preset) => {

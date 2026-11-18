@@ -1116,6 +1116,10 @@
     "select_color_palette": "Select color palette",
     "select_charts": "Select charts",
     "sync_chart_colors_for": "Sync chart colors for:",
+    "color_sync_no_tiles": "No color-syncable charts on this dashboard (SQL charts not supported)",
+    "color_sync_none_selected": "No charts selected: the chosen palette has no effect",
+    "color_sync_select_all": "Select all {{count}} charts",
+    "color_sync_selected_count": "Syncing {{count}} / {{total}} charts",
     "sync_chart_colors_types": {
       "cartesian": "(Standard chart)",
       "pie": "(Pie chart)",
