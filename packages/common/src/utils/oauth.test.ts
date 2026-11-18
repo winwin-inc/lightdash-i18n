@@ -28,6 +28,14 @@ describe('resolveDeviceLoginHint', () => {
         ).toBe('本平台使用微信扫码登录。');
     });
 
+    it('命中默认自建 SSO 映射：线上品牌 brandct.com → 微信', () => {
+        expect(
+            resolveDeviceLoginHint(
+                'https://brandct.com/.well-known/openid-configuration',
+            ),
+        ).toBe('本平台使用微信扫码登录。');
+    });
+
     it('命中默认自建 SSO 映射：admin.* → 钉钉', () => {
         expect(
             resolveDeviceLoginHint(
@@ -65,8 +73,9 @@ describe('resolveDeviceLoginHint', () => {
         );
     });
 
-    it('默认映射表包含品牌预发/生产与内部 SSO 域名', () => {
+    it('默认映射表覆盖品牌预发/生产与内部 SSO 域名', () => {
         expect(DEFAULT_DEVICE_LOGIN_HINT_DOMAINS.wechat).toEqual([
+            'brandct.com',
             'brand.pre.banmahui.cn',
             'brand.banmahui.cn',
         ]);

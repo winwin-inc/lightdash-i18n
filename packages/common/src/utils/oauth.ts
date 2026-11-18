@@ -413,8 +413,12 @@ export type DeviceLoginHintDomains = {
  * 部署可用 LOGIN_HINT_WECHAT_DOMAINS / LOGIN_HINT_DINGTALK_DOMAINS 覆盖。
  */
 export const DEFAULT_DEVICE_LOGIN_HINT_DOMAINS: DeviceLoginHintDomains = {
-    wechat: ['brand.pre.banmahui.cn', 'brand.banmahui.cn'],
-    dingtalk: ['admin.banmahui.cn'],
+    wechat: [
+        'brandct.com', // 线上品牌 SSO（x.brandct.cn → x.brandct.com）
+        'brand.pre.banmahui.cn', // 品牌预发 SSO
+        'brand.banmahui.cn',
+    ],
+    dingtalk: ['admin.banmahui.cn'], // 内部平台预发/生产 SSO
 };
 
 const isHostnameLike = (url: string, keywords: string[]): boolean => {
