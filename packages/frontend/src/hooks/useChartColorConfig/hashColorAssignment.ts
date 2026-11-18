@@ -546,6 +546,47 @@ export const assignVisibleChartColors = ({
 };
 
 /**
+ * 本图颜色分配器：给「色表里没覆盖到」的系列名兜底，保证不撞色。
+ *
+ * 历史 bug：取色时 `lookupSyncedColor` 没命中就直接 `getHashColor`（纯哈希取模、无避让），
+ * 20 色板上 10 个系列名必有几对撞色。本分配器以预先算好的本图色表为种子，
+ * 遇到未覆盖的名字时才按 `pickAvoidingColor` 分配（仍只在本图内避让），
+ * 因此任何渲染系列都不会回到无避让的 hash 路径。
+ *
+ * 注意：分配是惰性、累加的（与 encountered 顺序有关），同一个 allocator 实例在
+ * 同一批渲染里结果稳定；新建实例（调色板/种子变化）时重置。
+ */
+export const createChartColorAllocator = ({
+    colorPalette,
+    seedAssignments,
+}: {
+    colorPalette: string[];
+    seedAssignments: Record<string, string>;
+}): {
+    resolve: (identifier: string) => string | undefined;
+} => {
+    const usedColors = Object.values(seedAssignments);
+    const extraAssignments: Record<string, string> = {};
+
+    return {
+        resolve(identifier: string): string | undefined {
+            const key = identifier ? toColorSyncKey(identifier) : '';
+            if (!key) return undefined;
+
+            const hit =
+                lookupSyncedColor(key, seedAssignments) ??
+                lookupSyncedColor(key, extraAssignments);
+            if (hit) return hit;
+
+            const color = pickAvoidingColor(key, colorPalette, usedColors);
+            usedColors.push(color);
+            extraAssignments[key] = color;
+            return color;
+        },
+    };
+};
+
+/**
  * known 命中则用预分配；未知名只取主题哈希，不避让全看板已占色。
  */
 export const resolveSyncedHashColor = (

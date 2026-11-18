@@ -7,6 +7,7 @@ import {
     assignKnownHashColors,
     assignVisibleChartColors,
     colorDifference,
+    createChartColorAllocator,
     getHashColor,
     hexToHSL,
     MIN_COLOR_DIFF,
@@ -937,5 +938,91 @@ describe('按本图容量分配（assignVisibleChartColors）', () => {
         // FALLBACK_COLOR 常量（hashColorAssignment.ts 内部 '#868e96'）
         expect(assignments['臭宝']).toBe('#868e96');
         expect(assignments['其他品牌']).toBe('#868e96');
+    });
+});
+
+/**
+ * 回归：取色时系列名在色表里查不到，会退回 getHashColor（纯哈希取模、无避让）。
+ * 20 色板上 10 个商品名实测撞 3 对（#FF00FF/#FFFF00/#FF0040 各两次），
+ * 线上表现就是「调色板完全够用却大量撞色」。allocator 负责给未覆盖的名字
+ * 现场分配，保证不回到无避让路径。
+ */
+describe('createChartColorAllocator（取色不落无避让哈希）', () => {
+    const DATA_MATRIX = COLOR_PALETTE_PRESETS.find(
+        (preset) => preset.name === 'dataMatrix',
+    )!.colors;
+    const PRODUCTS = [
+        '海天味极鲜酱油1.9L_6902265150022',
+        '东古一品鲜特级酱油500ml,6911567881169',
+        '味事达味极鲜1.8kg,6970917871359',
+        '味达美味极鲜酱油1.8L,6925843403891',
+        '厨邦味鲜生抽1.25L,6902902013574',
+        '千禾味极鲜特级生抽1.8L,6928312900198',
+        '李锦记锦鲜鲜香生抽1.75L,6922824013742',
+        '加加面条鲜特级生抽酱油500ml,6920761200706',
+        '巧妈妈味极鲜酱油1.3L,6921369130747',
+        '海天味极鲜酱油1.9L,6902265043683',
+    ];
+
+    test('(a) 种子为空时 10 个商品名也不撞色，且全部来自调色板', () => {
+        const allocator = createChartColorAllocator({
+            colorPalette: DATA_MATRIX,
+            seedAssignments: {},
+        });
+        const colors = PRODUCTS.map(
+            (name) => allocator.resolve(name) as string,
+        );
+
+        expect(new Set(colors).size).toBe(PRODUCTS.length);
+        colors.forEach((color) => {
+            expect(DATA_MATRIX).toContain(color);
+        });
+
+        // 对照：旧的纯哈希兜底在同一批名字上会撞色
+        const hashed = PRODUCTS.map((name) => getHashColor(name, DATA_MATRIX));
+        expect(new Set(hashed).size).toBeLessThan(PRODUCTS.length);
+    });
+
+    test('(b) 种子已覆盖时，新系列不与种子颜色重复且仍在调色板内', () => {
+        const seed = assignVisibleChartColors({
+            visibleKeys: PRODUCTS,
+            colorPalette: DATA_MATRIX,
+            preferredAssignments: {
+                [PRODUCTS[0]]: DATA_MATRIX[0],
+            },
+        });
+        const allocator = createChartColorAllocator({
+            colorPalette: DATA_MATRIX,
+            seedAssignments: seed,
+        });
+        const used = new Set(Object.values(seed));
+        const extras = ['新品种A', '新品种B', '新品种C'].map(
+            (name) => allocator.resolve(name) as string,
+        );
+
+        extras.forEach((color) => {
+            expect(DATA_MATRIX).toContain(color);
+            expect(used.has(color)).toBe(false);
+        });
+        expect(new Set(extras).size).toBe(extras.length);
+    });
+
+    test('(c) 同一个名字重复取色结果稳定', () => {
+        const allocator = createChartColorAllocator({
+            colorPalette: DATA_MATRIX,
+            seedAssignments: {},
+        });
+        const first = allocator.resolve('臭宝');
+        expect(allocator.resolve('臭宝')).toBe(first);
+        expect(allocator.resolve('臭宝')).toBe(first);
+    });
+
+    test('(d) 空调色板返回占位色；空名字返回 undefined', () => {
+        const allocator = createChartColorAllocator({
+            colorPalette: [],
+            seedAssignments: {},
+        });
+        expect(allocator.resolve('臭宝')).toBe('#868e96');
+        expect(allocator.resolve('')).toBeUndefined();
     });
 });
