@@ -110,21 +110,25 @@ extractManualColorsFromChartConfig / extractColorSyncKeysFromChartConfig
 
 ### 已知限制（不是 bug，是当前设计的边界）
 
-1. **跨图同色优先于单图色板纯度**（2026-11-18 定稿，推翻 11-17 的按图取色口径）
-   - 已保存系列与运行期新增系列，**一律使用看板级色表**（`knownHashAssignments` + 看板追加表）：
-     同一看板内任何系列名在任意两张图 / 任意 Tab 里都同色，"任何" 包括筛选后新出现的名字
-   - 代价：看板内**不重复系列名总数**超过调色板容量时，超出部分只能用生成色（可能出现 `#47ffff`
-     这类淡色）。这是自觉的取舍——同名不同色比淡色更难解释
-   - 历史教训：11-17 曾改为「ECharts 通道只以 known 为底 + 按**本图**可见集避让」，
-     当时想避开看板级避让把 20 色板挤满的问题；但 `pickAvoidingColor` 是 hash 起点 + 线性探测，
-     探测集只含本图已用色 → 两张图可见集不同时同名系列落色不同（同一批商品名一图橙红系、一图黄绿系）
-   - 同批次分配在 `appendDashboardUnknownHashColors` 内按 key 的 UTF-16 排序，与注册顺序无关
-   - 自定义图表（Vega）与 ECharts 共用同一份看板表，口径一致
+1. **按本图容量分配 + 跨图尽量同色**（2026-11-18 终稿，经历两轮反复）
+   - 口径：`assignVisibleChartColors()` 只看**本图可见系列**——系列数 ≤ 调色板去重色数时，每条系列
+     都拿到调色板原色且两两不同；只有本图自己超过容量时才用生成色
+   - 已保存系列的基准色从 `knownHashAssignments` 继承（本图无冲突时与原看板色一致）；
+     基准色**不属于当前调色板就丢弃**，所以切换调色板会立即全部换成新调色板的色
+   - 跨图同名同色由「哈希基准色确定性 + preferred 继承」保证；若两个名字在本图
+     拞到同一色，后者会换到本图未用的调色板色——此时该名字跨图可能不同色（以本图可读性优先）
+   - 两轮历史：11-17 改为「按本图避让」→ 同名跨图不同色（本图 9 条却拿不到调色板色）；
+     11-18 上午改回「整板唯一」→ 整板名字一多（如 40 个商品名）就把 20 色挤满，
+     本图 9 条线也变成调色板外的生成色。两个都只对了一半，故收敛为「本图容量内保证调色板保真 + 不重复，
+     跨图尽量一致」
+   - 自定义图表（Vega）仍用看板合并表（`appendDashboardUnknownHashColors`），暂未跟进本图口径
+2. **跨图同色不是硬保证**：名字特别多的看板（本图同现名字 > 调色板色数）会出现同图撞色，
+   撞色时后者被改到本图未用色，于是同名在不同图里可能不同色
 2. **瞬态不一致**：名字要等 `useLayoutEffect` 注册进看板表后才统一；首帧与 `known` 重置帧由各图自算，
    理论上可出现短暂不同色（React 在 paint 前同步 flush，通常不可见，未做浏览器实测）
-3. **运行期未知名依赖挂载顺序**：`known` 变化会重置追加表，已有未知名可能被重新分配颜色；
-   同批次内部已与顺序无关，但跨批次仍是先注册先占色；要彻底消除需持久化追加表
-   （涉及 `DashboardConfig` 类型与迁移）
+3. **运行期未知名依赖挂载顺序**：看板追加表仍按「先注册先占色」累加（Vega 通道在用），
+   但目前 ECharts 通道已不消费该表，只以 `knownHashAssignments` 作 preferred 基准，
+   因此对本图取色不再受挂载顺序影响
 4. **调色板预设色值一旦清洗，旧看板的选中态需要 legacy 兼容**：弹层选中态是整串精确比较，
    预设色值变动后旧保存值不再匹配（2026-11-17 `dataMatrix` 换了 5 个近重复色就踩过）。
    现在用 `palettePresets.ts` 的 `matchesColorPalette()` 做归一化比较（小写 / 去空白 / 去重），
@@ -134,7 +138,8 @@ extractManualColorsFromChartConfig / extractColorSyncKeysFromChartConfig
 
 | 行为 | 代码位置 |
 |---|---|
-| 本图取色（两侧共用看板表） | `VisualizationProvider.tsx` 的 `chartHashAssignments`（= 看板 `hashAssignments`） |
-| 看板级追加（含同批次按 key 排序） | `DashboardChartColorSyncProvider.tsx` 的 `registerVisibleColorKeys` → `appendDashboardUnknownHashColors` |
-| 避让算法与阈值 | `hashColorAssignment.ts` 的 `pickAvoidingColor` / `MIN_*_COLOR_DIFF` / `GENERATED_DIFF_CAPACITY` |
+| 本图取色（按本图容量分配） | `VisualizationProvider.tsx` 的 `chartHashAssignments`（`assignVisibleChartColors`） |
+| 看板级基准色 | `DashboardChartColorSyncProvider.tsx` 的 `assignKnownHashColors`（`knownHashAssignments`） |
+| 看板级追加（Vega 通道在用） | `registerVisibleColorKeys` → `appendDashboardUnknownHashColors` |
+| 避让算法与阈值 | `pickAvoidingColor` / `MIN_*_COLOR_DIFF` / `GENERATED_DIFF_CAPACITY` |
 | 调色板选中态识别 | `palettePresets.ts` 的 `matchesColorPalette` + `legacyColors` |
