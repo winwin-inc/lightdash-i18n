@@ -49,7 +49,7 @@ msy-x auth login      # 也可以简写：msy-x login
   ```
 
   它会把授权链接打印到 stderr，复制到浏览器打开即可。**必须让该进程留在前台等待**——不要加 `timeout`、不要 Ctrl-C，否则回调端口关闭，本次登录作废。
-- **扫码登录（无浏览器环境推荐）**：`msy-x auth login --qr` 会在终端打印二维码，手机（微信/相机）扫码后在确认页点同意即可；WSL2 且未配置 `$BROWSER` 时也会自动降级为扫码。
+- **扫码登录（无浏览器环境推荐）**：`msy-x auth login --qr` 会在终端打印二维码，手机（微信/相机）扫码后在确认页点「允许」即可；WSL2 且未配置 `$BROWSER` 时也会自动降级为扫码。确认页会显示该站点的登录方式（微信/钉钉扫码）。**注意：不要在微信内置浏览器里点「允许」**——微信 webview 的登录 cookie 会随机丢失，常表现为反复要求登录或点「允许」报未授权；请在 PC 浏览器打开终端里的链接，或手机上复制链接用系统浏览器（Safari/Chrome）打开。
 - 失败不留痕：授权被拒、超时、网络失败都不会写入半截凭证。
 - 令牌有效期：access 1 小时、refresh 2 周；日常调用遇 401 会自动刷新一次再重试。
 
@@ -284,6 +284,7 @@ msy-x call run_semantic_metric_query --file query.json
 | 现象 | 原因与处理 |
 |---|---|
 | `AUTH_REQUIRED`（退 3） | 未登录或凭证过期：`msy-x auth login`；CI 里用 `MSY_X_PAT` |
+| 扫码后确认页反复要求登录，或点「允许」报未授权 | 微信内置 webview 丢登录 cookie（已知限制）：复制终端里的链接用 PC 浏览器或手机系统浏览器打开后重试；确认页上验证码需与终端一致 |
 | 浏览器打开授权页后 CLI 一直等 | 本机回环回调没通：WSL 里确认 Windows 能访问 `127.0.0.1:<端口>`；或改用 PAT；不要用 `timeout` 跑登录 |
 | `FORBIDDEN`（退 4） | 该用户在该项目无权限，或 OAuth 令牌缺 `mcp:read`：用 `msy-x access` 看能力，或换 PAT |
 | `dashboard_*`（退 4） | 站点开了强制看板模式：按 `detail.candidates` 加 `--dashboard` |
