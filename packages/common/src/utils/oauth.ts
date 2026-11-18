@@ -401,39 +401,29 @@ const WECHAT_LOGIN_HINT = '本平台使用微信扫码登录。';
 const DINGTALK_LOGIN_HINT = '本平台使用钉钉扫码登录。';
 const GENERIC_LOGIN_HINT = '本平台使用扫码方式登录。';
 
-/** 按站点域名匹配登录方式提示的域名清单（支持精确或子域后缀匹配） */
-export type DeviceLoginHintDomains = {
-    wechat: string[];
-    dingtalk: string[];
+const isHostnameLike = (url: string, keywords: string[]): boolean => {
+    try {
+        const hostname = new URL(url).hostname.toLowerCase();
+        return keywords.some((keyword) => hostname.includes(keyword));
+    } catch {
+        return false;
+    }
 };
 
-const hostnameMatchesAny = (hostname: string, domains: string[]): boolean =>
-    domains.some((entry) => {
-        const domain = entry.trim().toLowerCase();
-        return (
-            domain !== '' &&
-            (hostname === domain || hostname.endsWith(`.${domain}`))
-        );
-    });
-
 /**
- * 按站点域名解析设备码确认页的登录提示文案：
- * 微信登录平台、钉钉登录平台分别提示，都不命中时退到通用扫码提示。
+ * 从平台已配置的 OIDC 登录端点推断设备码确认页的登录提示文案：
+ * 微信/钉钉身份源分别提示，识别不出时退到通用扫码提示（零配置）。
  */
 export const resolveDeviceLoginHint = (
-    siteUrl: string,
-    domains: DeviceLoginHintDomains,
+    oidcMetadataUrl: string | undefined,
 ): string => {
-    let hostname: string;
-    try {
-        hostname = new URL(siteUrl).hostname.toLowerCase();
-    } catch {
+    if (!oidcMetadataUrl) {
         return GENERIC_LOGIN_HINT;
     }
-    if (hostnameMatchesAny(hostname, domains.wechat)) {
+    if (isHostnameLike(oidcMetadataUrl, ['weixin', 'wechat'])) {
         return WECHAT_LOGIN_HINT;
     }
-    if (hostnameMatchesAny(hostname, domains.dingtalk)) {
+    if (isHostnameLike(oidcMetadataUrl, ['dingtalk'])) {
         return DINGTALK_LOGIN_HINT;
     }
     return GENERIC_LOGIN_HINT;

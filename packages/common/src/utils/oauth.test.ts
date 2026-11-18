@@ -1,43 +1,38 @@
 import { resolveDeviceLoginHint } from './oauth';
 
 describe('resolveDeviceLoginHint', () => {
-    const domains = {
-        wechat: ['x.brandct.com'],
-        dingtalk: ['lightdash.internal.example.com'],
-    };
-
-    it('匹配微信域名（精确）', () => {
-        expect(
-            resolveDeviceLoginHint('https://x.brandct.com', domains),
-        ).toContain('微信扫码登录');
-    });
-
-    it('匹配微信域名（子域后缀）', () => {
-        expect(
-            resolveDeviceLoginHint('https://x.pre.banmahui.cn', {
-                ...domains,
-                wechat: ['x.brandct.com', 'x.pre.banmahui.cn'],
-            }),
-        ).toContain('微信扫码登录');
-    });
-
-    it('匹配钉钉域名（子域后缀）', () => {
+    it('OIDC 端点是微信域名时提示微信扫码登录', () => {
         expect(
             resolveDeviceLoginHint(
-                'https://lightdash.internal.example.com',
-                domains,
+                'https://login.work.weixin.qq.com/wwopen/sso/.well-known/openid-configuration',
             ),
-        ).toContain('钉钉扫码登录');
+        ).toBe('本平台使用微信扫码登录。');
     });
 
-    it('未命中任何域名时退到通用扫码提示', () => {
+    it('OIDC 端点是钉钉域名时提示钉钉扫码登录', () => {
         expect(
-            resolveDeviceLoginHint('https://unknown.example.com', domains),
+            resolveDeviceLoginHint(
+                'https://login.dingtalk.com/.well-known/openid-configuration',
+            ),
+        ).toBe('本平台使用钉钉扫码登录。');
+    });
+
+    it('其它 IdP 时退到通用扫码提示', () => {
+        expect(
+            resolveDeviceLoginHint(
+                'https://sso.example.com/.well-known/openid-configuration',
+            ),
         ).toBe('本平台使用扫码方式登录。');
     });
 
-    it('siteUrl 非法时退到通用扫码提示', () => {
-        expect(resolveDeviceLoginHint('not-a-url', domains)).toBe(
+    it('未配置 OIDC 端点时退到通用扫码提示', () => {
+        expect(resolveDeviceLoginHint(undefined)).toBe(
+            '本平台使用扫码方式登录。',
+        );
+    });
+
+    it('URL 非法时退到通用扫码提示', () => {
+        expect(resolveDeviceLoginHint('not-a-url')).toBe(
             '本平台使用扫码方式登录。',
         );
     });

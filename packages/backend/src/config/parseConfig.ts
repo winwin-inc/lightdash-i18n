@@ -1410,11 +1410,6 @@ type AuthSnowflakeConfig = {
 
 export type AuthConfig = {
     disablePasswordAuthentication: boolean;
-    /** 设备码确认页按站点域名匹配登录提示（微信/钉钉），未命中退到通用扫码提示 */
-    deviceLoginHintDomains: {
-        wechat: string[];
-        dingtalk: string[];
-    };
     /**
      * @deprecated Group Sync is deprecated. https://github.com/lightdash/lightdash/issues/12430
      */
@@ -1456,13 +1451,6 @@ export type SmtpConfig = {
 };
 
 const DEFAULT_JOB_TIMEOUT = 1000 * 60 * 10; // 10 minutes
-
-/** 逗号分隔的域名列表 → 小写、去空白的域名数组 */
-const parseDomainList = (value: string | undefined): string[] =>
-    (value ?? '')
-        .split(',')
-        .map((entry) => entry.trim().toLowerCase())
-        .filter((entry) => entry !== '');
 
 const parseSandboxProvider = (
     value: string | undefined,
@@ -1926,12 +1914,6 @@ export const parseConfig = (): LightdashConfig => {
             },
             disablePasswordAuthentication:
                 process.env.AUTH_DISABLE_PASSWORD_AUTHENTICATION === 'true',
-            deviceLoginHintDomains: {
-                wechat: parseDomainList(process.env.LOGIN_HINT_WECHAT_DOMAINS),
-                dingtalk: parseDomainList(
-                    process.env.LOGIN_HINT_DINGTALK_DOMAINS,
-                ),
-            },
             enableGroupSync: process.env.AUTH_ENABLE_GROUP_SYNC === 'true',
             enableOidcLinking: process.env.AUTH_ENABLE_OIDC_LINKING === 'true',
             enableOidcToEmailLinking:

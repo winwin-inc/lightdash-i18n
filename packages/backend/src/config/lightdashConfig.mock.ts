@@ -17,10 +17,6 @@ export const lightdashConfigMock: LightdashConfig = {
         disablePasswordAuthentication: false,
         enableOidcLinking: false,
         enableOidcToEmailLinking: false,
-        deviceLoginHintDomains: {
-            wechat: [],
-            dingtalk: [],
-        },
         google: {
             loginPath: '',
             oauth2ClientId: undefined,

@@ -583,8 +583,7 @@ oauthRouter.get('/device/activate', async (req, res, next) => {
                 },
                 hiddenInputs: [{ name: 'user_code', value: session.userCode }],
                 loginHint: resolveDeviceLoginHint(
-                    getOAuthService(req).getSiteUrl(),
-                    lightdashConfig.auth.deviceLoginHintDomains,
+                    lightdashConfig.auth.oidc.metadataDocumentEndpoint,
                 ),
             }),
         );
