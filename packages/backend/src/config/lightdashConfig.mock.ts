@@ -17,6 +17,10 @@ export const lightdashConfigMock: LightdashConfig = {
         disablePasswordAuthentication: false,
         enableOidcLinking: false,
         enableOidcToEmailLinking: false,
+        deviceLoginHintDomains: {
+            wechat: ['brand.pre.banmahui.cn', 'brand.banmahui.cn'],
+            dingtalk: ['admin.banmahui.cn'],
+        },
         google: {
             loginPath: '',
             oauth2ClientId: undefined,

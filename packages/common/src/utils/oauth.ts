@@ -401,6 +401,22 @@ const WECHAT_LOGIN_HINT = '本平台使用微信扫码登录。';
 const DINGTALK_LOGIN_HINT = '本平台使用钉钉扫码登录。';
 const GENERIC_LOGIN_HINT = '本平台使用扫码方式登录。';
 
+/** 按站点域名匹配登录方式提示的域名清单（支持精确或子域后缀匹配） */
+export type DeviceLoginHintDomains = {
+    wechat: string[];
+    dingtalk: string[];
+};
+
+/**
+ * 已知自建 SSO 域名的默认映射（OIDC 中转层，协议元数据不携带登录方式）：
+ * brand.* 承载品牌站微信扫码，admin.* 承载内部平台钉钉认证。
+ * 部署可用 LOGIN_HINT_WECHAT_DOMAINS / LOGIN_HINT_DINGTALK_DOMAINS 覆盖。
+ */
+export const DEFAULT_DEVICE_LOGIN_HINT_DOMAINS: DeviceLoginHintDomains = {
+    wechat: ['brand.pre.banmahui.cn', 'brand.banmahui.cn'],
+    dingtalk: ['admin.banmahui.cn'],
+};
+
 const isHostnameLike = (url: string, keywords: string[]): boolean => {
     try {
         const hostname = new URL(url).hostname.toLowerCase();
@@ -410,12 +426,24 @@ const isHostnameLike = (url: string, keywords: string[]): boolean => {
     }
 };
 
+const hostnameMatchesAny = (hostname: string, domains: string[]): boolean =>
+    domains.some((entry) => {
+        const domain = entry.trim().toLowerCase();
+        return (
+            domain !== '' &&
+            (hostname === domain || hostname.endsWith(`.${domain}`))
+        );
+    });
+
 /**
  * 从平台已配置的 OIDC 登录端点推断设备码确认页的登录提示文案：
- * 微信/钉钉身份源分别提示，识别不出时退到通用扫码提示（零配置）。
+ * 1) 端点域名含微信/钉钉关键词（IdP 直连）→ 按身份源提示；
+ * 2) 命中自建 SSO 域名映射 → 按 SSO 背后的登录方式提示；
+ * 3) 都识别不出 → 通用扫码提示。
  */
 export const resolveDeviceLoginHint = (
     oidcMetadataUrl: string | undefined,
+    domains: DeviceLoginHintDomains = DEFAULT_DEVICE_LOGIN_HINT_DOMAINS,
 ): string => {
     if (!oidcMetadataUrl) {
         return GENERIC_LOGIN_HINT;
@@ -424,6 +452,18 @@ export const resolveDeviceLoginHint = (
         return WECHAT_LOGIN_HINT;
     }
     if (isHostnameLike(oidcMetadataUrl, ['dingtalk'])) {
+        return DINGTALK_LOGIN_HINT;
+    }
+    let hostname: string;
+    try {
+        hostname = new URL(oidcMetadataUrl).hostname.toLowerCase();
+    } catch {
+        return GENERIC_LOGIN_HINT;
+    }
+    if (hostnameMatchesAny(hostname, domains.wechat)) {
+        return WECHAT_LOGIN_HINT;
+    }
+    if (hostnameMatchesAny(hostname, domains.dingtalk)) {
         return DINGTALK_LOGIN_HINT;
     }
     return GENERIC_LOGIN_HINT;
