@@ -89,8 +89,6 @@ const DashboardChartColorSyncProvider: FC<
         ? EMPTY_APPENDED
         : appendedAssignments;
 
-    // 只追加不改已有：同一批次（及跨图先后注册）的分配顺序无关性
-    // 由 appendDashboardUnknownHashColors 内部按 UTF-16 排序保证。
     const registerVisibleColorKeys = useCallback(
         (keys: string[]) => {
             const next = appendDashboardUnknownHashColors(

@@ -1,6 +1,6 @@
 # 看板颜色同步：废弃色差顺延
 
-> 更新时间：2026-11-18
+> 更新时间：2026-09-20
 > 状态：按访问顺序的 `getGlobalHashColor` **已删除**，改为全 Tab 预取系列色表 + 确定性哈希避让
 
 ## 旧方案在解决什么
@@ -92,15 +92,6 @@ extractManualColorsFromChartConfig / extractColorSyncKeysFromChartConfig
 现在：第 13 个候选起用黄金角 137.5° 扩色相空间；仍找不到满足色差的候选时**唯一性优先**，
 只要求「不与已用色完全相同」，因此同图不会再有重复色值。
 
-### 调色板优先（2026-11-17 起）
-
-主题色板里的颜色**按原样使用**，不再按色差阈值跳过：
-
-- 只要系列数 ≤ 调色板去重后的颜色数，每个系列都拿到色板里的原始颜色，同图内两两不同
-- 单色系色板（商务风格 / 复古风格 / 现代风格）会渲染成一串相近色——这是色板的设计意图
-- 只有系列数超过色板容量时，才用生成色补足（生成色仍按 `MIN_*_COLOR_DIFF` 避让）
-- 完全相同的颜色不会被重复分配（先按精确值去重）
-
 ### 阈值分层与容量上限
 
 - 主题色板仍按 `MIN_COLOR_DIFF = 45` 使用；生成色（扩展色 / 色相旋转）要求 `MIN_GENERATED_COLOR_DIFF = 60`
@@ -110,36 +101,18 @@ extractManualColorsFromChartConfig / extractColorSyncKeysFromChartConfig
 
 ### 已知限制（不是 bug，是当前设计的边界）
 
-1. **按本图容量分配 + 跨图尽量同色**（2026-11-18 终稿，经历两轮反复）
-   - 口径：`assignVisibleChartColors()` 只看**本图可见系列**——系列数 ≤ 调色板去重色数时，每条系列
-     都拿到调色板原色且两两不同；只有本图自己超过容量时才用生成色
-   - 已保存系列的基准色从 `knownHashAssignments` 继承（本图无冲突时与原看板色一致）；
-     基准色**不属于当前调色板就丢弃**，所以切换调色板会立即全部换成新调色板的色
-   - 跨图同名同色由「哈希基准色确定性 + preferred 继承」保证；若两个名字在本图
-     拞到同一色，后者会换到本图未用的调色板色——此时该名字跨图可能不同色（以本图可读性优先）
-   - 两轮历史：11-17 改为「按本图避让」→ 同名跨图不同色（本图 9 条却拿不到调色板色）；
-     11-18 上午改回「整板唯一」→ 整板名字一多（如 40 个商品名）就把 20 色挤满，
-     本图 9 条线也变成调色板外的生成色。两个都只对了一半，故收敛为「本图容量内保证调色板保真 + 不重复，
-     跨图尽量一致」
-   - 自定义图表（Vega）仍用看板合并表（`appendDashboardUnknownHashColors`），暂未跟进本图口径
-2. **跨图同色不是硬保证**：名字特别多的看板（本图同现名字 > 调色板色数）会出现同图撞色，
-   撞色时后者被改到本图未用色，于是同名在不同图里可能不同色
+1. **看板级避让会拥挤**：运行期新增的名字按「整块看板已用色」避让（`appendDashboardUnknownHashColors`），
+   图很多、每图十几个运行期系列时（如 30 known + 45 未知名），单图色差会被挤到 15–45。
+   要根治需改为「只避让同图共现的邻居」，代价是不同的两个名字可能跨图撞色——属产品取舍，单独评估
 2. **瞬态不一致**：名字要等 `useLayoutEffect` 注册进看板表后才统一；首帧与 `known` 重置帧由各图自算，
    理论上可出现短暂不同色（React 在 paint 前同步 flush，通常不可见，未做浏览器实测）
-3. **运行期未知名依赖挂载顺序**：看板追加表仍按「先注册先占色」累加（Vega 通道在用），
-   但目前 ECharts 通道已不消费该表，只以 `knownHashAssignments` 作 preferred 基准，
-   因此对本图取色不再受挂载顺序影响
-4. **调色板预设色值一旦清洗，旧看板的选中态需要 legacy 兼容**：弹层选中态是整串精确比较，
-   预设色值变动后旧保存值不再匹配（2026-11-17 `dataMatrix` 换了 5 个近重复色就踩过）。
-   现在用 `palettePresets.ts` 的 `matchesColorPalette()` 做归一化比较（小写 / 去空白 / 去重），
-   并用 `legacyColors` 登记历史色串；**以后改任何预设色值都必须同步补 `legacyColors`**
+3. **运行期未知名依赖挂载顺序**：`known` 变化会重置追加表，已有未知名可能被重新分配颜色；
+   要彻底消除需持久化追加表（涉及 `DashboardConfig` 类型与迁移）
 
 ### 改动入口（排查用）
 
 | 行为 | 代码位置 |
 |---|---|
-| 本图取色（按本图容量分配） | `VisualizationProvider.tsx` 的 `chartHashAssignments`（`assignVisibleChartColors`） |
-| 看板级基准色 | `DashboardChartColorSyncProvider.tsx` 的 `assignKnownHashColors`（`knownHashAssignments`） |
-| 看板级追加（Vega 通道在用） | `registerVisibleColorKeys` → `appendDashboardUnknownHashColors` |
-| 避让算法与阈值 | `pickAvoidingColor` / `MIN_*_COLOR_DIFF` / `GENERATED_DIFF_CAPACITY` |
-| 调色板选中态识别 | `palettePresets.ts` 的 `matchesColorPalette` + `legacyColors` |
+| 同图取色 + 本图避让 | `VisualizationProvider.tsx` 的 `chartHashAssignments`（`appendUnknownHashColors`） |
+| 看板级追加 | `DashboardChartColorSyncProvider.tsx` 的 `registerVisibleColorKeys` |
+| 避让算法与阈值 | `hashColorAssignment.ts` 的 `pickAvoidingColor` / `MIN_*_COLOR_DIFF` / `GENERATED_DIFF_CAPACITY` |
