@@ -28,8 +28,13 @@
     -   `doctor --remote` 新增 `device-flow` 探测项：用未注册 client_id 探 `POST /device`，`400 unauthorized_client` 视为端点就绪，404 判 fail 并提示镜像版本要求
 -   **发版脚本**
     -   `scripts/bump-workspace-version.mjs` 跳过 `packages/msy-x-cli`：该包独立发版（`pnpm bump-msyx`），此前被主站版本连带 bump 成 `2.7.4`，与 `src/lib/version.ts` 的 `CLI_VERSION` 脱节
+-   **设备码确认页中文化与登录方式提示（v2.7.5-test.2）**
+    -   确认页（终端登录确认）、授权页、成功/失败提示页全部中文化；协议错误码（如 `invalid_grant`）保持英文，CLI 依赖它们
+    -   确认页验证码下方按站点显示登录方式提示，三层判定：OIDC 端点域名关键词（IdP 直连）→ 内置自建 SSO 映射（线上品牌 `brandct.com` → 微信、品牌预发 `brand.pre.banmahui.cn` → 微信、内部平台 `admin.banmahui.cn` → 钉钉）→ 通用扫码提示；默认零配置，`LOGIN_HINT_WECHAT_DOMAINS` / `LOGIN_HINT_DINGTALK_DOMAINS` 可覆盖
+    -   排查结论沉淀：微信内置 webview 的 session cookie 会在 OIDC 跨站跳转链上随机丢失，点「允许」时报 401，不能作为可靠的确认入口；引导用 PC 浏览器或移动端系统浏览器打开 `verification_uri_complete`
+    -   测试：`oauthRouter` 14 个用例 + `resolveDeviceLoginHint` 10 个单测
 -   **文档**
-    -   `docs/cli/msy-x-cli-design.md` 补 §6.4 设备码（扫码）登录契约（端点、会话存储、有效期、失败语义、部署前提）与 `device-flow` 探测说明
+    -   `docs/cli/msy-x-cli-design.md` 补 §6.4 设备码（扫码）登录契约（端点、会话存储、有效期、失败语义、部署前提）与 `device-flow` 探测说明；补充确认页文案/登录提示机制与微信 webview 已知限制
 
 ## v2.7.4 (2026-11-17)
 

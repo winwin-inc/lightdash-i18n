@@ -245,7 +245,18 @@ CLI                                 服务端
 
 **部署前提**：服务端镜像 ≥ 2.7.5（2.7.4 首次引入端点，但会话存在进程内存，多副本下扫码约 50% 报 `Invalid Code`）。旧站点上 CLI 报「站点不支持扫码登录（镜像需 ≥ 2.7.5）」或 `invalid_grant`，可用 `--no-browser` 或 `--token <pat>` 绕过。
 
-**已知限制**：`POST /device` 与 `POST /device/token` **没有限流**，仅靠「进行中会话 ≤ 1 万」的全局上限（超出返回 429 `slow_down`）。该上限是跨副本共享的单一闸门，持续灌请求可在 TTL（10 分钟）内把真实用户挡在 429。建议在入口网关/Ingress 对 `/api/v1/oauth/device*` 做 IP 级限速；代码内的限流/失败计数属后续工作。
+**确认页文案与登录提示**（v2.7.5+）：确认页、授权页、成功/失败提示页均已中文化（协议错误码如 `invalid_grant` 保持英文，CLI 依赖它们）。确认页验证码下方按站点显示登录方式提示，三层判定：
+
+1. OIDC 端点（`auth.oidc.metadataDocumentEndpoint`）域名含 `weixin`/`wechat`/`dingtalk` → 按身份源直接判定（IdP 直连场景）；
+2. 命中内置自建 SSO 映射（`brandct.com` 线上品牌 → 微信、`brand.pre.banmahui.cn`/`brand.banmahui.cn` 品牌预发 → 微信、`admin.banmahui.cn` 内部平台 → 钉钉）→ 按 SSO 背后的登录方式判定；
+3. 都不命中 → 通用的「本平台使用扫码方式登录。」
+
+默认零配置；将来 SSO 域名变化可用 `LOGIN_HINT_WECHAT_DOMAINS` / `LOGIN_HINT_DINGTALK_DOMAINS`（逗号分隔，支持子域后缀匹配）覆盖，无需发版。
+
+**已知限制**：
+
+- `POST /device` 与 `POST /device/token` **没有限流**，仅靠「进行中会话 ≤ 1 万」的全局上限（超出返回 429 `slow_down`）。该上限是跨副本共享的单一闸门，持续灌请求可在 TTL（10 分钟）内把真实用户挡在 429。建议在入口网关/Ingress 对 `/api/v1/oauth/device*` 做 IP 级限速；代码内的限流/失败计数属后续工作。
+- **微信内置 webview 不能作为可靠的确认入口**（实测预发环境复现）：webview 在 OIDC 跨站跳转链上种植的 session cookie 会随机丢失，导致每次打开确认页都要求重新登录，点「允许」时报 401 `Unauthorized`；一旦某次登录的 cookie 成功落盘则后续复用稳定，表现为「时好时坏」。引导用户：优先 PC 浏览器打开 `verification_uri_complete` 确认；移动端复制链接用系统浏览器（Safari/Chrome）打开；确认页已提示「本平台使用微信扫码登录」。
 
 ---
 
