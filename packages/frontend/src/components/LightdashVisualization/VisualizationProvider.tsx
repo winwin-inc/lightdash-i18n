@@ -35,10 +35,7 @@ import {
     lookupSyncedColor,
     pieRowColorKeys,
 } from '../../hooks/useChartColorConfig/colorSyncKeys';
-import {
-    appendUnknownHashColors,
-    resolveSyncedHashColor,
-} from '../../hooks/useChartColorConfig/hashColorAssignment';
+import { resolveSyncedHashColor } from '../../hooks/useChartColorConfig/hashColorAssignment';
 import { type SeriesLike } from '../../hooks/useChartColorConfig/types';
 import { useChartColorConfig } from '../../hooks/useChartColorConfig/useChartColorConfig';
 import {
@@ -234,34 +231,27 @@ const VisualizationProvider: FC<
 
     const registerVisibleColorKeys = useRegisterDashboardVisibleColorKeys();
 
-    // 注册仍保留（供 Vega 通道的跨图共现/后续能力使用），但 ECharts 取色已改为
-    // 只依赖 known + 本图可见集，不再消费看板追加表。
+    // 把本图可见名注册进看板级追加表；ECharts 与 Vega 通道共用同一份表。
+    // 追加表只增不改已有 key；同一批次的分配在 appendDashboardUnknownHashColors
+    // 内按 UTF-16 排序后进行，与注册顺序无关。
     useLayoutEffect(() => {
         if (!useHashBased) return;
         registerVisibleColorKeys(visibleColorKeys);
     }, [registerVisibleColorKeys, useHashBased, visibleColorKeys]);
 
     /**
-     * 本图色表（ECharts 通道）= 看板 known 色 + 本图可见系列的避让结果。
+     * 本图色表（ECharts 通道）= 看板级色表（known + 看板运行期追加表）。
      *
-     * 只以 `knownHashAssignments`（看板已保存系列）为已知映射，**不再叠加看板级
-     * 追加表**：追加表避让的是「整块看板已占用的颜色」，看板一多色位就被挤满，
-     * 运行期新增的系列只能拿到同色相变体（实测 20 色板下 0/8 命中调色板）。
-     * 现在运行期系列优先用调色板纯色、本图内保证不重复；已保存系列仍以看板
-     * known 映射为准，跨图同名同色不变。
+     * 跨图同名同色优先于单图色板纯度：同一看板内任何系列名（含运行期新增）
+     * 在任意两张图里必须同色，色板容量不足时才退化为生成色。此前曾改为「只以
+     * known 为底 + 按本图可见集避让」，两图可见集不同时同名运行期系列会落色
+     * 不同（同一批商品名一图橙红系、一图黄绿系），故改回直接消费看板合并表。
      *
-     * 注意：Vega 通道（colorSync.hashAssignments）仍使用看板表，保持旧行为。
+     * 注意：Vega 通道（colorSync.hashAssignments）同样使用这份看板表，行为不变。
      */
     const chartHashAssignments = useMemo(
-        () =>
-            useHashBased
-                ? appendUnknownHashColors(
-                      visibleColorKeys,
-                      colorPalette,
-                      knownHashAssignments,
-                  )
-                : knownHashAssignments,
-        [useHashBased, visibleColorKeys, colorPalette, knownHashAssignments],
+        () => (useHashBased ? hashAssignments : knownHashAssignments),
+        [useHashBased, hashAssignments, knownHashAssignments],
     );
 
     /** 看板级颜色同步信息，供自定义图表（Vega-Lite）注入 color scale 使用 */
