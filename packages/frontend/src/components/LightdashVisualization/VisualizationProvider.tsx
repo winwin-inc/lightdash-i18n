@@ -35,7 +35,10 @@ import {
     lookupSyncedColor,
     pieRowColorKeys,
 } from '../../hooks/useChartColorConfig/colorSyncKeys';
-import { resolveSyncedHashColor } from '../../hooks/useChartColorConfig/hashColorAssignment';
+import {
+    assignVisibleChartColors,
+    resolveSyncedHashColor,
+} from '../../hooks/useChartColorConfig/hashColorAssignment';
 import { type SeriesLike } from '../../hooks/useChartColorConfig/types';
 import { useChartColorConfig } from '../../hooks/useChartColorConfig/useChartColorConfig';
 import {
@@ -240,18 +243,28 @@ const VisualizationProvider: FC<
     }, [registerVisibleColorKeys, useHashBased, visibleColorKeys]);
 
     /**
-     * 本图色表（ECharts 通道）= 看板级色表（known + 看板运行期追加表）。
+     * 本图色表（ECharts 通道）= 按本图容量重分配（assignVisibleChartColors）：
+     * 以看板基准色 knownHashAssignments 作 preferred 继承，其余按哈希基准色
+     * 只在本图内避让。
      *
-     * 跨图同名同色优先于单图色板纯度：同一看板内任何系列名（含运行期新增）
-     * 在任意两张图里必须同色，色板容量不足时才退化为生成色。此前曾改为「只以
-     * known 为底 + 按本图可见集避让」，两图可见集不同时同名运行期系列会落色
-     * 不同（同一批商品名一图橙红系、一图黄绿系），故改回直接消费看板合并表。
+     * 本图优先保证「调色板保真 + 本图内不重复」：本图可见系列数不超过调色板
+     * 去重颜色数时，每条系列都拿调色板原色且两两不同，不再被整板几十个
+     * 系列名挤成生成色；跨图同名同色由哈希基准色（确定性）与 preferred
+     * 继承保证，与本图可读性冲突时以本图优先。preferred 里不属于当前
+     * 调色板的色一律忽略（切换调色板后立即全部切到新调色板）。
      *
-     * 注意：Vega 通道（colorSync.hashAssignments）同样使用这份看板表，行为不变。
+     * 注意：Vega 通道（colorSync.hashAssignments）保持不动，仍用看板合并表。
      */
     const chartHashAssignments = useMemo(
-        () => (useHashBased ? hashAssignments : knownHashAssignments),
-        [useHashBased, hashAssignments, knownHashAssignments],
+        () =>
+            useHashBased
+                ? assignVisibleChartColors({
+                      visibleKeys: visibleColorKeys,
+                      colorPalette,
+                      preferredAssignments: knownHashAssignments,
+                  })
+                : knownHashAssignments,
+        [useHashBased, visibleColorKeys, colorPalette, knownHashAssignments],
     );
 
     /** 看板级颜色同步信息，供自定义图表（Vega-Lite）注入 color scale 使用 */
