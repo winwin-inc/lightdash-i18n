@@ -5,6 +5,7 @@ import {
     appendDashboardUnknownHashColors,
     appendUnknownHashColors,
     assignKnownHashColors,
+    assignVisibleChartColors,
     colorDifference,
     getHashColor,
     hexToHSL,
@@ -679,5 +680,262 @@ describe('调色板优先：忠于原色，超出才生成', () => {
         expect(paletteHits.length).toBeGreaterThanOrEqual(
             new Set(normalizedPalette).size,
         );
+    });
+});
+
+/**
+ * 按本图容量分配（2026-11-18 口径，ECharts 通道）：调色板保真 + 本图内不重复。
+ *
+ * 修复背景：颜色分配曾按「整块看板的不重复系列名总数」去重（几十个商品名），
+ * 20 色调色板很快被别图的名字占满，本图即使只有 9 条线也退化成生成色
+ * （实测 40 名 → 20 个色在调色板外，如 #ed3f00/#efba2d）。
+ * assignVisibleChartColors 只看本图：本图可见系列数 ≤ 调色板去重颜色数时，
+ * 每条线都必须拿到调色板里的颜色且两两不同；只有本图自己超过容量时，
+ * 才用生成色补足。
+ */
+describe('按本图容量分配（assignVisibleChartColors）', () => {
+    const RETRO =
+        COLOR_PALETTE_PRESETS.find((preset) => preset.name === 'retro')
+            ?.colors ?? [];
+    const retroNormalized = RETRO.map((color) => color.toLowerCase());
+
+    const expectAllFromPalette = (
+        assignments: Record<string, string>,
+        keys: string[],
+    ) => {
+        keys.forEach((key) => {
+            expect(retroNormalized).toContain(assignments[key].toLowerCase());
+        });
+    };
+
+    test('(a) 本图 9 名 + preferred 已被别图 30 名占满 20 色 → 9 条全部来自调色板且两两不同', () => {
+        expect(RETRO).toHaveLength(20);
+        expect(new Set(retroNormalized)).toHaveLength(20);
+
+        const preferred: Record<string, string> = {};
+        for (let i = 0; i < 30; i++) {
+            preferred[`别图系列-${i}`] = RETRO[i % RETRO.length];
+        }
+        // 前置确认：别图名字已把 20 个调色板色全部占满（本次 bug 的触发条件）
+        expect(
+            new Set(
+                Object.values(preferred).map((color) => color.toLowerCase()),
+            ),
+        ).toHaveLength(20);
+
+        const visibleKeys = Array.from({ length: 9 }, (_, i) => `商品名-${i}`);
+        const assignments = assignVisibleChartColors({
+            visibleKeys,
+            colorPalette: RETRO,
+            preferredAssignments: preferred,
+        });
+
+        const colors = visibleKeys.map((key) => assignments[key]);
+        expect(new Set(colors).size).toBe(9);
+        expectAllFromPalette(assignments, visibleKeys);
+    });
+
+    test('(b) preferred 的陈旧色（不属于当前调色板，模拟切换调色板）→ 必须被忽略，产出全属新调色板', () => {
+        const staleColors = ['#ed3f00', '#efba2d', '#123456', '#abcdef'];
+        const visibleKeys = Array.from(
+            { length: 9 },
+            (_, i) => `陈旧系列-${i}`,
+        );
+        const preferred = Object.fromEntries(
+            visibleKeys.map((key, i) => [
+                key,
+                staleColors[i % staleColors.length],
+            ]),
+        );
+
+        const assignments = assignVisibleChartColors({
+            visibleKeys,
+            colorPalette: RETRO,
+            preferredAssignments: preferred,
+        });
+
+        const colors = visibleKeys.map((key) => assignments[key]);
+        expect(new Set(colors).size).toBe(9);
+        colors.forEach((color) => {
+            const normalized = color.toLowerCase();
+            expect(retroNormalized).toContain(normalized);
+            staleColors.forEach((stale) => {
+                expect(normalized).not.toBe(stale.toLowerCase());
+            });
+        });
+    });
+
+    test('(c) 两图各 9 名、6 个同名 → 同名基准色一致（无本图冲突时同色）', () => {
+        // 挑 12 个哈希槽两两不同的名字：6 个共享 + 两图各 3 个独有，
+        // 保证两张图内都无哈希冲突（无冲突时同名必同色）
+        const usedSlots = new Set<string>();
+        const pickDistinctHashNames = (
+            count: number,
+            tag: string,
+        ): string[] => {
+            const names: string[] = [];
+            for (let i = 0; names.length < count; i++) {
+                const name = `${tag}-${i}`;
+                const color = getHashColor(name, RETRO);
+                if (!usedSlots.has(color)) {
+                    usedSlots.add(color);
+                    names.push(name);
+                }
+            }
+            return names;
+        };
+        const shared = pickDistinctHashNames(6, '共享系列');
+        const aOnly = pickDistinctHashNames(3, '图A独有');
+        const bOnly = pickDistinctHashNames(3, '图B独有');
+        // 前置确认：12 个名字哈希槽两两不同
+        expect(
+            new Set(
+                [...shared, ...aOnly, ...bOnly].map((name) =>
+                    getHashColor(name, RETRO),
+                ),
+            ).size,
+        ).toBe(12);
+
+        // 看板基准色：共享名先在别的图注册过（known 表里有值）
+        const preferred = assignKnownHashColors(shared, RETRO);
+
+        const chartA = assignVisibleChartColors({
+            visibleKeys: [...shared, ...aOnly],
+            colorPalette: RETRO,
+            preferredAssignments: preferred,
+        });
+        const chartB = assignVisibleChartColors({
+            visibleKeys: [...shared, ...bOnly],
+            colorPalette: RETRO,
+            preferredAssignments: preferred,
+        });
+
+        shared.forEach((name) => {
+            expect(chartA[name]).toBe(chartB[name]);
+            expect(chartA[name]).toBe(preferred[name]);
+        });
+
+        // 无 preferred 时（运行期新增名）纯哈希基准色同样跨图一致
+        const noPreferredA = assignVisibleChartColors({
+            visibleKeys: [...shared, ...aOnly],
+            colorPalette: RETRO,
+            preferredAssignments: {},
+        });
+        const noPreferredB = assignVisibleChartColors({
+            visibleKeys: [...shared, ...bOnly],
+            colorPalette: RETRO,
+            preferredAssignments: {},
+        });
+        shared.forEach((name) => {
+            expect(noPreferredA[name]).toBe(noPreferredB[name]);
+            expect(noPreferredA[name]).toBe(getHashColor(name, RETRO));
+        });
+    });
+
+    test('(d) 本图两个名字哈希撞同一 base → 第二个改到本图未用的调色板色，仍在调色板内且两两不同', () => {
+        const base = getHashColor('臭宝', RETRO);
+        let colliding = '';
+        for (let i = 0; i < 8000; i++) {
+            const name = `品牌${i}`;
+            if (getHashColor(name, RETRO) === base) {
+                colliding = name;
+                break;
+            }
+        }
+        expect(colliding).not.toBe('');
+        expect(getHashColor(colliding, RETRO)).toBe(base);
+
+        const assignments = assignVisibleChartColors({
+            visibleKeys: ['臭宝', colliding],
+            colorPalette: RETRO,
+            preferredAssignments: {},
+        });
+        const colors = [assignments['臭宝'], assignments[colliding]];
+
+        // 先排序处理的 key 拿到 base，另一个线性探测到调色板内其他色
+        expect(colors.includes(base)).toBe(true);
+        expect(new Set(colors).size).toBe(2);
+        colors.forEach((color) => {
+            expect(retroNormalized).toContain(color.toLowerCase());
+        });
+    });
+
+    test('(e) 本图 25 系列 > 调色板 20 色 → 用完调色板色再补生成色，整体两两不重复', () => {
+        const visibleKeys = Array.from(
+            { length: 25 },
+            (_, i) => `超量商品-${i}`,
+        );
+        const assignments = assignVisibleChartColors({
+            visibleKeys,
+            colorPalette: RETRO,
+            preferredAssignments: {},
+        });
+        const colors = visibleKeys.map((key) => assignments[key]);
+
+        expect(new Set(colors).size).toBe(25);
+        // 20 个去重调色板色全部用上（前 20 条线调色板保真）
+        const paletteHits = colors.filter((color) =>
+            retroNormalized.includes(color.toLowerCase()),
+        );
+        expect(paletteHits).toHaveLength(20);
+        expect(
+            new Set(paletteHits.map((color) => color.toLowerCase())),
+        ).toHaveLength(20);
+        // 剩余 5 条为生成色（调色板外），且与调色板色两两不重复
+        const generated = colors.filter(
+            (color) => !retroNormalized.includes(color.toLowerCase()),
+        );
+        expect(generated).toHaveLength(5);
+    });
+
+    test('(f) 输入顺序（含 reverse、乱序）不影响结果', () => {
+        const visibleKeys = Array.from(
+            { length: 12 },
+            (_, i) => `顺序系列-${i}`,
+        );
+        const preferred = assignKnownHashColors(visibleKeys.slice(0, 4), RETRO);
+
+        const inOrder = assignVisibleChartColors({
+            visibleKeys,
+            colorPalette: RETRO,
+            preferredAssignments: preferred,
+        });
+        const reversed = assignVisibleChartColors({
+            visibleKeys: [...visibleKeys].reverse(),
+            colorPalette: RETRO,
+            preferredAssignments: preferred,
+        });
+        const shuffled = assignVisibleChartColors({
+            visibleKeys: [
+                visibleKeys[7],
+                visibleKeys[0],
+                visibleKeys[11],
+                visibleKeys[3],
+                visibleKeys[5],
+                visibleKeys[1],
+                visibleKeys[9],
+                visibleKeys[2],
+                visibleKeys[10],
+                visibleKeys[4],
+                visibleKeys[8],
+                visibleKeys[6],
+            ],
+            colorPalette: RETRO,
+            preferredAssignments: preferred,
+        });
+
+        expect(reversed).toEqual(inOrder);
+        expect(shuffled).toEqual(inOrder);
+    });
+
+    test('(g) 空调色板 → 全部落到占位色（FALLBACK_COLOR）', () => {
+        const assignments = assignVisibleChartColors({
+            visibleKeys: ['臭宝', '其他品牌'],
+            colorPalette: [],
+            preferredAssignments: { 臭宝: '#FF6B35' },
+        });
+        // FALLBACK_COLOR 常量（hashColorAssignment.ts 内部 '#868e96'）
+        expect(assignments['臭宝']).toBe('#868e96');
+        expect(assignments['其他品牌']).toBe('#868e96');
     });
 });
