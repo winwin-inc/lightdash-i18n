@@ -3,6 +3,7 @@ import { stat } from 'node:fs/promises';
 import { CliError, type CliErrorCode } from '../cli/errors';
 import { ExitCode, type ExitCodeValue } from '../cli/exitCodes';
 import { isLoggedInOffline } from './auth';
+import { authorizationServerUrlFromMcpUrl } from '../auth/oauth';
 import { ensureFreshCredentials } from '../auth/refresh';
 import { readConfig } from '../config/store';
 import { resolveSite } from '../config/profiles';
@@ -27,6 +28,9 @@ import type {
  *   再用 `run_metric_query` 对不存在的 explore 做能力探测（§10.4 判别键修复）：
  *   错误含 `Invalid literal value` → 服务端镜像缺修复（fail，退 5）；
  *   其它业务错误（explore 不存在/权限）→ 修复已就绪（ok）；
+ *   再 POST {site}/api/v1/oauth/device 探测设备码（扫码）能力：
+ *   400 + unauthorized_client（故意用未注册 client）→ 端点存在（ok）；
+ *   404 → 站点不支持扫码登录（fail，退 5）；其它非 2xx/网络错误 → warn；
  * - 输出：默认逐行 `[ok]/[warn]/[fail] name — detail`；ctx.format 为 json
  *   （含非 TTY 默认与显式 --json，与其它命令同口径）时输出
  *   `{ ok, checks }`（ok = 无 fail）；
@@ -102,6 +106,8 @@ export type RunDoctorDeps = {
     platform?: NodeJS.Platform;
     /** 注入环境变量（默认 process.env；配置文件定位用） */
     env?: Record<string, string | undefined>;
+    /** 注入 fetch（--remote 设备码端点探测用；默认 globalThis.fetch） */
+    fetchFn?: typeof globalThis.fetch;
 };
 
 const localOnlyBuild = (name: string) => (): never => {
@@ -119,7 +125,8 @@ export const doctorCommands: CommandSpec[] = [
         options: [
             {
                 flags: '--remote',
-                description: '发真实请求：initialize + tools/list + run_metric_query 能力探测',
+                description:
+                    '发真实请求：initialize + tools/list + run_metric_query 与设备码端点能力探测',
             },
         ],
         example: 'msy-x doctor --remote',
@@ -186,6 +193,17 @@ const MISSING_DISCRIMINATOR_DETAIL =
     'run_metric_query / search_field_values 暂不可用';
 
 const PROBE_READY_DETAIL = '判别键修复已就绪（业务错误即视为通过）';
+
+/** 设备码（扫码）能力探测：故意用未注册 client_id，保证不会真创建会话 */
+const DEVICE_FLOW_PROBE_CLIENT_ID = '__msy_x_doctor_probe__';
+
+const DEVICE_FLOW_OK_DETAIL =
+    '设备码端点存在（未注册 client 被正确拒绝），可支持 msy-x auth login --qr';
+
+const DEVICE_FLOW_MISSING_DETAIL = '站点不支持扫码登录';
+
+const DEVICE_FLOW_MISSING_HINT =
+    '服务端镜像需 ≥ 2.7.5（2.7.4 的设备码会话存内存，多副本会随机失败）；暂时改用 msy-x auth login --no-browser 或 --token <pat>';
 
 /** 服务端没暴露 run_metric_query（或被裁掉）时，探测无法证明修复已就绪 */
 const PROBE_TOOL_MISSING_PATTERN = /tool .*not found|unknown tool|no such tool/i;
@@ -349,6 +367,61 @@ const classifyRemoteError = (error: unknown): FailCategory | null => {
             // FORBIDDEN / DASHBOARD_STRICT / 其它：按服务端侧问题归类
             return 'server';
     }
+};
+
+/**
+ * 设备码（扫码）能力探测：POST {site}/api/v1/oauth/device（镜像 ≥ 2.7.5 才有；
+ * 2.7.4 的设备码会话存进程内存，多副本会随机失败）。
+ * 故意用未注册 client_id（不会真创建会话）：
+ * - 400 + JSON error=unauthorized_client → 端点存在且校验 client（ok）；
+ * - 404（旧镜像无该路由，JSON/HTML 均算）→ 站点不支持扫码登录（fail，退 5）；
+ * - 其它非 2xx / 网络错误 → warn（不影响退出码）。
+ */
+const checkDeviceFlow = async (
+    mcpUrl: string,
+    fetchFn: typeof globalThis.fetch,
+): Promise<CheckWithCategory> => {
+    const endpoint = `${authorizationServerUrlFromMcpUrl(mcpUrl)}/device`;
+    let response: Response;
+    try {
+        response = await fetchFn(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ client_id: DEVICE_FLOW_PROBE_CLIENT_ID }),
+        });
+    } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        return check('device-flow', 'warn', `设备码端点探测请求失败：${message}`);
+    }
+    if (response.status === 404) {
+        return check(
+            'device-flow',
+            'fail',
+            `${DEVICE_FLOW_MISSING_DETAIL}（POST ${endpoint} 返回 404）；${DEVICE_FLOW_MISSING_HINT}`,
+            'server',
+        );
+    }
+    let bodyError: string | null = null;
+    try {
+        const body = (await response.json()) as { error?: unknown };
+        if (typeof body.error === 'string') bodyError = body.error;
+    } catch {
+        bodyError = null; // 响应非 JSON（如 HTML 错误页）
+    }
+    if (response.status === 400 && bodyError === 'unauthorized_client') {
+        return check('device-flow', 'ok', DEVICE_FLOW_OK_DETAIL);
+    }
+    if (response.ok) {
+        // 未注册 client 竟被接受：端点行为不符合预期，提示但不拦截
+        return check(
+            'device-flow',
+            'warn',
+            `设备码端点对未注册 client 返回 ${response.status}（预期 400 unauthorized_client）`,
+        );
+    }
+    const parts = [`设备码端点探测返回 ${response.status}`];
+    if (bodyError !== null) parts.push(`error=${bodyError}`);
+    return check('device-flow', 'warn', parts.join('，'));
 };
 
 const runRemoteChecks = async (
@@ -563,6 +636,13 @@ const runRemoteChecks = async (
                 );
             }
         }
+        // 3) 设备码（扫码）能力探测：POST /api/v1/oauth/device（镜像 ≥ 2.7.5）
+        checks.push(
+            await checkDeviceFlow(
+                ctx.site.mcpUrl,
+                deps.fetchFn ?? globalThis.fetch,
+            ),
+        );
     } finally {
         await client.close().catch(() => undefined);
     }
