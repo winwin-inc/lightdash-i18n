@@ -380,6 +380,20 @@ const Dashboard: FC = () => {
         return new Map(dashboardTabs.map((tab) => [tab.uuid, tab.name]));
     }, [dashboardTabs]);
 
+    /** 「颜色」弹层里展示的同步清单：直接写出哪些图会跟着调色板变色 */
+    const syncedChartNames = useMemo(
+        () =>
+            chartTiles
+                .filter((tile) => syncChartTileUuids.includes(tile.uuid))
+                .map(
+                    (tile) =>
+                        tile.properties.title ||
+                        tile.properties.chartName ||
+                        'Untitled chart',
+                ),
+        [chartTiles, syncChartTileUuids],
+    );
+
     // 按 tab 分组图表 tiles，保持 tab 顺序
     const chartTilesByTab = useMemo(() => {
         const groups: Array<{
@@ -1230,20 +1244,36 @@ const Dashboard: FC = () => {
                                                     </Button>
                                                 </Box>
                                             ) : (
-                                                <Text
-                                                    size="xs"
-                                                    c="dimmed"
-                                                    mb="xs"
-                                                >
-                                                    {t(
-                                                        'dashboard.color_sync_selected_count',
-                                                        '已同步 {{count}} / {{total}} 张图表',
-                                                        {
-                                                            count: syncChartTileUuids.length,
-                                                            total: chartTiles.length,
-                                                        },
-                                                    )}
-                                                </Text>
+                                                <Box mb="xs">
+                                                    <Text size="xs" c="dimmed">
+                                                        {t(
+                                                            'dashboard.color_sync_selected_count',
+                                                            '已同步 {{count}} / {{total}} 张图表',
+                                                            {
+                                                                count: syncChartTileUuids.length,
+                                                                total: chartTiles.length,
+                                                            },
+                                                        )}
+                                                    </Text>
+                                                    <Text size="xs" c="dimmed">
+                                                        {t(
+                                                            'dashboard.color_sync_selected_names',
+                                                            '同步中：{{names}}',
+                                                            {
+                                                                names: `${syncedChartNames
+                                                                    .slice(0, 3)
+                                                                    .join(
+                                                                        '、',
+                                                                    )}${
+                                                                    syncedChartNames.length >
+                                                                    3
+                                                                        ? ` 等 ${syncedChartNames.length} 张`
+                                                                        : ''
+                                                                }`,
+                                                            },
+                                                        )}
+                                                    </Text>
+                                                </Box>
                                             )}
                                             <Stack>
                                                 {COLOR_PALETTE_PRESETS.map(
