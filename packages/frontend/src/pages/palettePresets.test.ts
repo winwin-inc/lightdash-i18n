@@ -3,7 +3,7 @@ import {
     colorDifference,
     MIN_COLOR_DIFF,
 } from '../hooks/useChartColorConfig/hashColorAssignment';
-import COLOR_PALETTE_PRESETS from './palettePresets';
+import COLOR_PALETTE_PRESETS, { matchesColorPalette } from './palettePresets';
 
 /**
  * 调色板预设自检。
@@ -50,5 +50,92 @@ describe('颜色调色板预设', () => {
             }
         });
         expect(offenders).toEqual([]);
+    });
+});
+
+/**
+ * 「当前选中」识别：matchesColorPalette。
+ *
+ * 回归背景（afcb553e9）：dataMatrix 预设清洗掉 5 个近重复色后，
+ * 用旧色值保存过的看板 config.colorPalette 与新 colors 不再全等，
+ * 弹层里所有预设都失去选中态。选中态判断需同时认得 legacyColors，
+ * 且对大小写/空白/重复色做归一化后再比较。
+ */
+describe('matchesColorPalette（弹层选中态识别）', () => {
+    const dataMatrix = COLOR_PALETTE_PRESETS.find(
+        (preset) => preset.name === 'dataMatrix',
+    );
+    expect(dataMatrix).toBeDefined();
+
+    // afcb553e9 清洗前的旧 20 色（含重复的 #0088FF）
+    const LEGACY_DATA_MATRIX = [
+        '#FF00FF',
+        '#00FFFF',
+        '#FFFF00',
+        '#FF0080',
+        '#00FF00',
+        '#00FF80',
+        '#8000FF',
+        '#FF8000',
+        '#FF0088',
+        '#00FF88',
+        '#0088FF',
+        '#88FF00',
+        '#FF8800',
+        '#8800FF',
+        '#0088FF',
+        '#FF00CC',
+        '#CCFF00',
+        '#00CCFF',
+        '#CC00FF',
+        '#FFCC00',
+    ];
+
+    test('旧 dataMatrix 20 色（含重复 #0088FF）→ 命中 dataMatrix', () => {
+        expect(matchesColorPalette(dataMatrix!, LEGACY_DATA_MATRIX)).toBe(true);
+    });
+
+    test('新 dataMatrix 20 色 → 命中 dataMatrix', () => {
+        expect(matchesColorPalette(dataMatrix!, dataMatrix!.colors)).toBe(true);
+    });
+
+    test('大小写/空白差异 → 仍命中', () => {
+        expect(
+            matchesColorPalette(
+                dataMatrix!,
+                dataMatrix!.colors.map((color, idx) =>
+                    idx % 2 === 0
+                        ? `  ${color.toLowerCase()} `
+                        : color.toUpperCase(),
+                ),
+            ),
+        ).toBe(true);
+        expect(
+            matchesColorPalette(
+                dataMatrix!,
+                LEGACY_DATA_MATRIX.map((color) => ` ${color.toLowerCase()} `),
+            ),
+        ).toBe(true);
+    });
+
+    test('自定义 20 色（换掉其中一个色）→ 不命中任何预设', () => {
+        const custom = [...dataMatrix!.colors];
+        custom[3] = '#123456';
+        COLOR_PALETTE_PRESETS.forEach((preset) => {
+            expect(matchesColorPalette(preset, custom)).toBe(false);
+        });
+        const customLegacy = [...LEGACY_DATA_MATRIX];
+        customLegacy[3] = '#123456';
+        COLOR_PALETTE_PRESETS.forEach((preset) => {
+            expect(matchesColorPalette(preset, customLegacy)).toBe(false);
+        });
+    });
+
+    test('null / [] → 不命中', () => {
+        COLOR_PALETTE_PRESETS.forEach((preset) => {
+            expect(matchesColorPalette(preset, null)).toBe(false);
+            expect(matchesColorPalette(preset, [])).toBe(false);
+            expect(matchesColorPalette(preset, undefined)).toBe(false);
+        });
     });
 });

@@ -199,6 +199,11 @@ describe('assignKnownHashColors', () => {
     });
 });
 
+/**
+ * 注（2026-11-18 口径变更）：ECharts 通道已改回消费看板合并表
+ * （appendDashboardUnknownHashColors），不再用 appendUnknownHashColors
+ * 按图取色；以下保留该函数的契约测试（签名与行为不变）。
+ */
 describe('appendUnknownHashColors', () => {
     test('appends colliding unknown names without rewriting known colors', () => {
         const known = assignKnownHashColors(['李子柒'], PALETTE);
@@ -372,6 +377,127 @@ describe('appendDashboardUnknownHashColors', () => {
         );
 
         expect(second).toBe(first);
+    });
+});
+
+/**
+ * 看板级跨图同色回归（2026-11-18 口径）：跨图同名同色优先于单图色板纯度。
+ *
+ * ECharts 通道曾改为「只以 known 为底 + 按本图可见集避让」
+ * （appendUnknownHashColors），两图可见集不同时，同名运行期系列落色不同
+ * （同一批商品名一图橙红系、一图黄绿系）。现改回消费看板合并表
+ * （known + appendDashboardUnknownHashColors 追加表）：同一看板内任何
+ * 系列名（含运行期新增）在任意两张图里同色；色板容量不足时才退化为生成色。
+ */
+describe('看板级跨图同色回归', () => {
+    test('(a) 两个不同可见集先后注册，同名系列取到同一颜色', () => {
+        const known = assignKnownHashColors(
+            ['已存系列甲', '已存系列乙'],
+            PALETTE,
+        );
+        let appended: Record<string, string> = {};
+
+        // 图 A 先注册：共享名 + 图 A 独有名
+        appended = appendDashboardUnknownHashColors(
+            ['佳味螺', '臭宝', '品牌甲', '已存系列甲'],
+            PALETTE,
+            known,
+            appended,
+        );
+        const chartATable: Record<string, string> = {
+            ...known,
+            ...appended,
+        };
+
+        // 图 B 后注册：共享名 + 图 B 独有名
+        appended = appendDashboardUnknownHashColors(
+            ['佳味螺', '臭宝', '品牌乙', '其他品牌'],
+            PALETTE,
+            known,
+            appended,
+        );
+        const chartBTable: Record<string, string> = {
+            ...known,
+            ...appended,
+        };
+
+        // 同名 key（含运行期新增）跨图同色 —— 本次 bug 的守门
+        expect(chartBTable['佳味螺']).toBe(chartATable['佳味螺']);
+        expect(chartBTable['臭宝']).toBe(chartATable['臭宝']);
+        // 已保存系列仍等于看板 known 色
+        expect(chartATable['已存系列甲']).toBe(known['已存系列甲']);
+        expect(chartBTable['已存系列乙']).toBe(known['已存系列乙']);
+    });
+
+    test('(b) 容量内看板内不同 key 两两不重复且命中原色', () => {
+        const keys = [
+            '品牌甲',
+            '品牌乙',
+            '品牌丙',
+            '品牌丁',
+            '品牌戊',
+            '品牌己',
+            '品牌庚',
+            '品牌辛',
+        ];
+        expect(keys.length).toBeLessThan(PALETTE.length);
+
+        const appended = appendDashboardUnknownHashColors(
+            keys,
+            PALETTE,
+            {},
+            {},
+        );
+        const colors = keys.map((key) => appended[key]);
+
+        expect(new Set(colors).size).toBe(keys.length);
+        expectThemeColors(appended, PALETTE);
+    });
+
+    test('(c) 超过色板容量后仍不重复（生成色路径）', () => {
+        const keys = Array.from(
+            { length: PALETTE.length + 6 },
+            (_, i) => `商品名-${i}`,
+        );
+        // 分两批注册，模拟两张图先后把各自可见集注册进同一看板表
+        let appended: Record<string, string> = {};
+        appended = appendDashboardUnknownHashColors(
+            keys.slice(0, 8),
+            PALETTE,
+            {},
+            appended,
+        );
+        appended = appendDashboardUnknownHashColors(
+            keys.slice(8),
+            PALETTE,
+            {},
+            appended,
+        );
+
+        const colors = keys.map((key) => appended[key]);
+        expect(new Set(colors).size).toBe(keys.length);
+    });
+
+    test('(d) 同一批次乱序传入 → 分配结果一致', () => {
+        const keys = [
+            '品牌甲',
+            '品牌乙',
+            '品牌丙',
+            '品牌丁',
+            '品牌戊',
+            '品牌己',
+        ];
+        const shuffled = [...keys].reverse();
+
+        const inOrder = appendDashboardUnknownHashColors(keys, PALETTE, {}, {});
+        const outOfOrder = appendDashboardUnknownHashColors(
+            shuffled,
+            PALETTE,
+            {},
+            {},
+        );
+
+        expect(outOfOrder).toEqual(inOrder);
     });
 });
 

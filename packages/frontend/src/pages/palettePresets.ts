@@ -17,6 +17,14 @@ export type ColorPalettePreset = {
      */
     kind: ColorPaletteKind;
     colors: string[];
+    /**
+     * 历史版本的色值列表（仅用于「当前选中」识别，不参与取色）。
+     *
+     * 预设色值被清洗后（如 afcb553e9 对 dataMatrix 换掉 5 个近重复色），
+     * 用旧色值保存过的看板 config.colorPalette 与新 colors 不再全等，
+     * 弹层里所有预设都会失去选中态；选中态判断需要同时认得这些旧色串。
+     */
+    legacyColors?: string[][];
 };
 
 /**
@@ -166,6 +174,32 @@ const COLOR_PALETTE_PRESETS: ColorPalettePreset[] = [
     {
         name: 'dataMatrix',
         kind: 'categorical',
+        legacyColors: [
+            // afcb553e9 清洗前的旧 20 色（含重复的 #0088FF）：
+            // 用这套色保存过的看板选中态仍应命中本预设
+            [
+                '#FF00FF',
+                '#00FFFF',
+                '#FFFF00',
+                '#FF0080',
+                '#00FF00',
+                '#00FF80',
+                '#8000FF',
+                '#FF8000',
+                '#FF0088',
+                '#00FF88',
+                '#0088FF',
+                '#88FF00',
+                '#FF8800',
+                '#8800FF',
+                '#0088FF',
+                '#FF00CC',
+                '#CCFF00',
+                '#00CCFF',
+                '#CC00FF',
+                '#FFCC00',
+            ],
+        ],
         colors: [
             '#FF00FF',
             '#00FFFF',
@@ -190,5 +224,44 @@ const COLOR_PALETTE_PRESETS: ColorPalettePreset[] = [
         ],
     },
 ];
+
+/** 归一化单个调色板：去空白、小写十六进制、去重（保留首次出现顺序） */
+const normalizePalette = (palette: string[]): string[] => {
+    const seen = new Set<string>();
+    const normalized: string[] = [];
+    palette.forEach((color) => {
+        const key = color.trim().toLowerCase();
+        if (seen.has(key)) {
+            return;
+        }
+        seen.add(key);
+        normalized.push(key);
+    });
+    return normalized;
+};
+
+/** 归一化后的比较键（有序唯一色串） */
+const paletteKey = (palette: string[]): string =>
+    normalizePalette(palette).join(',');
+
+/**
+ * 判断看板当前的调色板是否命中某个预设（用于弹层的「当前选中」态）。
+ *
+ * 预设色值清洗后，用旧色值保存过的看板与预设 `colors` 不再全等，
+ * 因此除 `colors` 外还要逐个尝试 `legacyColors`。比较前双方都做归一化
+ * （去空白、小写、去重），空或 undefined 的当前调色板一律不命中。
+ */
+export const matchesColorPalette = (
+    preset: ColorPalettePreset,
+    currentPalette: string[] | null | undefined,
+): boolean => {
+    if (!currentPalette || currentPalette.length === 0) {
+        return false;
+    }
+    const currentKey = paletteKey(currentPalette);
+    return [preset.colors, ...(preset.legacyColors ?? [])].some(
+        (candidate) => paletteKey(candidate) === currentKey,
+    );
+};
 
 export default COLOR_PALETTE_PRESETS;

@@ -366,6 +366,8 @@ export const assignKnownHashColors = (
 /**
  * 看板级追加未知名：只给还没有颜色的名字分配。
  * 占色范围是全部已知色 + 已经追加过的未知名，不看当前图还剩哪些系列。
+ * 同一批次待分配名按 UTF-16 码元排序后再逐个避让：不同图/不同注册顺序下，
+ * 同一批新增名得到相同的分配结果，跨图同名同色不依赖注册顺序。
  * 已有名字原样返回；无新 key 时复用 appendedAssignments 引用。
  */
 export const appendDashboardUnknownHashColors = (
@@ -391,7 +393,13 @@ export const appendDashboardUnknownHashColors = (
         ...Object.values(next),
     ];
 
-    unknown.forEach((key) => {
+    // 显式按 UTF-16 码元排序，不依赖 normalizeColorSyncKeys 的顺带排序；
+    // 保证同批次分配与传入顺序无关（确定性）。
+    const sortedUnknown = [...unknown].sort((a, b) =>
+        a < b ? -1 : a > b ? 1 : 0,
+    );
+
+    sortedUnknown.forEach((key) => {
         const color = pickAvoidingColor(key, colorPalette, usedColors);
         next[key] = color;
         usedColors.push(color);
