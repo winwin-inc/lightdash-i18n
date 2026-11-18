@@ -50,8 +50,6 @@
     -   dbt CLI（`lightdash`）已单独发版 2.2.0：新增 `sql`、`run-chart`、`warehouse-catalog`、`config` 四件套与 `export-chart-image`
 -   **文档**
     -   新增 `docs/cli/msy-x-cli-design.md` 与 `docs/cli/msy-x-cli-usage.md`（对外自包含），内部发版与 CDN 基线见 `docs/cli/msy-x-cli-dev-plan.md`
--   **本版本不包含**
-    -   **看板导出（XLSX）重构**：`feat/dashboard-xlsx-export` 分支（每 Tab 一个 xlsx、Tab 前缀与 Tab 筛选器列、导出行数额度 50 万、失败不再静默等，55 个提交）尚未合入，本次沿用现有导出行为；该分支已占用 `v2.7.4-test.*` 预发 tag，合入后需在下一版本补齐说明并收敛版本号
 
 ## v2.7.3 (2026-11-12)
 
