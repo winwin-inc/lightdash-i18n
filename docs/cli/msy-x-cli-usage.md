@@ -27,6 +27,9 @@ msy-x --help
 
 ## 2. 登录（两种方式，任选其一）
 
+选哪种**只看有没有传 token**，与站点无关：给了 `--token` / `MSY_X_PAT` 就走 PAT，否则走 OAuth。
+所以「内部站只能用 PAT」是误解——内部站一样可以 OAuth；反过来品牌站也能用 PAT。
+
 ### 2.1 OAuth（推荐个人使用）
 
 ```bash
@@ -51,6 +54,8 @@ msy-x auth login      # 也可以简写：msy-x login
 - 令牌有效期：access 1 小时、refresh 2 周；日常调用遇 401 会自动刷新一次再重试。
 
 ### 2.2 个人访问令牌（PAT：CI、服务账号、回调不通时）
+
+> 与站点无关：OAuth 走不通（无浏览器、回调端口被占、CI）时任何站点都可以改用 PAT。
 
 在站点右上角个人设置 → Personal access token → 新建，复制一次性显示的 `ldpat_` 开头的令牌。
 
@@ -92,10 +97,13 @@ msy-x doctor --remote    # 追加真实验证：工具名单 + 服务端能力�
 
 ### 3.1 常用站点
 
-| 站点 | MCP 地址 | 默认鉴权 |
+| 站点 | MCP 地址 | 配置里的默认 `authMode`（仅提示） |
 |---|---|---|
-| 品牌站（默认，代号 `x`） | `https://x.brandct.com/api/v1/mcp` | OAuth |
-| 内部站（代号 `inner`） | `https://lightdash.banmahui.cn/api/v1/mcp` | PAT |
+| 品牌站（全新安装的 `currentSite`，代号 `x`） | `https://x.brandct.com/api/v1/mcp` | `oauth` |
+| 内部站（代号 `inner`） | `https://lightdash.banmahui.cn/api/v1/mcp` | `pat` |
+
+> 最后一列只是**站点配置里的默认提示，不是限制**：两个站点都支持 OAuth 与 PAT，
+> 实际用哪种只看你登录时有没有给 token（见 §2）；未登录时 `auth status` 会回落显示这个默认值。
 
 其它环境（预发、自建网关）不需要预先配置，用 `--site <地址>` 或 `--mcp-url <地址>` 指过去即可。
 

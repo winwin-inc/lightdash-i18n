@@ -17,7 +17,10 @@ export const buildProgram = (): Command => {
         .version(`msy-x ${CLI_VERSION}`, '-v, --version', '输出 CLI 版本')
         .description(
             '马上赢 X 平台 MCP 命令行客户端（Streamable HTTP / OAuth DCR + PAT）\n' +
-                '默认站点：x（https://x.brandct.com/api/v1/mcp）',
+                '内置站点：x = https://x.brandct.com/api/v1/mcp（对外）、' +
+                'inner = https://lightdash.banmahui.cn/api/v1/mcp（内部）\n' +
+                '未传 --site 时用配置文件里的 currentSite（全新安装默认 x）；' +
+                '两个站点都支持 OAuth 与 PAT，登录方式只看有无给 token',
         )
         .showHelpAfterError('运行 msy-x help [command] 查看用法')
         // 子命令前的全局选项旧 program，子命令后的旧叶子命令（配合 ancestorOptsOf 合并）
