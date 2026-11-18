@@ -135,7 +135,9 @@ export const loginWithDeviceQr = async ({
 
     // 2. 终端二维码 + 明文码
     print('');
-    print('请使用手机扫码（微信/相机扫一扫均可）完成登录，并核对下方代码：');
+    print(
+        '请用手机扫码打开确认页（微信/相机扫一扫均可），核对页面验证码与下方一致后点「允许」：',
+    );
     print('');
     print(`    ${authorization.user_code}`);
     print('');
@@ -143,6 +145,9 @@ export const loginWithDeviceQr = async ({
     print('');
     print(
         `无法扫码时，在任意设备浏览器打开：${authorization.verification_uri_complete}`,
+    );
+    print(
+        '提示：微信内打开若要求重新登录或提示未授权，请点右上角 ··· →「在浏览器打开」；PC 浏览器打开同样有效。',
     );
     print('');
 
