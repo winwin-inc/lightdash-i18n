@@ -1,6 +1,6 @@
 # msy-x-cli 使用手册
 
-> 适用版本：0.1.1　｜　运行时：Node.js ≥ 20
+> 适用版本：0.2.0　｜　运行时：Node.js ≥ 20
 >
 > 本文是自包含的使用说明，不依赖任何内部文档。命令与接口的完整契约（入参映射、输出结构、退出码定义）由设计文档单独提供。
 
@@ -9,9 +9,9 @@
 ## 1. 安装
 
 ```bash
-npm i -g https://img0.banmahui.cn/msy-x/cli/msy-x-cli/0.1.1/msy-x-cli-0.1.1.tgz
+npm i -g https://img0.banmahui.cn/msy-x/cli/msy-x-cli/0.2.0/msy-x-cli-0.2.0.tgz
 
-msy-x --version     # 期望输出单行：msy-x 0.1.1
+msy-x --version     # 期望输出单行：msy-x 0.2.0
 msy-x --help
 ```
 
@@ -20,7 +20,7 @@ msy-x --help
 | 包名 / 可执行名 | `msy-x-cli` / `msy-x` |
 | 升级 | 用新版本地址再执行一次 `npm i -g`（覆盖安装） |
 | 卸载 | `npm uninstall -g msy-x-cli` |
-| 完整性校验 | 同目录有 `<tgz>.sha256`：`sha256sum -c msy-x-cli-0.1.1.tgz.sha256` |
+| 完整性校验 | 同目录有 `<tgz>.sha256`：`sha256sum -c msy-x-cli-0.2.0.tgz.sha256` |
 | 自定义 npm 源 | 安装命令可加 `--registry https://registry.npmjs.org` |
 
 ---
