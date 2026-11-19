@@ -6,26 +6,44 @@ import {
 } from './colorSyncKeys';
 
 const FALLBACK_COLOR = '#868e96';
-/** 主题色板内部的最小可接受色差（主题色是人工挑选的，阈值不宜过高） */
-export const MIN_COLOR_DIFF = 45;
 /**
- * 生成色（扩展调色板 / 色相旋转）的最小可接受色差。
+ * 主题色板内部的最小可接受感知色差（CIEDE2000，ΔE00）。
  *
- * 比主题色更严：扩展色是同色相的明暗变体，实测 36 色里最小两两距离只有
- * 17.5，视觉上与主色几乎一样（用户会认为"重复"）。生成色要求 ≥60 才会
- * 被采用，逼着算法走色相旋转，得到真正能区分的颜色。
+ * 取 12 的依据：20 色纯霓虹色板（S=1、L=0.5 色相环重采样）的两两 ΔE00
+ * 上限实测只有 12.56，取 12 才能保住「20 系列全部用色板原色」；
+ * 换成明度/饱和度分层色板后可抬到 15–19。原 RGB 欧氏距离口径的 45
+ * 与 ΔE00 相关性仅 0.788，`#00FF00/#00FF40`（ΔE00 2.52、RGB 64）会被
+ * 45/60 同时放过，属于量纲错误而非数值大小问题。
  */
-export const MIN_GENERATED_COLOR_DIFF = 60;
+export const MIN_COLOR_DIFF = 12;
 /**
- * 生成色阈值 60 的有效容量（实测约 16–19 个颜色）。
- * 已用色超过该数量后，继续要求 60 会提前耗尽候选、掉进「只保证不重复」的
- * 兜底，图内色差反而更差（实测 known=30 时 29.3，退化到 45 后可回到 ≈46）。
- * 因此池子超过容量时把生成色阈值降级回 MIN_COLOR_DIFF。
+ * 阶梯目标（deterministic ladder）：已用色越多，可接受的候选色差越低。
+ * 取代旧的「必须 ≥12/15 才接受」：
+ * - used < 40  → 12（MIN_COLOR_DIFF）：绝大多数图（≤ 40 系列）保持全量
+ *   高色差；20 色板 + 40 个扩展变体（构造自检 ≥ 15）覆盖到 60，前 40 个
+ *   名字几乎总能拿到 ≥ 12 的候选。
+ * - 40 ≤ used < 80 → 8：候选开始互相挤占，8 仍是肉眼清晰可分的色差
+ *   （旧饱和保底档的档位）。
+ * - used ≥ 80 → 5：硬底线档。80 之后目标已降到 5，任意候选扫描几乎
+ *   第一个就早退命中，不再需要大候选池。
+ *
+ * 语义底线不变：任何档位都不接受 ΔE < 5 的候选（P0，见 HARD_FLOOR）。
  */
-export const GENERATED_DIFF_CAPACITY = 20;
+const LADDER_MID_DIFF = 8;
+const HARD_FLOOR_DIFF = 5;
+const LADDER_MID_USED = 40;
+const LADDER_FLOOR_USED = 80;
+
+/** 硬底线：永不返回与已用色 ΔE00 < 5 的候选（肉眼同一颜色，P0）。 */
+export const effectiveTarget = (usedCount: number): number => {
+    if (usedCount < LADDER_MID_USED) return MIN_COLOR_DIFF;
+    if (usedCount < LADDER_FLOOR_USED) return LADDER_MID_DIFF;
+    return HARD_FLOOR_DIFF;
+};
 const MAX_AVOID_ATTEMPTS = 100;
 
 type ParsedRgb = { r: number; g: number; b: number };
+type Lab = { L: number; a: number; b: number };
 
 const normalizeColor = (color: string): string => color.trim().toLowerCase();
 
@@ -49,6 +67,125 @@ const parseColor = (color: string): ParsedRgb | null => {
         return tryParse(`#${trimmed}`);
     }
     return null;
+};
+
+/** sRGB（gamma 展开）→ XYZ(D65) → CIE Lab。 */
+const rgbToLab = ({ r, g, b }: ParsedRgb): Lab => {
+    const toLinear = (v: number): number => {
+        const c = v / 255;
+        return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+    };
+    const R = toLinear(r);
+    const G = toLinear(g);
+    const B = toLinear(b);
+    const X = 0.4124564 * R + 0.3575761 * G + 0.1804375 * B;
+    const Y = 0.2126729 * R + 0.7151522 * G + 0.072175 * B;
+    const Z = 0.0193339 * R + 0.119192 * G + 0.9503041 * B;
+    const f = (t: number): number =>
+        t > 0.008856451679035631
+            ? Math.cbrt(t)
+            : 7.787037037037035 * t + 16 / 116;
+    const fx = f(X / 0.95047);
+    const fy = f(Y);
+    const fz = f(Z / 1.08883);
+    return { L: 116 * fy - 16, a: 500 * (fx - fy), b: 200 * (fy - fz) };
+};
+
+/**
+ * hex→Lab 缓存。分配是 O(N²·候选) 的比较密集型，不做缓存时每次比较
+ * 都要重跑 gamma 展开与立方根（20 系列 × 100 候选 × 20 已用色 ≈ 4 万次
+ * 转换/图，看板多图叠加会卡），必须走 Map。
+ */
+const labCache = new Map<string, Lab | null>();
+const getLab = (color: string): Lab | null => {
+    const key = normalizeColor(color);
+    if (labCache.has(key)) return labCache.get(key) ?? null;
+    const rgb = parseColor(key);
+    const lab = rgb ? rgbToLab(rgb) : null;
+    labCache.set(key, lab);
+    return lab;
+};
+
+const DEG = Math.PI / 180;
+const POW25_7 = 25 ** 7;
+
+/** CIEDE2000（kL=kC=kH=1，Sharma 2005 标准实现）。无内层闭包：本函数处于 O(N²·候选) 热路径。 */
+const ciede2000 = (lab1: Lab, lab2: Lab): number => {
+    const L1 = lab1.L;
+    const a1 = lab1.a;
+    const b1 = lab1.b;
+    const L2 = lab2.L;
+    const a2 = lab2.a;
+    const b2 = lab2.b;
+    const C1 = Math.sqrt(a1 * a1 + b1 * b1);
+    const C2 = Math.sqrt(a2 * a2 + b2 * b2);
+    const Cbar = (C1 + C2) / 2;
+    const Cbar7 = Cbar ** 7;
+    const G = 0.5 * (1 - Math.sqrt(Cbar7 / (Cbar7 + POW25_7)));
+    const a1p = (1 + G) * a1;
+    const a2p = (1 + G) * a2;
+    const C1p = Math.sqrt(a1p * a1p + b1 * b1);
+    const C2p = Math.sqrt(a2p * a2p + b2 * b2);
+    let h1p = 0;
+    if (b1 !== 0 || a1p !== 0) {
+        h1p = Math.atan2(b1, a1p) / DEG;
+        if (h1p < 0) h1p += 360;
+    }
+    let h2p = 0;
+    if (b2 !== 0 || a2p !== 0) {
+        h2p = Math.atan2(b2, a2p) / DEG;
+        if (h2p < 0) h2p += 360;
+    }
+    const dLp = L2 - L1;
+    const dCp = C2p - C1p;
+    let dhp = 0;
+    if (C1p * C2p !== 0) {
+        dhp = h2p - h1p;
+        if (dhp > 180) dhp -= 360;
+        else if (dhp < -180) dhp += 360;
+    }
+    const dHp = 2 * Math.sqrt(C1p * C2p) * Math.sin((dhp / 2) * DEG);
+    const Lbarp = (L1 + L2) / 2;
+    const Cbarp = (C1p + C2p) / 2;
+    let hbarp = h1p + h2p;
+    if (C1p * C2p !== 0) {
+        if (Math.abs(h1p - h2p) <= 180) hbarp = (h1p + h2p) / 2;
+        else if (h1p + h2p < 360) hbarp = (h1p + h2p + 360) / 2;
+        else hbarp = (h1p + h2p - 360) / 2;
+    }
+    const T =
+        1 -
+        0.17 * Math.cos((hbarp - 30) * DEG) +
+        0.24 * Math.cos(2 * hbarp * DEG) +
+        0.32 * Math.cos((3 * hbarp + 6) * DEG) -
+        0.2 * Math.cos((4 * hbarp - 63) * DEG);
+    const dTheta = 30 * Math.exp(-(((hbarp - 275) / 25) ** 2));
+    const Cbarp7 = Cbarp ** 7;
+    const RC = 2 * Math.sqrt(Cbarp7 / (Cbarp7 + POW25_7));
+    const SL =
+        1 + (0.015 * (Lbarp - 50) ** 2) / Math.sqrt(20 + (Lbarp - 50) ** 2);
+    const SC = 1 + 0.045 * Cbarp;
+    const SH = 1 + 0.015 * Cbarp * T;
+    const RT = -Math.sin(2 * dTheta * DEG) * RC;
+    const tL = dLp / SL;
+    const tC = dCp / SC;
+    const tH = dHp / SH;
+    return Math.sqrt(tL * tL + tC * tC + tH * tH + RT * tC * tH);
+};
+
+/**
+ * 可解析色按 CIEDE2000 感知色差；无效色回落到规范化字符串
+ * （相同为 0，否则视为足够远）。导出名、参数、返回类型与旧版一致。
+ */
+export const colorDifference = (color1: string, color2: string): number => {
+    const lab1 = getLab(color1);
+    const lab2 = getLab(color2);
+    if (lab1 && lab2) {
+        return ciede2000(lab1, lab2);
+    }
+    return normalizeColor(color1) === normalizeColor(color2)
+        ? 0
+        : Number.POSITIVE_INFINITY;
 };
 
 const hexToHSL = (hex: string): { h: number; s: number; l: number } => {
@@ -127,61 +264,133 @@ const hashString = (str: string): number => {
     return hash >>> 0;
 };
 
+const clamp = (value: number, min: number, max: number): number =>
+    Math.min(max, Math.max(min, value));
+
+/**
+ * 分配循环内传递的已用色累加器：颜色串 + Lab 并行数组 + 归一化集合。
+ * 只做追加与带剪枝的最小距离/成员查询；不维护候选池的增量 minDist
+ * （阶梯阈值下早退占绝对主导，全量重算配合 abortBelow 剪枝已足够快，
+ * 实测 240 已用色全程 < 150ms）。
+ */
+class UsedColorTracker {
+    readonly colors: string[] = [];
+
+    private readonly labs: Array<Lab | null> = [];
+
+    private readonly normalizedColors = new Set<string>();
+
+    push(color: string): void {
+        this.colors.push(color);
+        this.labs.push(getLab(color));
+        this.normalizedColors.add(normalizeColor(color));
+    }
+
+    /** color 是否已被本累加器记录（规范化比较）。 */
+    has(color: string): boolean {
+        return this.normalizedColors.has(normalizeColor(color));
+    }
+
+    /** color 与已用色的最小 ΔE00；一旦低于 abortBelow 立即返回（剪枝上界，< abortBelow ⟹ 必然落选）。 */
+    minDistance(color: string, abortBelow: number): number {
+        const lab = getLab(color);
+        if (!lab) return Number.POSITIVE_INFINITY;
+        let min = Number.POSITIVE_INFINITY;
+        for (const usedLab of this.labs) {
+            if (!usedLab) continue;
+            const d = ciede2000(lab, usedLab);
+            if (d < min) {
+                min = d;
+                if (min < abortBelow) return min;
+            }
+        }
+        return min;
+    }
+
+    isFarEnough(color: string, threshold: number): boolean {
+        return this.minDistance(color, threshold) >= threshold;
+    }
+}
+
+/** 扩展变体构造时的自检阈值：变体与基色（及已收入扩展表的所有色）至少差 15。 */
+const MIN_GENERATED_COLOR_DIFF = 15;
+
+/**
+ * 主题色用尽后的生成变体：每个基色只补 2 个，且取向按「色相错开 + 明度
+ * 拉开」排列（h±10° 配 l±0.18 起步，不够再加大角度），并对每个变体做
+ * ΔE ≥ MIN_GENERATED_COLOR_DIFF 的自检（对照基色与已收入扩展表的所有
+ * 颜色），不达标就换下一个取向；全部不达标时取 max-min 取向兜底。
+ *
+ * 旧实现是 4 个同色相明暗变体（l±0.14 / s±0.12），其中 2 个与基色的
+ * ΔE00 < 8（`#FFFF00→#FFFF47` 仅 2.56），是「同一图里两条一样的黄」的
+ * 直接来源。结果按调色板缓存，同一调色板 → 同一结果（确定性）。
+ *
+ * 注意：15 只是**构造**自检；分配时是否接受一个变体由阶梯阈值
+ * `effectiveTarget` 决定（变体还必须与当时的全部已用色达标）。
+ */
+const EXPAND_ORIENTATIONS: ReadonlyArray<{
+    dh: number;
+    dl: number;
+    ds: number;
+}> = [
+    { dh: 10, dl: 0.18, ds: 0 },
+    { dh: -10, dl: -0.18, ds: 0 },
+    { dh: 24, dl: 0.24, ds: -0.1 },
+    { dh: -24, dl: -0.24, ds: -0.1 },
+    { dh: 40, dl: 0.05, ds: -0.2 },
+    { dh: -40, dl: -0.05, ds: 0.15 },
+    { dh: 65, dl: -0.12, ds: -0.1 },
+    { dh: -65, dl: 0.12, ds: 0.1 },
+    // 极端明度取向：色相密集的色板簇（如黄/橙族）在常规取向下可能全部
+    // < 15，必须拉开明度才能达标（否则兜底取向产出近色变体）。
+    { dh: 8, dl: 0.3, ds: -0.25 },
+    { dh: -8, dl: -0.3, ds: -0.25 },
+];
+
 const expandedPaletteCache = new Map<string, string[]>();
 
-/** 主题色用尽后只做同色相深浅微调，不再大角度转色。 */
 export const expandPalette = (colorPalette: string[]): string[] => {
     const cacheKey = colorPalette.join(',');
     const cached = expandedPaletteCache.get(cacheKey);
     if (cached) return cached;
 
     const expanded: string[] = [...colorPalette];
+    // reference = 调色板原色 + 已收入的全部变体，用累加器增量维护
+    const reference = new UsedColorTracker();
+    colorPalette.forEach((color) => reference.push(color));
     for (const color of colorPalette) {
         const { h, s, l } = hexToHSL(color);
-        expanded.push(hslToHex(h, s, Math.min(0.78, l + 0.14)));
-        expanded.push(hslToHex(h, s, Math.max(0.28, l - 0.14)));
-        expanded.push(
-            hslToHex(h, Math.max(0.35, s - 0.12), Math.min(0.72, l + 0.08)),
-        );
-        expanded.push(
-            hslToHex(h, Math.min(0.85, s + 0.08), Math.max(0.32, l - 0.08)),
-        );
+        for (let slot = 0; slot < 2; slot++) {
+            let chosen = '';
+            let chosenMin = -1;
+            for (const o of EXPAND_ORIENTATIONS) {
+                const candidate = hslToHex(
+                    h + o.dh,
+                    clamp(s + o.ds, 0.25, 1),
+                    clamp(l + o.dl, 0.14, 0.9),
+                );
+                if (reference.has(candidate)) {
+                    continue;
+                }
+                const min = reference.minDistance(candidate, -1);
+                if (min >= MIN_GENERATED_COLOR_DIFF) {
+                    chosen = candidate;
+                    break;
+                }
+                if (min > chosenMin) {
+                    chosenMin = min;
+                    chosen = candidate;
+                }
+            }
+            if (chosen) {
+                expanded.push(chosen);
+                reference.push(chosen);
+            }
+        }
     }
 
     expandedPaletteCache.set(cacheKey, expanded);
     return expanded;
-};
-
-const rgbDistance = (a: ParsedRgb, b: ParsedRgb): number =>
-    Math.sqrt((a.r - b.r) ** 2 + (a.g - b.g) ** 2 + (a.b - b.b) ** 2);
-
-/** 可解析色按 RGB 欧氏距离；无效色回落到规范化字符串（相同为 0，否则视为足够远）。 */
-export const colorDifference = (color1: string, color2: string): number => {
-    const rgb1 = parseColor(color1);
-    const rgb2 = parseColor(color2);
-    if (rgb1 && rgb2) {
-        return rgbDistance(rgb1, rgb2);
-    }
-    return normalizeColor(color1) === normalizeColor(color2)
-        ? 0
-        : Number.POSITIVE_INFINITY;
-};
-
-/**
- * 生成色用更严的阈值：避免把"同色相明暗变体"当成分得开的颜色。
- * 池子超过容量后自动降级，避免过早耗尽候选（见 GENERATED_DIFF_CAPACITY）。
- */
-const generatedDiffThreshold = (usedColors: string[]): number =>
-    usedColors.length >= GENERATED_DIFF_CAPACITY
-        ? MIN_COLOR_DIFF
-        : MIN_GENERATED_COLOR_DIFF;
-
-const conflictsWithUsedGenerated = (
-    color: string,
-    usedColors: string[],
-): boolean => {
-    const threshold = generatedDiffThreshold(usedColors);
-    return usedColors.some((used) => colorDifference(color, used) < threshold);
 };
 
 export const getHashColor = (
@@ -194,11 +403,12 @@ export const getHashColor = (
     return colorPalette[hashString(identifier) % colorPalette.length];
 };
 
-const clamp = (value: number, min: number, max: number): number =>
-    Math.min(max, Math.max(min, value));
-
-/** 第 1–12 个候选保持历史上的 +30° 步进（既有分配结果不变） */
-const LEGACY_HUE_STEPS = 12;
+/**
+ * 第 1–11 个候选保持历史上的 +30° 步进（既有分配结果不变）。
+ * 原为 12 步，但第 12 个候选 12×30°=360° 会绕回基色相（与基色 ΔE00 仅
+ * 2.1–4.1，如 `#FFFF00→#ECEC13`），因此历史兼容范围缩短为 11 步。
+ */
+const LEGACY_HUE_STEPS = 11;
 const LEGACY_HUE_STEP_DEG = 30;
 /** 之后改用黄金角，让候选色相尽量分散，避免绕回撞色 */
 const GOLDEN_ANGLE_DEG = 137.508;
@@ -206,9 +416,9 @@ const GOLDEN_ANGLE_DEG = 137.508;
 /**
  * 第 `attempt` 个候选色。
  *
- * 前 12 个与历史实现逐字一致（色相 +30°、饱和度/亮度取 base 的钳制值），
- * 保证"以前能分配成功"的系列颜色完全不变；从第 13 个起用黄金角扩空间，
- * 并按圈数轻微摆动饱和度/亮度，避免长尾时反复给出同一个色。
+ * 前 11 个与历史实现逐字一致（色相 +30°、饱和度/亮度取 base 的钳制值），
+ * 保证"以前能分配成功"的系列颜色完全不变；从第 12 个起用黄金角扩空间。
+ * 黄金角分支的饱和度/亮度网格依赖 base 的 s/l（避免不同基色收敛到同格）。
  */
 const hueCandidateAt = (
     base: { h: number; s: number; l: number },
@@ -228,24 +438,116 @@ const hueCandidateAt = (
             LEGACY_HUE_STEPS * LEGACY_HUE_STEP_DEG +
             step * GOLDEN_ANGLE_DEG) %
         360;
-    // 饱和度/亮度按 3×3 网格循环，配合色相形成更大的候选空间：
-    // 看板级追加（多图共存）时只靠色相可用色有限，图内色差会掉到 15 上下。
-    const saturation = 0.45 + (step % 3) * 0.15;
-    const lightness = 0.4 + (Math.floor(step / 3) % 3) * 0.16;
+    const saturation = clamp(base.s - 0.4 + (step % 4) * 0.22, 0.15, 0.95);
+    const lightness = clamp(
+        base.l - 0.24 + (Math.floor(step / 4) % 4) * 0.18,
+        0.16,
+        0.88,
+    );
     return hslToHex(hue, saturation, lightness);
 };
 
 /**
- * 同一张图内分配颜色。
+ * 兜底候选网格（静态 216 色，Lab 预热进 labCache）：
+ * h 每 15°（24 档）× s∈{0.45,0.6,0.75} × l∈{0.35,0.5,0.65}。
+ * 阶梯阈值下（≥80 已用色后目标降为 5）早退几乎立刻命中，不再需要
+ * 更大的候选池或增量 minDist 状态。
+ */
+const FALLBACK_GRID: string[] = [];
+const buildFallbackGrid = (): void => {
+    for (let hi = 0; hi < 24; hi++) {
+        for (const s of [0.45, 0.6, 0.75]) {
+            for (const l of [0.35, 0.5, 0.65]) {
+                const hex = hslToHex(hi * 15, s, l);
+                FALLBACK_GRID.push(hex);
+                getLab(hex);
+            }
+        }
+    }
+};
+buildFallbackGrid();
+
+/** 细搜偏移：在网格最优点周围 ±1.875° / ±0.019 内再探一步，钉住格点之间的空隙。 */
+const FINE_OFFSETS: ReadonlyArray<{ dh: number; ds: number; dl: number }> = [
+    ...[-1.875, -0.9375, 0, 0.9375, 1.875].flatMap((dh) =>
+        [-0.01875, -0.009375, 0, 0.009375, 0.01875].flatMap((ds) =>
+            [-0.01875, -0.009375, 0, 0.009375, 0.01875].map((dl) => ({
+                dh,
+                ds,
+                dl,
+            })),
+        ),
+    ),
+].filter((o) => !(o.dh === 0 && o.ds === 0 && o.dl === 0));
+
+/**
+ * 网格兜底（唯一一套，所有调用方共用）：从 hash 起点确定性遍历 216 网格，
+ * 命中第一个 minΔE ≥ target 的候选就返回（早退）；全部不达标时对最优
+ * 格点做一轮细搜后返回 max-min 候选（并列按遍历序第一）。target 来自
+ * 阶梯（≥ HARD_FLOOR_DIFF），因此早退结果永不违反 P0；max-min 结果只有
+ * 在整个候选空间（变体 + 色相候选 + 216 网格 + 细搜，> 2400 个候选）
+ * 全部低于 5 时才可能 < 5——支持的规模（≤ 240 系列）下不可达。
+ */
+const gridFallback = (
+    hash: number,
+    used: UsedColorTracker,
+    target: number,
+): string => {
+    const startIdx = hash % FALLBACK_GRID.length;
+    let best = '';
+    let bestMin = -1;
+    for (let i = 0; i < FALLBACK_GRID.length; i++) {
+        const candidate = FALLBACK_GRID[(startIdx + i) % FALLBACK_GRID.length];
+        if (used.has(candidate)) continue; // 已用格点最小距离为 0，直接跳过
+        const min = used.minDistance(candidate, Math.max(target, bestMin));
+        if (min >= target) {
+            return candidate;
+        }
+        if (min > bestMin) {
+            bestMin = min;
+            best = candidate;
+        }
+    }
+    if (best) {
+        const { h, s, l } = hexToHSL(best);
+        for (const o of FINE_OFFSETS) {
+            const candidate = hslToHex(
+                h + o.dh,
+                clamp(s + o.ds, 0.05, 1),
+                clamp(l + o.dl, 0.05, 0.95),
+            );
+            const min = used.minDistance(candidate, Math.max(target, bestMin));
+            if (min >= target) {
+                return candidate;
+            }
+            if (min > bestMin) {
+                bestMin = min;
+                best = candidate;
+            }
+        }
+    }
+    return best || FALLBACK_COLOR;
+};
+
+/**
+ * 同一张图内分配颜色（所有调用方共用这一套避让 + 兜底）。
  *
- * 顺序：主题色 → 扩展色 → 同基色的色相候选。
- * 色差不足够时**唯一性优先**：最后一轮只要求「不与已用色完全相同」，
- * 避免历史实现「候选耗尽后直接返回冲突色」导致同图出现重复色。
+ * 顺序：主题色（两趟）→ 扩展变体 → 同基色色相候选 → 网格兜底。
+ * 主题色两趟规则：
+ * 1. 从 hash 起点线性探测，返回第一个「未用过 且 与已用色 ΔE ≥
+ *    MIN_COLOR_DIFF」的调色板色；
+ * 2. 仍无解时返回第一个「未用过」的调色板色——保证本图系列数 ≤ 调色板
+ *    色数时永远只出调色板原色（选了色板，线就是色板里的色）；由此产生
+ *    的近色对来自色板自身，与兜底无关。
+ *
+ * 生成色与兜底段统一按阶梯阈值 `effectiveTarget(已用色数)` 扫描：命中
+ * 第一个 ≥ target 的候选即返回（早退）；全不达标时由 gridFallback 返回
+ * max-min 候选。任何档位都不接受 ΔE < 5（P0）。
  */
 const pickAvoidingColor = (
     identifier: string,
     colorPalette: string[],
-    usedColors: string[],
+    used: UsedColorTracker,
 ): string => {
     if (!colorPalette || colorPalette.length === 0) {
         return FALLBACK_COLOR;
@@ -254,53 +556,45 @@ const pickAvoidingColor = (
     const hash = hashString(identifier);
     const start = hash % colorPalette.length;
 
-    // 主题色「忠于原色」：只跳过已被本图用掉的颜色（完全相同），不再按色差
-    // 阈值拒绝——单色系色板（商务/复古）的深浅过渡是设计意图，按阈值拒绝会让
-    // 用户选中色板后看到一堆别处的颜色。
-    const usedPaletteColors = new Set(usedColors.map(normalizeColor));
+    // 第 1 趟：未用过 且 与已用色感知距离足够
     for (let offset = 0; offset < colorPalette.length; offset++) {
         const color = colorPalette[(start + offset) % colorPalette.length];
-        if (!usedPaletteColors.has(normalizeColor(color))) {
+        if (used.has(color)) {
+            continue;
+        }
+        if (used.isFarEnough(color, MIN_COLOR_DIFF)) {
+            return color;
+        }
+    }
+    // 第 2 趟（色板保真兜底）：只要求完全不同。单色系色板（商务/复古）的
+    // 深浅过渡是设计意图，按阈值拒绝会让用户看到一堆别处的颜色。
+    for (let offset = 0; offset < colorPalette.length; offset++) {
+        const color = colorPalette[(start + offset) % colorPalette.length];
+        if (!used.has(color)) {
             return color;
         }
     }
 
+    const target = effectiveTarget(used.colors.length);
     const expanded = expandPalette(colorPalette);
     for (let index = colorPalette.length; index < expanded.length; index++) {
-        const color = expanded[index];
-        if (!conflictsWithUsedGenerated(color, usedColors)) {
+        const color = expanded[index]!;
+        if (used.has(color)) continue; // 已用过的变体直接跳过，不做距离扫描
+        if (used.isFarEnough(color, target)) {
             return color;
         }
     }
 
-    const base = hexToHSL(colorPalette[start]);
+    const base = hexToHSL(colorPalette[start]!);
     for (let attempt = 1; attempt <= MAX_AVOID_ATTEMPTS; attempt++) {
         const color = hueCandidateAt(base, attempt);
-        if (!conflictsWithUsedGenerated(color, usedColors)) {
+        if (used.has(color)) continue; // 同上：跳过已消耗的候选
+        if (used.isFarEnough(color, target)) {
             return color;
         }
     }
 
-    // 兜底：色差已不可能全部满足，退化为「只要不重复」
-    const usedNormalized = new Set(usedColors.map(normalizeColor));
-    for (let attempt = 1; attempt <= MAX_AVOID_ATTEMPTS; attempt++) {
-        const color = hueCandidateAt(base, attempt);
-        if (!usedNormalized.has(normalizeColor(color))) {
-            return color;
-        }
-    }
-    for (let step = 1; step <= MAX_AVOID_ATTEMPTS; step++) {
-        const color = hslToHex(
-            base.h,
-            clamp(base.s, 0.4, 0.85),
-            clamp(base.l + step * 0.01, 0.2, 0.9),
-        );
-        if (!usedNormalized.has(normalizeColor(color))) {
-            return color;
-        }
-    }
-
-    return hueCandidateAt(base, MAX_AVOID_ATTEMPTS);
+    return gridFallback(hash, used, target);
 };
 
 const buildCooccurrenceNeighbors = (
@@ -325,8 +619,9 @@ const buildCooccurrenceNeighbors = (
 
 /**
  * 按共现关系从看板主题色分配。
- * 同名全局一色；只与同图共现的名称避让。手配色不参与分配。
- * 未传 chartGroups 时，knownColorKeys 视为同一组（全部互斥）。
+ * 同名全局一色；只与同图共现的名称避让（每次分配只把共现邻居的已分配色
+ * 装进累加器，走与其他调用方完全相同的 pickAvoidingColor/gridFallback）。
+ * 手配色不参与分配。未传 chartGroups 时，knownColorKeys 视为同一组。
  */
 export const assignKnownHashColors = (
     knownColorKeys: string[],
@@ -350,14 +645,12 @@ export const assignKnownHashColors = (
     const assignments: Record<string, string> = {};
 
     allKeys.forEach((key) => {
-        const usedByNeighbors = [...(neighbors.get(key) ?? [])]
-            .map((neighbor) => assignments[neighbor])
-            .filter((color): color is string => Boolean(color));
-        assignments[key] = pickAvoidingColor(
-            key,
-            colorPalette,
-            usedByNeighbors,
-        );
+        const used = new UsedColorTracker();
+        (neighbors.get(key) ?? []).forEach((neighbor) => {
+            const color = assignments[neighbor];
+            if (color) used.push(color);
+        });
+        assignments[key] = pickAvoidingColor(key, colorPalette, used);
     });
 
     return assignments;
@@ -388,10 +681,10 @@ export const appendDashboardUnknownHashColors = (
     }
 
     const next = { ...appendedAssignments };
-    const usedColors = [
-        ...Object.values(knownAssignments),
-        ...Object.values(next),
-    ];
+    const used = new UsedColorTracker();
+    [...Object.values(knownAssignments), ...Object.values(next)].forEach(
+        (color) => used.push(color),
+    );
 
     // 显式按 UTF-16 码元排序，不依赖 normalizeColorSyncKeys 的顺带排序；
     // 保证同批次分配与传入顺序无关（确定性）。
@@ -400,9 +693,9 @@ export const appendDashboardUnknownHashColors = (
     );
 
     sortedUnknown.forEach((key) => {
-        const color = pickAvoidingColor(key, colorPalette, usedColors);
+        const color = pickAvoidingColor(key, colorPalette, used);
         next[key] = color;
-        usedColors.push(color);
+        used.push(color);
     });
 
     return next;
@@ -445,14 +738,16 @@ export const appendUnknownHashColors = (
     }
 
     const assignments = { ...knownAssignments };
-    const usedColors = visibleNormalized
-        .map((key) => lookupSyncedColor(key, assignments))
-        .filter((color): color is string => Boolean(color));
+    const used = new UsedColorTracker();
+    visibleNormalized.forEach((key) => {
+        const color = lookupSyncedColor(key, assignments);
+        if (color) used.push(color);
+    });
 
     unknown.forEach((key) => {
-        const color = pickAvoidingColor(key, colorPalette, usedColors);
+        const color = pickAvoidingColor(key, colorPalette, used);
         assignments[key] = color;
-        usedColors.push(color);
+        used.push(color);
     });
 
     if (!cacheForKnown) {
@@ -487,7 +782,7 @@ export const appendUnknownHashColors = (
  * 2. 哈希基准色：base = palette[hash(key) % len]，未被本图占用则用；
  *    否则从 base 起线性探测调色板取第一个本图未用的色。
  * 3. 生成色：本图调色板色耗尽（本图系列数 > 调色板去重色数）后沿用
- *    既有生成逻辑（expandPalette / hueCandidateAt / conflictsWithUsedGenerated），
+ *    既有生成逻辑（expandPalette / hueCandidateAt / 网格兜底），
  *    仍保证本图内两两不重复。
  *
  * 跨图同名同色由哈希基准色的确定性与 preferred 继承保证；与本图可读性
@@ -517,29 +812,29 @@ export const assignVisibleChartColors = ({
     }
 
     const paletteColors = new Set(colorPalette.map(normalizeColor));
-    const usedColors: string[] = [];
+    const used = new UsedColorTracker();
 
     // 第 1 轮：继承「仍在当前调色板内且本图未占用」的基准色
     const pendingKeys = sortedKeys.filter((key) => {
         const preferred = lookupSyncedColor(key, preferredAssignments);
         if (!preferred) return true;
-        const normalized = normalizeColor(preferred);
-        if (!paletteColors.has(normalized)) return true; // 过期调色板色：忽略
-        if (usedColors.some((used) => normalizeColor(used) === normalized)) {
+        if (!paletteColors.has(normalizeColor(preferred))) {
+            return true; // 过期调色板色：忽略
+        }
+        if (used.has(preferred)) {
             return true; // 本图已被同名优先级更高的 key 占用
         }
         assignments[key] = preferred;
-        usedColors.push(preferred);
+        used.push(preferred);
         return false;
     });
 
-    // 第 2 + 3 轮：pickAvoidingColor 的主题色段即「base 起线性探测调色板」，
-    // 调色板耗尽后自动进入生成色段（expandPalette / hueCandidateAt /
-    // conflictsWithUsedGenerated），与本文件既有口径完全一致
+    // 第 2 + 3 轮：pickAvoidingColor 的主题色两趟即「base 起线性探测调色板」，
+    // 调色板耗尽后自动进入生成色段（expandPalette / hueCandidateAt / 网格兜底）
     pendingKeys.forEach((key) => {
-        const color = pickAvoidingColor(key, colorPalette, usedColors);
+        const color = pickAvoidingColor(key, colorPalette, used);
         assignments[key] = color;
-        usedColors.push(color);
+        used.push(color);
     });
 
     return assignments;
@@ -565,7 +860,8 @@ export const createChartColorAllocator = ({
 }): {
     resolve: (identifier: string) => string | undefined;
 } => {
-    const usedColors = Object.values(seedAssignments);
+    const used = new UsedColorTracker();
+    Object.values(seedAssignments).forEach((color) => used.push(color));
     const extraAssignments: Record<string, string> = {};
 
     return {
@@ -578,8 +874,8 @@ export const createChartColorAllocator = ({
                 lookupSyncedColor(key, extraAssignments);
             if (hit) return hit;
 
-            const color = pickAvoidingColor(key, colorPalette, usedColors);
-            usedColors.push(color);
+            const color = pickAvoidingColor(key, colorPalette, used);
+            used.push(color);
             extraAssignments[key] = color;
             return color;
         },

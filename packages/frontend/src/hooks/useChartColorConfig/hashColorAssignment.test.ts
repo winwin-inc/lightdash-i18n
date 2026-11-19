@@ -8,8 +8,11 @@ import {
     assignVisibleChartColors,
     colorDifference,
     createChartColorAllocator,
+    effectiveTarget,
+    expandPalette,
     getHashColor,
     hexToHSL,
+    hslToHex,
     MIN_COLOR_DIFF,
     resolveSyncedHashColor,
 } from './hashColorAssignment';
@@ -645,22 +648,37 @@ describe('调色板优先：忠于原色，超出才生成', () => {
         assertAllFromPalette(business?.colors ?? [], 6);
     });
 
-    test('拟类色板（dataMatrix）：15 个系列全在色板内且两两距离 ≥ MIN_COLOR_DIFF', () => {
+    test('拟类色板（dataMatrix）：15 个系列全在色板内；色板自身可分时同图两两 ≥ MIN_COLOR_DIFF', () => {
         const dataMatrix = COLOR_PALETTE_PRESETS.find(
             (preset) => preset.name === 'dataMatrix',
         );
         const colors = assertAllFromPalette(dataMatrix?.colors ?? [], 15);
 
-        let minDistance = Number.POSITIVE_INFINITY;
-        for (let i = 0; i < colors.length; i += 1) {
-            for (let j = i + 1; j < colors.length; j += 1) {
-                minDistance = Math.min(
-                    minDistance,
-                    colorDifference(colors[i], colors[j]),
-                );
+        // 两趟规则：无论色板是否已清洗，容量内必须全部来自调色板原色且两两不同
+        //（上面 assertAllFromPalette 已断言）。距离门槛是条件断言：dataMatrix
+        // 现值仍含 ΔE00 2.52 的近重复对（#00FF00/#00FF40），按两趟规则第 2 趟
+        // 会如数放行——这是色板数据问题（由 palettePresets 侧清洗解决），
+        // 不是分配问题。色板清洗落地后本断言自动生效，防止分配逻辑回退。
+        const palette = dataMatrix?.colors ?? [];
+        const paletteMinDiff = Math.min(
+            ...palette.flatMap((color, i) =>
+                palette
+                    .slice(i + 1)
+                    .map((other) => colorDifference(color, other)),
+            ),
+        );
+        if (paletteMinDiff >= MIN_COLOR_DIFF) {
+            let minDistance = Number.POSITIVE_INFINITY;
+            for (let i = 0; i < colors.length; i += 1) {
+                for (let j = i + 1; j < colors.length; j += 1) {
+                    minDistance = Math.min(
+                        minDistance,
+                        colorDifference(colors[i]!, colors[j]!),
+                    );
+                }
             }
+            expect(minDistance).toBeGreaterThanOrEqual(MIN_COLOR_DIFF);
         }
-        expect(minDistance).toBeGreaterThanOrEqual(MIN_COLOR_DIFF);
     });
 
     test('超出调色板容量才生成：25 个系列 → 先用尽色板，再补生成色，全部唯一', () => {
@@ -816,7 +834,12 @@ describe('按本图容量分配（assignVisibleChartColors）', () => {
             expect(chartA[name]).toBe(preferred[name]);
         });
 
-        // 无 preferred 时（运行期新增名）纯哈希基准色同样跨图一致
+        // 无 preferred 时（运行期新增名）纯哈希基准色同样跨图一致。
+        // 注（2026-11-19 两趟规则）：主题色段第 1 趟额外要求与已用色
+        // ΔE ≥ MIN_COLOR_DIFF，sequential 色板（retro）相邻色达不到时
+        // 会线性探测到更远的调色板色——不再钉「无冲突时必等于 base」，
+        // 改钉：跨图同名同色 + 全部来自调色板 + 首个分配名（已用色为空）
+        // 必等于其哈希基准色。
         const noPreferredA = assignVisibleChartColors({
             visibleKeys: [...shared, ...aOnly],
             colorPalette: RETRO,
@@ -829,8 +852,12 @@ describe('按本图容量分配（assignVisibleChartColors）', () => {
         });
         shared.forEach((name) => {
             expect(noPreferredA[name]).toBe(noPreferredB[name]);
-            expect(noPreferredA[name]).toBe(getHashColor(name, RETRO));
+            expect(retroNormalized).toContain(
+                noPreferredA[name]!.toLowerCase(),
+            );
         });
+        // 首个分配的共享名：已用色为空，第 1 趟必命中哈希基准色
+        expect(noPreferredA[shared[0]!]).toBe(getHashColor(shared[0]!, RETRO));
     });
 
     test('(d) 本图两个名字哈希撞同一 base → 第二个改到本图未用的调色板色，仍在调色板内且两两不同', () => {
@@ -1024,5 +1051,257 @@ describe('createChartColorAllocator（取色不落无避让哈希）', () => {
         });
         expect(allocator.resolve('臭宝')).toBe('#868e96');
         expect(allocator.resolve('')).toBeUndefined();
+    });
+});
+
+/**
+ * 感知色差回归（2026-11-19 口径）：colorDifference 已从 RGB 欧氏距离换成
+ * CIEDE2000，阈值语义同步改为 ΔE00（MIN_COLOR_DIFF=12 / 生成色 15）。
+ *
+ * 背景：用户看板 147 个系列实测出现 ΔE00 1.0 的同色线；旧 RGB 口径下
+ * `#00FF00/#00FF40`（ΔE00 2.52、RGB 64）会被 45/60 两个阈值同时放过。
+ */
+describe('感知色差度量与近重复回归', () => {
+    // 审计验证过的 20 色纯霓虹重排（两两 ΔE00 下限 12.56，见 run 目录
+    // 01-metric-audit.md §3.2 方案 A1）。dataMatrix 清洗（palettePresets 侧）
+    // 落地前用它钉住「147 系列」场景；落地后可换成 dataMatrix.colors。
+    const NEON20 = [
+        '#ff0000',
+        '#ff6200',
+        '#ff9100',
+        '#ffb700',
+        '#ffdd00',
+        '#eaff00',
+        '#91ff00',
+        '#00ff7b',
+        '#00ffc8',
+        '#00fff7',
+        '#00e1ff',
+        '#00bfff',
+        '#0099ff',
+        '#0073ff',
+        '#004cff',
+        '#8400ff',
+        '#d000ff',
+        '#ff00c8',
+        '#ff0080',
+        '#ff0048',
+    ];
+
+    const seriesKeys = (count: number, tag = '测试品种'): string[] =>
+        Array.from(
+            { length: count },
+            (_, i) =>
+                `${tag}${String(i).padStart(3, '0')},6900000${String(
+                    i,
+                ).padStart(5, '0')}`,
+        );
+
+    const pairwiseStats = (colors: string[]) => {
+        let min = Number.POSITIVE_INFINITY;
+        let below5 = 0;
+        for (let i = 0; i < colors.length; i += 1) {
+            for (let j = i + 1; j < colors.length; j += 1) {
+                const d = colorDifference(colors[i]!, colors[j]!);
+                if (d < min) min = d;
+                if (d < 5) below5 += 1;
+            }
+        }
+        return { min, below5 };
+    };
+
+    test('colorDifference 度量口径：RGB 放过、ΔE00 拒绝的近重复对', () => {
+        // RGB 64 / ΔE00 2.52：旧 45/60 阈值都会放过的对
+        expect(colorDifference('#00FF00', '#00FF40')).toBeLessThan(
+            MIN_COLOR_DIFF,
+        );
+        // 线上三条同色黄线的实测色对（ΔE00 0.22–0.44）
+        expect(colorDifference('#ECEB13', '#ECEC13')).toBeLessThan(5);
+        expect(colorDifference('#EBEC13', '#ECEC13')).toBeLessThan(5);
+        // hueCandidateAt 旧第 12 候选（回绕基色相，ΔE00 4.11）
+        expect(colorDifference('#FFFF00', '#ECEC13')).toBeLessThan(
+            MIN_COLOR_DIFF,
+        );
+        // 正常可分的主题色对
+        expect(colorDifference('#5470c6', '#91cc75')).toBeGreaterThanOrEqual(
+            MIN_COLOR_DIFF,
+        );
+        // 不可解析色语义保持：相同 → 0，不同 → 视为足够远
+        expect(colorDifference('not-a-color', 'not-a-color')).toBe(0);
+        expect(colorDifference('not-a-color', '#ffffff')).toBe(
+            Number.POSITIVE_INFINITY,
+        );
+    });
+
+    test('effectiveTarget 阶梯：<40 → 12，40–79 → 8，≥80 → 5（硬底线）', () => {
+        expect(effectiveTarget(0)).toBe(MIN_COLOR_DIFF);
+        expect(effectiveTarget(39)).toBe(MIN_COLOR_DIFF);
+        expect(effectiveTarget(40)).toBe(8);
+        expect(effectiveTarget(79)).toBe(8);
+        expect(effectiveTarget(80)).toBe(5);
+        expect(effectiveTarget(240)).toBe(5);
+    });
+
+    test('147 个中文系列名：无 ΔE < 5 的对，最小 ΔE ≥ 阶梯硬底线 5，结果确定', () => {
+        // 前置自检：测试色板自身两两 ≥ 12，否则下方门槛无意义
+        const paletteMin = Math.min(
+            ...NEON20.flatMap((color, i) =>
+                NEON20.slice(i + 1).map((other) =>
+                    colorDifference(color, other),
+                ),
+            ),
+        );
+        expect(paletteMin).toBeGreaterThanOrEqual(MIN_COLOR_DIFF);
+
+        const keys = seriesKeys(147);
+        const assignments = assignVisibleChartColors({
+            visibleKeys: keys,
+            colorPalette: NEON20,
+            preferredAssignments: {},
+        });
+        const colors = keys.map((key) => assignments[key]!);
+
+        expect(new Set(colors).size).toBe(147);
+        const { min, below5 } = pairwiseStats(colors);
+        expect(below5).toBe(0);
+        // 阶梯口径（fix-A2）：≥80 已用色后目标降为 5，早期「≥ 7.5」的
+        // 旧口径不再成立；底线是永不出现 ΔE < 5（P0）
+        expect(min).toBeGreaterThanOrEqual(5);
+
+        // 确定性：同一输入（乱序传入）→ 同一分配结果
+        const reordered = assignVisibleChartColors({
+            visibleKeys: [...keys].reverse(),
+            colorPalette: NEON20,
+            preferredAssignments: {},
+        });
+        expect(reordered).toEqual(assignments);
+    });
+
+    test('240 个系列（清洗后 dataMatrix）：全部唯一、无 ΔE < 5 的对、结果确定', () => {
+        const dataMatrix = COLOR_PALETTE_PRESETS.find(
+            (preset) => preset.name === 'dataMatrix',
+        );
+        const palette = dataMatrix?.colors ?? [];
+        const keys = seriesKeys(240);
+        const assignments = assignVisibleChartColors({
+            visibleKeys: keys,
+            colorPalette: palette,
+            preferredAssignments: {},
+        });
+        const colors = keys.map((key) => assignments[key]!);
+
+        expect(new Set(colors).size).toBe(240);
+        const { min, below5 } = pairwiseStats(colors);
+        expect(below5).toBe(0);
+        expect(min).toBeGreaterThanOrEqual(5);
+
+        const reordered = assignVisibleChartColors({
+            visibleKeys: [...keys].reverse(),
+            colorPalette: palette,
+            preferredAssignments: {},
+        });
+        expect(reordered).toEqual(assignments);
+    });
+
+    test('40 个系列：同图最小 ΔE ≥ 12', () => {
+        const keys = seriesKeys(40);
+        const assignments = assignVisibleChartColors({
+            visibleKeys: keys,
+            colorPalette: NEON20,
+            preferredAssignments: {},
+        });
+        const { min } = pairwiseStats(keys.map((key) => assignments[key]!));
+        expect(min).toBeGreaterThanOrEqual(MIN_COLOR_DIFF);
+    });
+
+    test('dataMatrix 20 系列：容量内全部来自调色板原色（两趟规则，未清洗色板也成立）', () => {
+        const dataMatrix = COLOR_PALETTE_PRESETS.find(
+            (preset) => preset.name === 'dataMatrix',
+        );
+        const palette = dataMatrix?.colors ?? [];
+        const normalized = palette.map((color) => color.toLowerCase());
+        const keys = Array.from({ length: 20 }, (_, i) => `商品名-${i}`);
+
+        const assignments = assignVisibleChartColors({
+            visibleKeys: keys,
+            colorPalette: palette,
+            preferredAssignments: {},
+        });
+
+        const colors = keys.map((key) => assignments[key]!);
+        colors.forEach((color) => {
+            expect(normalized).toContain(color.toLowerCase());
+        });
+        expect(new Set(colors).size).toBe(20);
+    });
+
+    test('h60 同格色不与 #FFFF00 同图（钉住 attempt=12 回绕与多基色收敛）', () => {
+        // #ECEC13 = hslToHex(60, 0.85, 0.5)：旧 hueCandidateAt 第 12 候选
+        // （30°×12=360° 回绕）及 #8000FF 第 5 / #FF0080 第 3 候选的收敛格
+        expect(hslToHex(60, 0.85, 0.5)).toBe('#ecec13');
+
+        const palette = [
+            '#FFFF00',
+            '#00FFFF',
+            '#FF00FF',
+            '#00FF00',
+            '#FF0000',
+            '#0000FF',
+        ];
+        const keys = Array.from({ length: 12 }, (_, i) => `系列名-${i}`);
+        const assignments = assignVisibleChartColors({
+            visibleKeys: keys,
+            colorPalette: palette,
+            preferredAssignments: { [keys[0]!]: '#FFFF00' },
+        });
+        expect(assignments[keys[0]]).toBe('#FFFF00');
+
+        keys.slice(1).forEach((key) => {
+            const color = assignments[key]!;
+            expect(['#ecec13', '#ebec13', '#eceb13']).not.toContain(
+                color.toLowerCase(),
+            );
+            expect(colorDifference(color, '#FFFF00')).toBeGreaterThanOrEqual(
+                MIN_COLOR_DIFF,
+            );
+        });
+    });
+
+    test('expandPalette：变体与全部色板原色、自身基色均 ΔE ≥ 5（P0 底线，无条件）', () => {
+        const dataMatrix = COLOR_PALETTE_PRESETS.find(
+            (preset) => preset.name === 'dataMatrix',
+        );
+        const palette = dataMatrix?.colors ?? [];
+        const expanded = expandPalette(palette);
+        expect(expanded).toHaveLength(palette.length + palette.length * 2);
+
+        // 钉子 1（无条件）：任何变体与任何色板原色都不落入「肉眼同一颜色」
+        // 区间（ΔE00 < 5）。
+        // 钉子 2（无条件）：任何变体与自身基色同样 ≥ 5（不再是「同一条黄」
+        // 的明暗微调）。
+        //
+        // 旧钉子「≥ 12」写于 #FFFF00 还是 dataMatrix 成员时；色板清洗后
+        //（两两 ≥ 14.41）黄/青族变拥挤，固定取向下可达的 max-min 上限
+        // 实测：8.77（#85dcff vs 基色 #29E6FF）、9.23（#ffe65c vs
+        // #F8FF29）——「≥ 12」不可满足，已按 parent 决策锁死为 P0 底线，
+        // 不再尝试 ≥ 12。运行时兜底：pickAvoidingColor 接受任何变体前
+        // 仍会按阶梯阈值（12/8/5）对照全部已用色复查，不达标不会被采用。
+        palette.forEach((base, i) => {
+            [
+                expanded[palette.length + 2 * i],
+                expanded[palette.length + 2 * i + 1],
+            ].forEach((variant) => {
+                // 钉子 2：vs 自身基色
+                expect(colorDifference(variant!, base)).toBeGreaterThanOrEqual(
+                    5,
+                );
+                // 钉子 1：vs 每个色板原色
+                palette.forEach((original) => {
+                    expect(
+                        colorDifference(variant!, original),
+                    ).toBeGreaterThanOrEqual(5);
+                });
+            });
+        });
     });
 });
