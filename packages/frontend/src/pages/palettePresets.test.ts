@@ -13,9 +13,9 @@ import COLOR_PALETTE_PRESETS, {
  *
  * 1) 任何预设都不允许出现**完全相同**的颜色（曾出现 dataMatrix 里 `#0088FF`
  *    重复两次，弹层里看起来就是"色板里有两个一样的色块"）。
- * 2) `kind: 'categorical'`（自研拟类色板，当前为 dataMatrix）还要求：
+ * 2) `kind: 'categorical'`（自研拟类色板：dataMatrix / vivid）还要求：
  *    - 两两感知色差（CIEDE2000，`colorDifference`）≥ MIN_COLOR_DIFF；
- *    - 同一 30° 色相族最多 2 色。
+ *    - **同一 30° 色相族最多 1 色**（黑/灰等无彩色单独计数，最多 2 个）。
  *    更近的颜色在分配时会被避让逻辑跳过，用户会看到"选了色板但线条不是
  *    色板里的颜色"；同簇近重复色则会画出几条肉眼难分的同色线（用户截图里
  *    dataMatrix 同时出现 3 条黄线即是此问题）。
@@ -51,8 +51,10 @@ const hueOf = (hex: string): number => {
 
 /**
  * 色相分族规则：30° 一档、共 12 族（边界在 15+30k，红族跨 0° 回绕）。
- * categorical 预设要求同一族最多 2 色（两色还需 ΔE00 ≥ MIN_COLOR_DIFF，
- * 由下面的距离断言兜住）。
+ *
+ * categorical 预设要求**同一族最多 1 色**：业务反馈「一个色系选一个」，
+ * 同族两个色（哪怕 ΔE00 ≥ 12）在图例上仍会被说成「蓝色太接近 / 紫色太接近」。
+ * 黑、灰这类无彩色（饱和度 < 0.15）没有色相语义，单独计数，最多 2 个。
  */
 const HUE_FAMILY_NAMES = [
     '红',
@@ -71,6 +73,21 @@ const HUE_FAMILY_NAMES = [
 const hueFamilyOf = (hex: string): number =>
     Math.floor((hueOf(hex) + 15) / 30) % HUE_FAMILY_NAMES.length;
 
+/**
+ * 无彩色（黑/灰）：HSL 饱和度极低，没有色相语义，不参与分族。
+ * 注意用 HSL 饱和度（(max-min)/(max+min)）而不是 HSV，否则近黑色
+ * （#16171B：max 27 / min 22）会被算成 0.185 的「彩色」。
+ */
+const isAchromatic = (hex: string): boolean => {
+    const match = /^#([0-9a-f]{6})$/i.exec(hex.trim());
+    if (!match) return false;
+    const int = parseInt(match[1], 16);
+    const max = Math.max((int >> 16) & 255, (int >> 8) & 255, int & 255) / 255;
+    const min = Math.min((int >> 16) & 255, (int >> 8) & 255, int & 255) / 255;
+    if (max === min) return true;
+    return (max - min) / (max + min) < 0.15;
+};
+
 describe('颜色调色板预设', () => {
     test.each(
         COLOR_PALETTE_PRESETS.map((preset) => [preset.name, preset] as const),
@@ -82,13 +99,18 @@ describe('颜色调色板预设', () => {
         expect(new Set(colors).size).toBe(colors.length);
     });
 
-    test('拟类色板（categorical）：仍为 20 色（容量不缩水）', () => {
+    test('拟类色板（categorical）：色数 = 12 色系上限内的「一色一系 + 黑灰」', () => {
+        // 一色系一色的硬上限：12 个色系（30° 一档）+ 黑 + 灰 = 14。
+        // 具体数量各预设自定：dataMatrix 14（容量优先）、vivid 10（区分度优先）。
+        const expected: Record<string, number> = { dataMatrix: 14, vivid: 10 };
         const categorical = COLOR_PALETTE_PRESETS.filter(
             (preset) => preset.kind === 'categorical',
         );
         expect(categorical.length).toBeGreaterThan(0);
         categorical.forEach((preset) => {
-            expect(preset.colors).toHaveLength(20);
+            expect(expected[preset.name]).toBeDefined();
+            expect(preset.colors).toHaveLength(expected[preset.name]);
+            expect(preset.colors.length).toBeLessThanOrEqual(14);
         });
     });
 
@@ -138,7 +160,7 @@ describe('颜色调色板预设', () => {
         ).toBeGreaterThanOrEqual(MIN_COLOR_DIFF);
     });
 
-    test('拟类色板（categorical）：同一 30° 色相族最多 2 色', () => {
+    test('拟类色板（categorical）：同一 30° 色相族最多 1 色（无彩色单独计）', () => {
         const categorical = COLOR_PALETTE_PRESETS.filter(
             (preset) => preset.kind === 'categorical',
         );
@@ -146,16 +168,25 @@ describe('颜色调色板预设', () => {
 
         categorical.forEach((preset) => {
             const byFamily = new Map<number, string[]>();
+            const achromatic: string[] = [];
             preset.colors.forEach((color) => {
+                if (isAchromatic(color)) {
+                    achromatic.push(color);
+                    return;
+                }
                 const family = hueFamilyOf(color);
                 byFamily.set(family, [...(byFamily.get(family) ?? []), color]);
             });
             byFamily.forEach((colors, family) => {
                 expect(
                     colors.length,
-                    `${preset.name} 的「${HUE_FAMILY_NAMES[family]}」族有 ${colors.length} 色（${colors.join(' ')}），超过同族上限 2`,
-                ).toBeLessThanOrEqual(2);
+                    `${preset.name} 的「${HUE_FAMILY_NAMES[family]}」族有 ${colors.length} 色（${colors.join(' ')}），超过同族上限 1`,
+                ).toBeLessThanOrEqual(1);
             });
+            expect(
+                achromatic.length,
+                `${preset.name} 的无彩色有 ${achromatic.length} 个（${achromatic.join(' ')}），超过上限 2`,
+            ).toBeLessThanOrEqual(2);
         });
     });
 });
@@ -237,9 +268,9 @@ describe('matchesColorPalette（弹层选中态识别）', () => {
                 expect(matchesColorPalette(preset, legacy)).toBe(true);
             });
         });
-        // dataMatrix 历史上清洗过两次（afcb553e9 与 2026-11-19 CIEDE2000），
-        // 必须同时登记这两组历史值
-        expect(dataMatrix!.legacyColors?.length).toBe(2);
+        // dataMatrix 历史上清洗过三次（afcb553e9、2026-11-19 CIEDE2000、
+        // 2026-11-19 一色系一色改版），必须同时登记这三组历史值
+        expect(dataMatrix!.legacyColors?.length).toBe(3);
     });
 
     test('旧 dataMatrix 20 色（含重复 #0088FF）→ 命中 dataMatrix', () => {

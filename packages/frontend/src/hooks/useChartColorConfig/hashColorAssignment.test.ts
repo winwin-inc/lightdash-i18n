@@ -648,11 +648,14 @@ describe('调色板优先：忠于原色，超出才生成', () => {
         assertAllFromPalette(business?.colors ?? [], 6);
     });
 
-    test('拟类色板（dataMatrix）：15 个系列全在色板内；色板自身可分时同图两两 ≥ MIN_COLOR_DIFF', () => {
+    test('拟类色板（dataMatrix）：容量内系列全在色板且两两 ≥ MIN_COLOR_DIFF', () => {
         const dataMatrix = COLOR_PALETTE_PRESETS.find(
             (preset) => preset.name === 'dataMatrix',
         );
-        const colors = assertAllFromPalette(dataMatrix?.colors ?? [], 15);
+        // 2026-11-19 二次改版后 dataMatrix 是 14 色（12 色系 + 黑 + 灰）：
+        // 「一个色系一个色」的硬上限就是 14，所以容量断言按色板实际长度取
+        const capacity = dataMatrix?.colors.length ?? 0;
+        const colors = assertAllFromPalette(dataMatrix?.colors ?? [], capacity);
 
         // 两趟规则：无论色板是否已清洗，容量内必须全部来自调色板原色且两两不同
         //（上面 assertAllFromPalette 已断言）。距离门槛是条件断言：dataMatrix
@@ -1214,13 +1217,14 @@ describe('感知色差度量与近重复回归', () => {
         expect(min).toBeGreaterThanOrEqual(MIN_COLOR_DIFF);
     });
 
-    test('dataMatrix 20 系列：容量内全部来自调色板原色（两趟规则，未清洗色板也成立）', () => {
+    test('dataMatrix 容量内系列：全部来自调色板原色（两趟规则）', () => {
         const dataMatrix = COLOR_PALETTE_PRESETS.find(
             (preset) => preset.name === 'dataMatrix',
         );
         const palette = dataMatrix?.colors ?? [];
+        const capacity = palette.length;
         const normalized = palette.map((color) => color.toLowerCase());
-        const keys = Array.from({ length: 20 }, (_, i) => `商品名-${i}`);
+        const keys = Array.from({ length: capacity }, (_, i) => `商品名-${i}`);
 
         const assignments = assignVisibleChartColors({
             visibleKeys: keys,
@@ -1232,7 +1236,7 @@ describe('感知色差度量与近重复回归', () => {
         colors.forEach((color) => {
             expect(normalized).toContain(color.toLowerCase());
         });
-        expect(new Set(colors).size).toBe(20);
+        expect(new Set(colors).size).toBe(capacity);
     });
 
     test('h60 同格色不与 #FFFF00 同图（钉住 attempt=12 回绕与多基色收敛）', () => {

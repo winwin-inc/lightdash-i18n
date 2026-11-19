@@ -1140,7 +1140,8 @@
       "retro": "Retro",
       "business": "Business",
       "lightdash": "Brand",
-      "dataMatrix": "Data Matrix"
+      "dataMatrix": "Data Matrix",
+      "vivid": "Vivid Categories"
     }
   },
   "features_error_boundary": {
