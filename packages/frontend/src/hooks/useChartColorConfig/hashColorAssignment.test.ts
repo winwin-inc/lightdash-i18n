@@ -698,7 +698,7 @@ describe('调色板优先：忠于原色，超出才生成', () => {
         const paletteHits = colors.filter((color) =>
             normalizedPalette.includes(color.toLowerCase()),
         );
-        // 20 色板去重后 20 个可用色，前 20 个系列应当全部命中原色
+        // 调色板去重后的色数即容量：容量内的系列应当全部命中原色
         expect(paletteHits.length).toBeGreaterThanOrEqual(
             new Set(normalizedPalette).size,
         );
@@ -730,20 +730,21 @@ describe('按本图容量分配（assignVisibleChartColors）', () => {
         });
     };
 
-    test('(a) 本图 9 名 + preferred 已被别图 30 名占满 20 色 → 9 条全部来自调色板且两两不同', () => {
-        expect(RETRO).toHaveLength(20);
-        expect(new Set(retroNormalized)).toHaveLength(20);
+    test('(a) 本图 9 名 + preferred 已被别图占满全部调色板色 → 9 条全部来自调色板且两两不同', () => {
+        // 2026-11-19 统一规格后各预设色数不同（retro 现为 14），这里按实际长度取
+        expect(RETRO.length).toBeGreaterThanOrEqual(9);
+        expect(new Set(retroNormalized)).toHaveLength(RETRO.length);
 
         const preferred: Record<string, string> = {};
-        for (let i = 0; i < 30; i++) {
+        for (let i = 0; i < RETRO.length + 10; i++) {
             preferred[`别图系列-${i}`] = RETRO[i % RETRO.length];
         }
-        // 前置确认：别图名字已把 20 个调色板色全部占满（本次 bug 的触发条件）
+        // 前置确认：别图名字已把调色板所有色占满（本次 bug 的触发条件）
         expect(
             new Set(
                 Object.values(preferred).map((color) => color.toLowerCase()),
             ),
-        ).toHaveLength(20);
+        ).toHaveLength(RETRO.length);
 
         const visibleKeys = Array.from({ length: 9 }, (_, i) => `商品名-${i}`);
         const assignments = assignVisibleChartColors({
@@ -891,9 +892,11 @@ describe('按本图容量分配（assignVisibleChartColors）', () => {
         });
     });
 
-    test('(e) 本图 25 系列 > 调色板 20 色 → 用完调色板色再补生成色，整体两两不重复', () => {
+    test('(e) 本图系列数 > 调色板色数 → 用完调色板色再补生成色，整体两两不重复', () => {
+        const capacity = RETRO.length;
+        const overCapacity = capacity + 5;
         const visibleKeys = Array.from(
-            { length: 25 },
+            { length: overCapacity },
             (_, i) => `超量商品-${i}`,
         );
         const assignments = assignVisibleChartColors({
@@ -903,16 +906,16 @@ describe('按本图容量分配（assignVisibleChartColors）', () => {
         });
         const colors = visibleKeys.map((key) => assignments[key]);
 
-        expect(new Set(colors).size).toBe(25);
-        // 20 个去重调色板色全部用上（前 20 条线调色板保真）
+        expect(new Set(colors).size).toBe(overCapacity);
+        // 调色板里的色全部用上（容量内的线调色板保真）
         const paletteHits = colors.filter((color) =>
             retroNormalized.includes(color.toLowerCase()),
         );
-        expect(paletteHits).toHaveLength(20);
+        expect(paletteHits).toHaveLength(capacity);
         expect(
             new Set(paletteHits.map((color) => color.toLowerCase())),
-        ).toHaveLength(20);
-        // 剩余 5 条为生成色（调色板外），且与调色板色两两不重复
+        ).toHaveLength(capacity);
+        // 超出容量的 5 条为生成色（调色板外），且与调色板色两两不重复
         const generated = colors.filter(
             (color) => !retroNormalized.includes(color.toLowerCase()),
         );

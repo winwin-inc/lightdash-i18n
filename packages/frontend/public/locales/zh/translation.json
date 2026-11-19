@@ -1148,8 +1148,7 @@
       "retro": "复古风格",
       "business": "商务风格",
       "lightdash": "品牌色",
-      "dataMatrix": "数据矩阵",
-      "vivid": "鲜明分类"
+      "dataMatrix": "数据矩阵"
     }
   },
   "features_error_boundary": {

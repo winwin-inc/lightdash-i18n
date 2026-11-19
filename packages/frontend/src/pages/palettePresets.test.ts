@@ -13,7 +13,9 @@ import COLOR_PALETTE_PRESETS, {
  *
  * 1) 任何预设都不允许出现**完全相同**的颜色（曾出现 dataMatrix 里 `#0088FF`
  *    重复两次，弹层里看起来就是"色板里有两个一样的色块"）。
- * 2) `kind: 'categorical'`（自研拟类色板：dataMatrix / vivid）还要求：
+ * 2) 所有非 echarts 预设统一 14 色（弹层每行色块数一致），且两两
+ *    ΔE00 ≥ 9；`kind: 'categorical'`（自研拟类色板，当前为 dataMatrix）
+ *    还要求：
  *    - 两两感知色差（CIEDE2000，`colorDifference`）≥ MIN_COLOR_DIFF；
  *    - **同一 30° 色相族最多 1 色**（黑/灰等无彩色单独计数，最多 2 个）。
  *    更近的颜色在分配时会被避让逻辑跳过，用户会看到"选了色板但线条不是
@@ -99,19 +101,38 @@ describe('颜色调色板预设', () => {
         expect(new Set(colors).size).toBe(colors.length);
     });
 
-    test('拟类色板（categorical）：色数 = 12 色系上限内的「一色一系 + 黑灰」', () => {
-        // 一色系一色的硬上限：12 个色系（30° 一档）+ 黑 + 灰 = 14。
-        // 具体数量各预设自定：dataMatrix 14（容量优先）、vivid 10（区分度优先）。
-        const expected: Record<string, number> = { dataMatrix: 14, vivid: 10 };
-        const categorical = COLOR_PALETTE_PRESETS.filter(
-            (preset) => preset.kind === 'categorical',
-        );
-        expect(categorical.length).toBeGreaterThan(0);
-        categorical.forEach((preset) => {
-            expect(expected[preset.name]).toBeDefined();
-            expect(preset.colors).toHaveLength(expected[preset.name]);
-            expect(preset.colors.length).toBeLessThanOrEqual(14);
+    test('统一规格：图表默认 9 色，其余预设一律 14 色', () => {
+        // 2026-11-19 统一：弹层里每行色块数一致（避免"每行长度不同、对比差"），
+        // 只有 echarts（ECharts 原生 9 色）保持不动。
+        COLOR_PALETTE_PRESETS.forEach((preset) => {
+            expect(
+                preset.colors.length,
+                `${preset.name} 色数为 ${preset.colors.length}，应为 14（echarts 为 9）`,
+            ).toBe(preset.name === 'echarts' ? 9 : 14);
         });
+    });
+
+    test('非 echarts 预设两两 ΔE00 ≥ 9（sequential 深浅梯队的下限）', () => {
+        // categorical 由下面的 ≥ MIN_COLOR_DIFF 断言兜住；这条覆盖 upstream /
+        // sequential：单色系深浅板（business）受色域限制，实测下限 9.6
+        //（#ffe0b2 / #fff3e0），仍远高于旧板的 2.8。
+        const offenders: string[] = [];
+        COLOR_PALETTE_PRESETS.filter((p) => p.name !== 'echarts').forEach(
+            (preset) => {
+                const { colors } = preset;
+                for (let i = 0; i < colors.length; i += 1) {
+                    for (let j = i + 1; j < colors.length; j += 1) {
+                        const diff = colorDifference(colors[i], colors[j]);
+                        if (diff < 9) {
+                            offenders.push(
+                                `${preset.name}: ${colors[i]} / ${colors[j]} ΔE00=${diff.toFixed(2)}`,
+                            );
+                        }
+                    }
+                }
+            },
+        );
+        expect(offenders).toEqual([]);
     });
 
     test('拟类色板（categorical）：两两颜色距离 ≥ MIN_COLOR_DIFF', () => {
