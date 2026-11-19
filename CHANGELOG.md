@@ -7,15 +7,8 @@
 > -   自 **v2.0** 起产品主版本独立编号
 
 
-## v2.7.5 (待发布)
+## v2.7.5 (2026-11-18)
 
--   **看板颜色同步：跨图同色回归修复（重要）**
-    -   现象：同一块看板里同一个系列名（如商品名）在两张图里颜色不同；已选过调色板的看板，弹层里没有任何预设显示为选中
-    -   根因一（跨图不同色）：11-17 的改动把 ECharts 通道从「看板级色表」改为「只以已保存系列为底 + 按**本图**可见集避让」。`pickAvoidingColor` 是 hash 起点 + 线性探测，探测集只含本图已用色，两张图可见集不同时同名运行期系列落色不同（实测同一批 9 个商品名，一图橙红系、一图黄绿系）
-    -   根因二（选中态消失）：弹层选中态是整串精确比较，而清洗「数据矩阵」预设时换了 5 个近重复色值（`#FF0088`→`#FF0040` 等），用旧色值保存的看板与新预设不再相等 → 7 个预设全不高亮
-    -   修复一：ECharts 通道改为 `assignVisibleChartColors()`，**按本图容量分配**：本图系列数 ≤ 调色板色数时每条系列都拿调色板原色且本图内不重复；只有本图自己超容量才用生成色。已保存系列的基准色从看板表继承，基准色不属于当前调色板则丢弃，所以切换调色板会立即全部换成新调色板的色（此前按整板去重，几十个商品名把 20 色挤满，本图 9 条线也会拿到调色板外的生成色）
-    -   修复二：新增 `matchesColorPalette()` 做归一化比较（小写 / 去空白 / 去重） + 预设 `legacyColors` 登记历史色值，旧看板重新高亮「数据矩阵」
-    -   取舍：跨图同名同色由哈希基准色与基准色继承保证，但**不硬严格保证**——本图内两个名字撞色时后者会换到本图未用色，于是该名字跨图可能不同色（以本图可读性优先）；预设色值以后若要改，必须同步补 `legacyColors`
 -   **内置 MCP：修复扫码登录在多副本下失效（重要）**
     -   现象：`msy-x auth login --qr` 手机扫码后约 50% 概率报 `Invalid Code`（`The code "XXXX-XXXX" is not valid.`），或换 token 时报 `invalid_grant`
     -   根因：RFC 8628 设备码会话此前存在 `oauthRouter` 的**进程内存 Map** 里，代码注释假设「后端单实例」；实际生产 `lightdash` / `lightdash-internal` 均为 `replicas: 2` + headless Service，CLI 的 `POST /device` 与手机的 `GET /device/activate` 会落到不同 pod，查不到 code。CLI 与手机浏览器无共同 cookie，粘滞会话无法解决
@@ -28,7 +21,7 @@
     -   `doctor --remote` 新增 `device-flow` 探测项：用未注册 client_id 探 `POST /device`，`400 unauthorized_client` 视为端点就绪，404 判 fail 并提示镜像版本要求
 -   **发版脚本**
     -   `scripts/bump-workspace-version.mjs` 跳过 `packages/msy-x-cli`：该包独立发版（`pnpm bump-msyx`），此前被主站版本连带 bump 成 `2.7.4`，与 `src/lib/version.ts` 的 `CLI_VERSION` 脱节
--   **设备码确认页中文化与登录方式提示（v2.7.5-test.2）**
+-   **设备码确认页中文化与登录方式提示**
     -   确认页（终端登录确认）、授权页、成功/失败提示页全部中文化；协议错误码（如 `invalid_grant`）保持英文，CLI 依赖它们
     -   确认页验证码下方按站点显示登录方式提示，三层判定：OIDC 端点域名关键词（IdP 直连）→ 内置自建 SSO 映射（线上品牌 `brandct.com` → 微信、品牌预发 `brand.pre.banmahui.cn` → 微信、内部平台 `admin.banmahui.cn` → 钉钉）→ 通用扫码提示；默认零配置，`LOGIN_HINT_WECHAT_DOMAINS` / `LOGIN_HINT_DINGTALK_DOMAINS` 可覆盖
     -   排查结论沉淀：微信内置 webview 的 session cookie 会在 OIDC 跨站跳转链上随机丢失，点「允许」时报 401，不能作为可靠的确认入口；引导用 PC 浏览器或移动端系统浏览器打开 `verification_uri_complete`

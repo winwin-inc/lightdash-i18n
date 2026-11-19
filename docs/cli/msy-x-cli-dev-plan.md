@@ -1,6 +1,6 @@
 # msy-x-cli 开发计划
 
-> 状态：**P0–P3 已实现，0.1.1 已发布；P4 剩真实站点验收**（2026-11-17）。契约以 [设计文档](./msy-x-cli-design.md) 为准，使用说明见 [使用手册](./msy-x-cli-usage.md)；本文只写实施顺序、测试与发布（内部文档，可含内部引用）。
+> 状态：**P0–P4 全部完成，0.2.0 已发布并完成真实站点验收**（2026-11-18）。契约以 [设计文档](./msy-x-cli-design.md) 为准，使用说明见 [使用手册](./msy-x-cli-usage.md)；本文只写实施顺序、测试与发布（内部文档，可含内部引用）。
 >
 > **2026-11-18 追加**：扫码登录（RFC 8628）多副本失效已修——设备码会话从进程内存迁至 Postgres `oauth2_device_codes`（服务端 ≥ 2.7.5），CLI 侧补 `invalid_grant`/404/`interval` NaN 处理与 `doctor --remote` 的 `device-flow` 探测。**0.2.0 发版 tag 需等此修复上线并完成生产扫码验收**。
 >
@@ -192,7 +192,7 @@ packages/msy-x-cli/
 | P4-1 | `pnpm pack-msyx`（= `pnpm -F msy-x-cli pack:tgz` → `scripts/pack-cli.mjs`）：`npm pack` → `dist-msy-x/msy-x-cli-<ver>.tgz` + `.sha256` | ✅ 已实现；临时 prefix 安装后可执行 |
 | P4-2 | 发布流水线 `.github/workflows/release-msy-x-cli.yml`（tag `msyx-v*`） | ✅ 已实现；见下方发版流程 |
 | P4-3 | `packages/msy-x-cli/README.md` | ✅ 已实现 |
-| P4-4 | 发版：0.1.0 首发布、0.1.1 补 `login`/`logout` 别名 ✅；✅ 上线记录见下方 | ⬜ 真实站点验收待补 |
+| P4-4 | 发版：0.1.0 首发布、0.1.1 补 `login`/`logout` 别名、0.2.0 扫码登录 ✅；上线记录见下方 | ✅ 真实站点验收完成（2026-11-18，品牌预发扫码全流程 + 确认页中文化/登录提示验收通过） |
 
 #### 分发基线（来自 `../k8s-config` master 的 `lightdash/lightdash-config.yaml`）
 
@@ -227,6 +227,7 @@ packages/msy-x-cli/
 |---|---|---|---|---|
 | 0.1.0 | `https://img0.banmahui.cn/msy-x/cli/msy-x-cli/0.1.0/msy-x-cli-0.1.0.tgz` | `43decbb864aca48ac40eccf22abf5c81361c89dec4d4726b3fd4efc509fead26` | 2026-11-17 | 首个发布：35 命令、OAuth/PAT、doctor、verified |
 | 0.1.1 | `https://img0.banmahui.cn/msy-x/cli/msy-x-cli/0.1.1/msy-x-cli-0.1.1.tgz` | `2287f542120768c96b437a562493c7342c2399f43cba57008c19dba0afc05b33` | 2026-11-17 | 顶层 `login`/`logout` 别名；本地凭证命令拒绝 `--dry-run` |
+| 0.2.0 | `https://img0.banmahui.cn/msy-x/cli/msy-x-cli/0.2.0/msy-x-cli-0.2.0.tgz` | `6352ea0b9d269f07f771637c24cc6c950d4c7e1cc9db9b4660f02e5deed5420f` | 2026-11-18 | 扫码登录（RFC 8628 设备码）；WSL 无浏览器自动降级；扫码引导与兜底提示文案优化 |
 
 两条均已在公网验证：`curl -sSI` 返回 `200` + `content-type: application/gzip`，且 `npm i -g <url>` 后 `msy-x --version` 正确、`--help` 含 `login`/`logout`。
 
