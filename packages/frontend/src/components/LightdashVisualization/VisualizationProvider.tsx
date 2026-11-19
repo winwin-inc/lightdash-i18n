@@ -31,10 +31,7 @@ import {
 } from 'react';
 import { type CartesianTypeOptions } from '../../hooks/cartesianChartConfig/useCartesianChartConfig';
 import { type EChartSeries } from '../../hooks/echarts/useEchartsCartesianConfig';
-import {
-    lookupSyncedColor,
-    pieRowColorKeys,
-} from '../../hooks/useChartColorConfig/colorSyncKeys';
+import { lookupSyncedColor } from '../../hooks/useChartColorConfig/colorSyncKeys';
 import {
     assignVisibleChartColors,
     createChartColorAllocator,
@@ -62,6 +59,7 @@ import VisualizationPieConfig from './VisualizationConfigPie';
 import VisualizationTableConfig from './VisualizationConfigTable';
 import VisualizationTreemapConfig from './VisualizationConfigTreemap';
 import VisualizationCustomConfig from './VisualizationCustomConfig';
+import { collectVisibleColorKeys } from './collectVisibleColorKeys';
 import Context, { type TablePaginationState } from './context';
 import { type VisualizationConfig } from './types';
 import { type useVisualizationContext } from './useVisualizationContext';
@@ -74,12 +72,18 @@ const EMPTY_COLOR_MAP: Record<string, string> = {};
  * 用浏览器控制台检查 `window.__msyColorSync`：
  * - useHashBased：本图是否真的参与了看板颜色同步
  * - paletteSize / visibleKeys / assignments：本图色表实际覆盖了哪些系列名
+ * - renderedSeriesCount / skippedFilteredOutCount：CARTESIAN 容量口径自检——
+ *   visibleKeys 明显多于渲染系列数说明 stale key 又混进来了
  * - misses：取色时在色表里找不到、已回退到无避让哈希（会造成同图撞色）的系列名
  * --------------------------------------------------------------------- */
 type ColorSyncDebugPayload = {
     useHashBased: boolean;
     paletteSize: number;
     visibleKeys: string[];
+    /** 过滤 isFilteredOut 后真正渲染的系列数（CARTESIAN；其他图为 null） */
+    renderedSeriesCount: number | null;
+    /** 被 isFilteredOut 跳过的历史 pivot 系列数（CARTESIAN；其他图为 null） */
+    skippedFilteredOutCount: number | null;
     assignments: Record<string, string>;
     misses: string[];
 };
@@ -235,46 +239,21 @@ const VisualizationProvider: FC<
         [onChartTypeChange],
     );
 
-    const visibleColorKeys = useMemo(() => {
-        const keys: string[] = [];
-
-        if (chartConfig.type === ChartType.CARTESIAN) {
-            const allSeries =
-                computedSeries && computedSeries.length > 0
-                    ? computedSeries
-                    : chartConfig.config?.eChartsConfig.series;
-            (allSeries ?? []).forEach((series) => {
-                const completeIdentifier =
-                    calculateSeriesLikeIdentifier(series)[1];
-                if (completeIdentifier) keys.push(completeIdentifier);
-            });
-
-            // 透视系列名补齐：computedSeries 可能为空（结果为空 / layout 不全）
-            // 或与真实渲染的系列形状不一致，此时色表会缺 key，取色回退到
-            // getHashColor（无避让）→ 同图撞色。这里直接以透视结果的
-            // pivotDetails 为准把本图会出现的系列名全部收进来。
-            resultsData?.pivotDetails?.valuesColumns?.forEach((column) => {
-                column.pivotValues?.forEach(({ value }) => {
-                    if (value !== null && value !== undefined) {
-                        keys.push(String(value));
-                    }
-                });
-            });
-        }
-
-        if (chartConfig.type === ChartType.PIE) {
-            const pie = chartConfig.config;
-            Object.keys(pie?.groupColorOverrides ?? {}).forEach((name) =>
-                keys.push(name),
-            );
-            Object.keys(pie?.metadata ?? {}).forEach((name) => keys.push(name));
-            (pie?.groupSortOverrides ?? []).forEach((name) => keys.push(name));
-            const groupFieldIds = pie?.groupFieldIds ?? [];
-            keys.push(...pieRowColorKeys(resultsData?.rows, groupFieldIds));
-        }
-
-        return keys;
-    }, [chartConfig, computedSeries, resultsData]);
+    // 容量口径见 collectVisibleColorKeys：只统计真正渲染的系列 +
+    // pivotDetails 去重补齐。依赖保持原有三项，不要增删。
+    const {
+        keys: visibleColorKeys,
+        renderedSeriesCount,
+        skippedFilteredOutCount,
+    } = useMemo(
+        () =>
+            collectVisibleColorKeys({
+                chartConfig,
+                computedSeries,
+                resultsData,
+            }),
+        [chartConfig, computedSeries, resultsData],
+    );
 
     const registerVisibleColorKeys = useRegisterDashboardVisibleColorKeys();
 
@@ -337,12 +316,25 @@ const VisualizationProvider: FC<
                 useHashBased,
                 paletteSize: colorPalette.length,
                 visibleKeys: visibleColorKeys,
+                renderedSeriesCount,
+                skippedFilteredOutCount,
                 assignments: chartHashAssignments,
             });
+            if (
+                renderedSeriesCount !== null &&
+                renderedSeriesCount > 0 &&
+                visibleColorKeys.length > renderedSeriesCount * 2
+            ) {
+                console.warn(
+                    `[ColorSync] 容量口径漂移：visibleKeys(${visibleColorKeys.length}) 明显多于本图渲染系列数(${renderedSeriesCount})，stale key 在挤占调色板（检查 isFilteredOut 过滤 / pivotDetails 去重）`,
+                );
+            }
         }, [
             useHashBased,
             colorPalette,
             visibleColorKeys,
+            renderedSeriesCount,
+            skippedFilteredOutCount,
             chartHashAssignments,
         ]);
     }
