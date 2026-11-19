@@ -47,7 +47,7 @@
 | [msy-x-cli 设计文档](./cli/msy-x-cli-design.md) | **对外 · 自包含**：命令面、鉴权、输出与退出码、豆包 CLI 连接器契约（0.1.0） |
 | [msy-x-cli 使用手册](./cli/msy-x-cli-usage.md) | **对外 · 自包含**：安装、OAuth / PAT 登录、站点切换、常用命令、排错（0.1.0） |
 | [msy-x-cli 开发计划](./cli/msy-x-cli-dev-plan.md) | **内部**：包结构、分阶段任务、测试、发版流程与 CDN 基线 |
-| [msy-x-cli × 豆包：授权链路修复](./cli/msy-x-cli-doubao-auth-flow.md) | 弹门户页 → 弹授权页：OIDC 未登录不再甩官网首页，直达微信扫码并回跳授权端点（**代码已提交，待预发验证**） |
+| [msy-x-cli × 豆包：授权链路修复](./cli/msy-x-cli-doubao-auth-flow.md) | 弹门户页 → 弹授权页：OIDC 未登录时存下授权请求并跳官网首页自动拉起登录，登录后回跳授权端点（**代码已提交，待预发验证**） |
 
 ## dashboard/ — 看板筛选器与看板能力
 
