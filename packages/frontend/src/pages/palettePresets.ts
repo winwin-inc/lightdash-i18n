@@ -32,8 +32,10 @@ export type ColorPalettePreset = {
  *
  * 约束（palettePresets.test.ts 会校验）：
  * - 每个预设内不允许出现**完全相同**的颜色（曾经 dataMatrix 里 `#0088FF` 重复两次）
- * - 同色相但几乎一样的颜色（RGB 距离 < 45）同样不允许：分配时这些色会被
- *   避让逻辑跳过，用户会看到"选了色板但线条不是色板里的色"
+ * - `kind: 'categorical'` 预设两两感知色差（CIEDE2000，`colorDifference`）
+ *   必须 ≥ MIN_COLOR_DIFF（12），且同一 30° 色相族最多 2 色：更近的颜色在
+ *   分配时会被避让逻辑跳过，用户会看到"选了色板但线条不是色板里的色"，
+ *   同簇近重复色则会像截图里那样画出几条难分辨的黄线
  */
 const COLOR_PALETTE_PRESETS: ColorPalettePreset[] = [
     {
@@ -199,28 +201,61 @@ const COLOR_PALETTE_PRESETS: ColorPalettePreset[] = [
                 '#CC00FF',
                 '#FFCC00',
             ],
+            // 2026-11-19 CIEDE2000 清洗前的 20 色（RGB 距离≥45 时代的
+            // 数据矩阵霓虹环）：度量换成 CIEDE2000、阈值 MIN_COLOR_DIFF=12
+            // 后，该组两两 ΔE00 最小仅 2.52（#00FF00/#00FF40），11 对
+            // ΔE00<12、17 对 ΔE00<15，同一张折线图里会同时出现 3 条难
+            // 分辨的黄线（#FFFF00 家族 + #CCFF00 黄绿 + #FFCC00 琥珀），
+            // 故整组退役；用这套色保存过的看板选中态仍应命中本预设
+            [
+                '#FF00FF',
+                '#00FFFF',
+                '#FFFF00',
+                '#FF0080',
+                '#00FF00',
+                '#00FF80',
+                '#8000FF',
+                '#FF8000',
+                '#FF0040',
+                '#00FFC0',
+                '#0088FF',
+                '#88FF00',
+                '#FF4000',
+                '#4000FF',
+                '#00FF40',
+                '#FF00CC',
+                '#CCFF00',
+                '#00CCFF',
+                '#CC00FF',
+                '#FFCC00',
+            ],
         ],
         colors: [
-            '#FF00FF',
-            '#00FFFF',
-            '#FFFF00',
-            '#FF0080',
-            '#00FF00',
-            '#00FF80',
-            '#8000FF',
-            '#FF8000',
-            '#FF0040',
-            '#00FFC0',
-            '#0088FF',
-            '#88FF00',
-            '#FF4000',
-            '#4000FF',
-            '#00FF40',
-            '#FF00CC',
-            '#CCFF00',
-            '#00CCFF',
-            '#CC00FF',
-            '#FFCC00',
+            // 2026-11-19 清洗：仍是 20 色高饱和霓虹环（S=1），只在明度上做
+            // 三档微分层（L=0.42/0.5/0.58，无 sequential 观感），同 30° 色相
+            // 族最多 2 色；两两 CIEDE2000 ≥ 14.4（阈值 12）。顺序按最远点
+            // 采样排布，使看板按顺序取前 k 色时前缀两两 ΔE 也尽量高
+            //（≤12 系列的图前缀 min ΔE ≥ 15）。
+            '#FF29FB',
+            '#29FF54',
+            '#FF8400',
+            '#29BFFF',
+            '#0D00FF',
+            '#D60044',
+            '#D6BD00',
+            '#29FFE2',
+            '#0084FF',
+            '#F8FF29',
+            '#FF2986',
+            '#D61200',
+            '#29E6FF',
+            '#A600FF',
+            '#FF5B29',
+            '#295BFF',
+            '#FFAE00',
+            '#9AD600',
+            '#D600A8',
+            '#00D68B',
         ],
     },
 ];
@@ -262,6 +297,36 @@ export const matchesColorPalette = (
     return [preset.colors, ...(preset.legacyColors ?? [])].some(
         (candidate) => paletteKey(candidate) === currentKey,
     );
+};
+
+/**
+ * 读路径对账：把「用旧色值保存的看板色板」映射到当前预设色值。
+ *
+ * 看板把选中的色板以**色值数组**存进 `config.colorPalette`
+ *（`packages/common/src/types/dashboard.ts`），预设色值清洗（2026-11-19
+ * 把 dataMatrix 换成两两 CIEDE2000 ≥ 14.41 的 20 色）后，老看板仍然存着旧
+ * 色值——不清洗它们就永远渲染旧色（同图黄线依旧分不清）。这里在读取时把
+ * 命中「某预设的 legacyColors」的色板换成该预设的当前 `colors`，不改库；
+ * 用户下次保存会自然落成新值。
+ *
+ * 非预设色板（组织自定义色板等）原样返回，引用不变，避免无谓重算。
+ */
+export const reconcileColorPalette = (
+    palette: string[] | null | undefined,
+): string[] | null => {
+    if (!palette || palette.length === 0) {
+        return null;
+    }
+    const currentKey = paletteKey(palette);
+    const matched = COLOR_PALETTE_PRESETS.find((preset) =>
+        (preset.legacyColors ?? []).some(
+            (legacy) => paletteKey(legacy) === currentKey,
+        ),
+    );
+    if (!matched) {
+        return palette;
+    }
+    return matched.colors;
 };
 
 export default COLOR_PALETTE_PRESETS;

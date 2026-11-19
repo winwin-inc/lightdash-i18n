@@ -69,7 +69,10 @@ import DashboardProvider from '../providers/Dashboard/DashboardProvider';
 import useDashboardContext from '../providers/Dashboard/useDashboardContext';
 import DashboardChartColorSyncProvider from '../providers/DashboardChartColorSync/DashboardChartColorSyncProvider';
 import '../styles/react-grid.css';
-import COLOR_PALETTE_PRESETS, { matchesColorPalette } from './palettePresets';
+import COLOR_PALETTE_PRESETS, {
+    matchesColorPalette,
+    reconcileColorPalette,
+} from './palettePresets';
 
 /** 查看模式无 sync 列表时复用，避免每次 render 新建 [] 触发颜色同步 effect */
 const EMPTY_SYNC_TILE_UUIDS: string[] = [];
@@ -219,7 +222,10 @@ const Dashboard: FC = () => {
     );
     const [dashboardColorPalette, setDashboardColorPalette] = useState<
         string[]
-    >(dashboard?.config?.colorPalette ?? ECHARTS_DEFAULT_COLORS);
+    >(
+        reconcileColorPalette(dashboard?.config?.colorPalette) ??
+            ECHARTS_DEFAULT_COLORS,
+    );
     const [syncChartTileUuids, setSyncChartTileUuids] = useState<string[]>(
         dashboard?.config?.syncChartTileUuids ?? [],
     );
@@ -234,7 +240,8 @@ const Dashboard: FC = () => {
         : (dashboard?.config?.syncChartColors ?? false);
     const resolvedColorPalette = isEditMode
         ? dashboardColorPalette
-        : (dashboard?.config?.colorPalette ?? dashboardColorPalette);
+        : (reconcileColorPalette(dashboard?.config?.colorPalette) ??
+          dashboardColorPalette);
     const resolvedSyncChartTileUuids = isEditMode
         ? syncChartTileUuids
         : (dashboard?.config?.syncChartTileUuids ?? EMPTY_SYNC_TILE_UUIDS);
@@ -470,7 +477,7 @@ const Dashboard: FC = () => {
     const savedColorPaletteKey = useMemo(
         () =>
             (
-                dashboard?.config?.colorPalette ??
+                reconcileColorPalette(dashboard?.config?.colorPalette) ??
                 organization?.chartColors ??
                 ECHARTS_DEFAULT_COLORS
             ).join(','),
@@ -484,7 +491,7 @@ const Dashboard: FC = () => {
 
         lastSyncedPaletteKeyRef.current = savedColorPaletteKey;
         setDashboardColorPalette(
-            dashboard?.config?.colorPalette ??
+            reconcileColorPalette(dashboard?.config?.colorPalette) ??
                 organization?.chartColors ??
                 ECHARTS_DEFAULT_COLORS,
         );
@@ -744,7 +751,7 @@ const Dashboard: FC = () => {
         setHaveShowAddFilterButtonStatesChanged(false);
         setSyncChartColors(dashboard.config?.syncChartColors ?? false);
         setDashboardColorPalette(
-            dashboard.config?.colorPalette ??
+            reconcileColorPalette(dashboard.config?.colorPalette) ??
                 organization?.chartColors ??
                 ECHARTS_DEFAULT_COLORS,
         );

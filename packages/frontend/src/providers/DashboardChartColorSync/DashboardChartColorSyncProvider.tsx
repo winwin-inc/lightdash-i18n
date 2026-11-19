@@ -13,6 +13,7 @@ import {
     assignKnownHashColors,
 } from '../../hooks/useChartColorConfig/hashColorAssignment';
 import { useDashboardColorSyncMap } from '../../hooks/useChartColorConfig/useDashboardColorSyncMap';
+import { reconcileColorPalette } from '../../pages/palettePresets';
 import useDashboardContext from '../Dashboard/useDashboardContext';
 import DashboardChartColorSyncContext, {
     type DashboardChartColorSyncContextValue,
@@ -41,8 +42,11 @@ const DashboardChartColorSyncProvider: FC<
         syncChartTileUuids ??
         dashboard?.config?.syncChartTileUuids ??
         EMPTY_SYNC_TILE_UUIDS;
-    const paletteFromPropsOrConfig =
-        colorPalette ?? dashboard?.config?.colorPalette;
+    // 读路径对账：用旧色值保存的看板色板映射到预设当前色值，
+    // 否则清洗后的 dataMatrix 不会对老看板生效（见 palettePresets.ts）
+    const paletteFromPropsOrConfig = reconcileColorPalette(
+        colorPalette ?? dashboard?.config?.colorPalette,
+    );
     const resolvedPalette =
         paletteFromPropsOrConfig && paletteFromPropsOrConfig.length > 0
             ? paletteFromPropsOrConfig
