@@ -267,4 +267,66 @@ describe('CoderService', () => {
             expect(result.dimensions[0].hideTilesWhenEmpty).toBe(true);
         });
     });
+
+    describe('transformChart / transformDashboard null normalization', () => {
+        const spaces = [{ uuid: 'space-1', path: 'root.space_1' }];
+
+        it('transformChart emits no description key for null descriptions', () => {
+            const chart = {
+                name: 'Chart',
+                description: null,
+                tableName: 'orders',
+                updatedAt: new Date(),
+                metricQuery: {},
+                chartConfig: {},
+                pivotConfig: undefined,
+                dashboardUuid: null,
+                slug: 'chart-slug',
+                tableConfig: { columnOrder: [] },
+                spaceUuid: 'space-1',
+                parameters: undefined,
+                merge: null,
+            };
+
+            const result = (CoderService as AnyType).transformChart(
+                chart,
+                spaces,
+                {},
+            );
+
+            // undefined values are dropped by JSON.stringify / yaml.dump,
+            // so the downloaded file contains no `description:` line
+            expect(result.description).toBeUndefined();
+        });
+
+        it('transformDashboard emits no config/description keys for null values', () => {
+            const dashboard = {
+                name: 'Dashboard',
+                description: null,
+                updatedAt: new Date(),
+                slug: 'dashboard-slug',
+                spaceUuid: 'space-1',
+                config: null,
+                tiles: [],
+                tabs: [{ uuid: 'tab-1', name: 'Overview', order: 0 }],
+                filters: {
+                    dimensions: [],
+                    metrics: [],
+                    tableCalculations: [],
+                },
+                parameters: undefined,
+                owner: null,
+            };
+
+            const result = (CoderService as AnyType).transformDashboard(
+                dashboard,
+                spaces,
+            );
+
+            // undefined values are dropped by JSON.stringify / yaml.dump,
+            // so the downloaded file contains no `config:` / `description:` lines
+            expect(result.config).toBeUndefined();
+            expect(result.description).toBeUndefined();
+        });
+    });
 });

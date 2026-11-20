@@ -1,4 +1,5 @@
 import {
+    AnyType,
     DashboardTileTypes,
     FilterOperator,
     type DashboardDAO,
@@ -134,6 +135,96 @@ describe('dashboardAsCodeReferences', () => {
                 fullDashboard.filters,
             );
             expect(filters.dimensions[0].lockedTabUuids).toEqual(['overview']);
+        });
+
+        it('exports null config as undefined so YAML omits the field', () => {
+            const nullConfigDashboard = {
+                ...fullDashboard,
+                config: null,
+            } as unknown as DashboardDAO;
+
+            expect(
+                getConfigWithPortableRefs(nullConfigDashboard, () => undefined),
+            ).toBeUndefined();
+        });
+
+        it('remaps parentTabUuid as a portable slug and back', () => {
+            const exported = getFiltersWithPortableLockedTabs(fullDashboard, {
+                dimensions: [
+                    {
+                        id: 'cascade-1',
+                        label: undefined,
+                        target: {
+                            fieldId: 'orders_status',
+                            tableName: 'orders',
+                        },
+                        operator: FilterOperator.EQUALS,
+                        values: ['completed'],
+                        parentScope: 'tab',
+                        parentTabUuid: 'overview-uuid',
+                    },
+                ],
+                metrics: [],
+                tableCalculations: [],
+            });
+            expect(exported.dimensions[0].parentTabUuid).toBe('overview');
+
+            const tabs = resolveDashboardTabs(
+                [{ slug: 'overview', name: 'Overview', order: 0 }],
+                dashboard.tabs,
+            );
+            const warnings: string[] = [];
+            const imported = getFiltersWithLocalLockedTabs(
+                {
+                    dimensions: [
+                        {
+                            ...(exported.dimensions[0] as AnyType),
+                            id: 'cascade-1',
+                        },
+                    ],
+                    metrics: [],
+                    tableCalculations: [],
+                },
+                tabs,
+                warnings,
+            );
+            expect(imported.dimensions[0].parentTabUuid).toBe('overview-uuid');
+            expect(warnings).toEqual([]);
+        });
+
+        it('keeps parentTabUuid untouched for global scope or unknown refs', () => {
+            const exported = getFiltersWithPortableLockedTabs(fullDashboard, {
+                dimensions: [
+                    {
+                        id: 'global-1',
+                        label: undefined,
+                        target: {
+                            fieldId: 'orders_status',
+                            tableName: 'orders',
+                        },
+                        operator: FilterOperator.EQUALS,
+                        values: ['completed'],
+                        parentScope: 'global',
+                        parentTabUuid: 'overview-uuid',
+                    },
+                    {
+                        id: 'stale-1',
+                        label: undefined,
+                        target: {
+                            fieldId: 'orders_status',
+                            tableName: 'orders',
+                        },
+                        operator: FilterOperator.EQUALS,
+                        values: ['completed'],
+                        parentScope: 'tab',
+                        parentTabUuid: 'ghost-uuid',
+                    },
+                ],
+                metrics: [],
+                tableCalculations: [],
+            });
+            expect(exported.dimensions[0].parentTabUuid).toBe('overview-uuid');
+            expect(exported.dimensions[1].parentTabUuid).toBe('ghost-uuid');
         });
 
         it('imports slugs back to uuids and warns on unknown refs', () => {

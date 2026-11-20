@@ -239,7 +239,7 @@ export class CoderService extends BaseService {
 
         return {
             name: chart.name,
-            description: chart.description,
+            description: chart.description ?? undefined,
             tableName: chart.tableName,
             updatedAt: chart.updatedAt,
             metricQuery: chart.metricQuery,
@@ -569,7 +569,7 @@ export class CoderService extends BaseService {
 
         const dashboardAsCode: DashboardAsCode = {
             name: dashboard.name,
-            description: dashboard.description,
+            description: dashboard.description ?? undefined,
             updatedAt: dashboard.updatedAt,
             tiles: tilesWithoutUuids,
 
