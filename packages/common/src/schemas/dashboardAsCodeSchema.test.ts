@@ -131,6 +131,54 @@ describe('dashboardAsCodeSchema', () => {
         ).toBe(true);
     });
 
+    test('accepts the parentTabSlug alias next to legacy parentTabUuid refs', () => {
+        expect(
+            validate({
+                ...baseDashboard,
+                filters: {
+                    dimensions: [
+                        {
+                            id: 'filter-1',
+                            operator: 'equals',
+                            target: {
+                                fieldId: 'orders_status',
+                                tableName: 'orders',
+                            },
+                            parentScope: 'tab',
+                            parentTabSlug: 'overview',
+                        },
+                    ],
+                    metrics: [],
+                    tableCalculations: [],
+                },
+                tabs: [
+                    {
+                        slug: 'overview',
+                        name: 'Overview',
+                        order: 0,
+                        filters: {
+                            dimensions: [
+                                {
+                                    operator: 'equals',
+                                    target: {
+                                        fieldId: 'orders_channel',
+                                        tableName: 'orders',
+                                    },
+                                    parentScope: 'tab',
+                                    // Stock shape: the canonical field keeps
+                                    // working for existing YAML files.
+                                    parentTabUuid: 'overview',
+                                },
+                            ],
+                            metrics: [],
+                            tableCalculations: [],
+                        },
+                    },
+                ],
+            }),
+        ).toBe(true);
+    });
+
     test('rejects a dashboard missing its name', () => {
         expect(
             validate({

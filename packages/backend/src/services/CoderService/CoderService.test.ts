@@ -992,3 +992,220 @@ describe('upsertDashboard ownerEmail', () => {
         ]);
     });
 });
+
+describe('upsert verified field feedback', () => {
+    const IGNORED_VERIFIED =
+        'Ignored verified: content verification is not available on this instance';
+
+    const project = {
+        projectUuid: 'project-uuid',
+        organizationUuid: 'org-uuid',
+        type: 'DEFAULT',
+        createdByUserUuid: null,
+        upstreamProjectUuid: null,
+    };
+
+    const user = {
+        userUuid: 'uploader-uuid',
+        userId: 1,
+        organizationUuid: 'org-uuid',
+        ability: {
+            cannot: jest.fn().mockReturnValue(false),
+            can: jest.fn().mockReturnValue(true),
+        },
+    } as AnyType;
+
+    const space = {
+        uuid: 'space-uuid',
+        name: 'My space',
+        path: 'root.my_space',
+        projectUuid: 'project-uuid',
+        organizationUuid: 'org-uuid',
+        isPrivate: false,
+    };
+
+    const baseDashboardAsCode = {
+        name: 'Dashboard',
+        description: undefined,
+        updatedAt: new Date(0),
+        slug: 'dash-slug',
+        version: 1,
+        spaceSlug: 'my_space',
+        tabs: [],
+        tiles: [],
+        filters: { dimensions: [], metrics: [], tableCalculations: [] },
+    };
+
+    const createDashboardService = (): {
+        service: CoderService;
+        dashboardModel: { create: jest.Mock };
+    } => {
+        const dashboardModel = {
+            find: jest.fn().mockResolvedValue([]),
+            getByIdOrSlug: jest.fn().mockResolvedValue(undefined),
+            create: jest
+                .fn()
+                .mockResolvedValue({ ...space, uuid: 'new-dash-uuid' }),
+            update: jest.fn(),
+        };
+        const spaceModel = {
+            find: jest.fn().mockResolvedValue([space]),
+            getUserSpacesAccess: jest.fn().mockResolvedValue({}),
+        };
+        const service = new CoderService({
+            lightdashConfig: {},
+            analytics: { track: jest.fn() },
+            projectModel: { get: jest.fn().mockResolvedValue(project) },
+            savedChartModel: { find: jest.fn().mockResolvedValue([]) },
+            dashboardModel,
+            dashboardService: {},
+            spaceModel,
+            schedulerClient: {},
+            promoteService: {},
+            savedSqlModel: { find: jest.fn().mockResolvedValue([]) },
+            organizationMemberProfileModel: {
+                getOrganizationMemberByEmail: jest.fn(),
+            },
+            groupsModel: {},
+        } as AnyType);
+        return { service, dashboardModel };
+    };
+
+    const createChartService = (): {
+        service: CoderService;
+        savedChartModel: { create: jest.Mock };
+    } => {
+        const savedChartModel = {
+            find: jest.fn().mockResolvedValue([]),
+            create: jest
+                .fn()
+                .mockResolvedValue({ uuid: 'chart-uuid', name: 'My chart' }),
+        };
+        const spaceModel = {
+            find: jest.fn().mockResolvedValue([space]),
+            getUserSpacesAccess: jest.fn().mockResolvedValue({}),
+        };
+        const service = new CoderService({
+            lightdashConfig: {},
+            analytics: { track: jest.fn() },
+            projectModel: { get: jest.fn().mockResolvedValue(project) },
+            savedChartModel,
+            dashboardModel: {},
+            dashboardService: {},
+            spaceModel,
+            schedulerClient: {},
+            promoteService: {},
+            savedSqlModel: { find: jest.fn().mockResolvedValue([]) },
+            organizationMemberProfileModel: {},
+            groupsModel: {},
+        } as AnyType);
+        return { service, savedChartModel };
+    };
+
+    const makeLoggerStub = (): { logger: AnyType; warn: jest.Mock } => {
+        const warn = jest.fn();
+        const logger = {
+            warn,
+            info: jest.fn(),
+            error: jest.fn(),
+            debug: jest.fn(),
+        };
+        return { logger, warn };
+    };
+
+    it.each([true, false])(
+        'returns an ignored-verified warning on dashboard upload when verified is %p',
+        async (verified) => {
+            const { service, dashboardModel } = createDashboardService();
+            const { logger, warn } = makeLoggerStub();
+            (service as AnyType).logger = logger;
+
+            const result = await service.upsertDashboard(
+                user,
+                'project-uuid',
+                'dash-slug',
+                {
+                    ...baseDashboardAsCode,
+                    verified,
+                } as AnyType,
+            );
+
+            expect(result.warnings).toEqual([IGNORED_VERIFIED]);
+            expect(warn).toHaveBeenCalledWith(IGNORED_VERIFIED);
+            expect(result.dashboards).toHaveLength(1);
+            expect(result.dashboards[0].action).toBe(PromotionAction.CREATE);
+            expect(dashboardModel.create).toHaveBeenCalledTimes(1);
+        },
+    );
+
+    it('keeps the dashboard round-trip unchanged apart from the warning', async () => {
+        const withoutVerified = createDashboardService();
+        const baseline = await withoutVerified.service.upsertDashboard(
+            user,
+            'project-uuid',
+            'dash-slug',
+            { ...baseDashboardAsCode } as AnyType,
+        );
+
+        const withVerified = createDashboardService();
+        const { logger } = makeLoggerStub();
+        (withVerified.service as AnyType).logger = logger;
+        const result = await withVerified.service.upsertDashboard(
+            user,
+            'project-uuid',
+            'dash-slug',
+            { ...baseDashboardAsCode, verified: true } as AnyType,
+        );
+
+        expect(baseline.warnings).toBeUndefined();
+        expect(result.warnings).toEqual([IGNORED_VERIFIED]);
+        // Same payload modulo the warnings: actions, created dashboards and
+        // spaces are untouched.
+        expect(result.dashboards).toEqual(baseline.dashboards);
+        expect(result.spaces).toEqual(baseline.spaces);
+        expect(result.charts).toEqual(baseline.charts);
+    });
+
+    it('logs a warning on chart upload when verified is set', async () => {
+        const { service, savedChartModel } = createChartService();
+        const { logger, warn } = makeLoggerStub();
+        (service as AnyType).logger = logger;
+
+        const result = await service.upsertChart(
+            user,
+            'project-uuid',
+            'chart-slug',
+            {
+                name: 'My chart',
+                slug: 'chart-slug',
+                spaceSlug: 'my_space',
+                version: 1,
+                dashboardSlug: undefined,
+                metricQuery: {},
+                verified: true,
+            } as AnyType,
+        );
+
+        expect(warn).toHaveBeenCalledWith(IGNORED_VERIFIED);
+        expect(savedChartModel.create).toHaveBeenCalledTimes(1);
+        expect(result.charts).toHaveLength(1);
+        expect(result.charts[0].action).toBe(PromotionAction.CREATE);
+    });
+
+    it('stays silent when chart upload omits verified', async () => {
+        const { service } = createChartService();
+        const { logger, warn } = makeLoggerStub();
+        (service as AnyType).logger = logger;
+
+        await service.upsertChart(user, 'project-uuid', 'chart-slug', {
+            name: 'My chart',
+            slug: 'chart-slug',
+            spaceSlug: 'my_space',
+            version: 1,
+            dashboardSlug: undefined,
+            metricQuery: {},
+        } as AnyType);
+
+        expect(warn).not.toHaveBeenCalled();
+    });
+});

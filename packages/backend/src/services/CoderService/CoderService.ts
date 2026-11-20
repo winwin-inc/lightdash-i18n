@@ -109,6 +109,12 @@ const isAnyChartTile = (
     tile.type === DashboardTileTypes.SAVED_CHART ||
     tile.type === DashboardTileTypes.SQL_CHART;
 
+// This fork has no content verification feature: the upstream `verified`
+// field is accepted in as-code files for forward compatibility but is never
+// persisted, so uploads surface this warning instead of failing silently.
+const IGNORED_VERIFIED_WARNING =
+    'Ignored verified: content verification is not available on this instance';
+
 export class CoderService extends BaseService {
     lightdashConfig: LightdashConfig;
 
@@ -1049,6 +1055,9 @@ export class CoderService extends BaseService {
         const project = await this.projectModel.get(projectUuid);
 
         CoderService.assertCanUpload(user, project);
+        if (chartAsCode.verified !== undefined) {
+            this.logger.warn(IGNORED_VERIFIED_WARNING);
+        }
         const [chart] = await this.savedChartModel.find({
             slug,
             projectUuid,
@@ -1364,6 +1373,10 @@ export class CoderService extends BaseService {
             ? await this.dashboardModel.getByIdOrSlug(dashboardSummary.uuid)
             : undefined;
         const warnings: string[] = [];
+        if (dashboardAsCode.verified !== undefined) {
+            warnings.push(IGNORED_VERIFIED_WARNING);
+            this.logger.warn(IGNORED_VERIFIED_WARNING);
+        }
         const ownerEmail = dashboardAsCode.ownerEmail?.trim();
         let ownerUserUuid: string | undefined;
         if (ownerEmail) {

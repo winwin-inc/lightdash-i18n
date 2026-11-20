@@ -266,20 +266,34 @@ export const getFiltersWithLocalLockedTabs = (
     warnings: string[],
 ): DashboardFilters => {
     const resolve = (value: string) => resolveTabUuid(tabs, value, value);
-    const mapRule = (rule: DashboardFilterRule): DashboardFilterRule => ({
-        ...rule,
-        lockedTabUuids: remapLockedTabRefs(
-            rule.lockedTabUuids,
-            resolve,
-            warnings,
-        ),
-        // Portable as-code files carry a tab slug (or a legacy tab uuid);
-        // resolve it back to the local tab uuid for this environment.
-        parentTabUuid:
-            rule.parentScope === 'tab' && rule.parentTabUuid !== undefined
-                ? resolve(rule.parentTabUuid) ?? rule.parentTabUuid
-                : rule.parentTabUuid,
-    });
+    const mapRule = (rule: DashboardFilterRule): DashboardFilterRule => {
+        // `parentTabSlug` is a YAML-friendly alias for `parentTabUuid` (which
+        // actually carries a tab slug in as-code files). The canonical field
+        // wins when both are present; the alias is consumed here only and
+        // never persisted.
+        const { parentTabSlug, ...ruleWithoutAlias } =
+            rule as DashboardFilterRule & {
+                parentTabSlug?: string;
+            };
+        const parentTabRef =
+            rule.parentTabUuid !== undefined
+                ? rule.parentTabUuid
+                : parentTabSlug;
+        return {
+            ...ruleWithoutAlias,
+            lockedTabUuids: remapLockedTabRefs(
+                rule.lockedTabUuids,
+                resolve,
+                warnings,
+            ),
+            // Portable as-code files carry a tab slug (or a legacy tab uuid);
+            // resolve it back to the local tab uuid for this environment.
+            parentTabUuid:
+                rule.parentScope === 'tab' && parentTabRef !== undefined
+                    ? resolve(parentTabRef) ?? parentTabRef
+                    : rule.parentTabUuid,
+        };
+    };
     return {
         dimensions: (filters.dimensions ?? []).map(mapRule),
         metrics: (filters.metrics ?? []).map(mapRule),

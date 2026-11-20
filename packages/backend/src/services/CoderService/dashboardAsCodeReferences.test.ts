@@ -298,6 +298,159 @@ describe('dashboardAsCodeReferences', () => {
                 'Skipped lockedTabUuids entry "ghost-tab"',
             );
         });
+
+        it('resolves the parentTabSlug alias to a local tab uuid', () => {
+            const warnings: string[] = [];
+            const tabs = resolveDashboardTabs(
+                [{ slug: 'overview', name: 'Overview', order: 0 }],
+                dashboard.tabs,
+            );
+            const baseRule = {
+                id: 'cascade-1',
+                label: undefined,
+                target: {
+                    fieldId: 'orders_status',
+                    tableName: 'orders',
+                },
+                operator: FilterOperator.EQUALS,
+                values: ['completed'],
+                parentScope: 'tab',
+            };
+
+            const filters = getFiltersWithLocalLockedTabs(
+                {
+                    dimensions: [
+                        {
+                            ...baseRule,
+                            parentTabSlug: 'overview',
+                        } as AnyType,
+                    ],
+                    metrics: [],
+                    tableCalculations: [],
+                },
+                tabs,
+                warnings,
+            );
+
+            expect(filters.dimensions[0].parentTabUuid).toBe('overview-uuid');
+            // The alias is consumed on import and never persisted on the rule.
+            expect(
+                (filters.dimensions[0] as AnyType).parentTabSlug,
+            ).toBeUndefined();
+            expect(warnings).toEqual([]);
+        });
+
+        it('prefers parentTabUuid over parentTabSlug when both are set', () => {
+            const warnings: string[] = [];
+            const tabs = resolveDashboardTabs(
+                [
+                    { slug: 'overview', name: 'Overview', order: 0 },
+                    {
+                        slug: 'revenue-costs-1',
+                        name: 'Revenue / Costs',
+                        order: 1,
+                    },
+                ],
+                dashboard.tabs,
+            );
+
+            const filters = getFiltersWithLocalLockedTabs(
+                {
+                    dimensions: [
+                        {
+                            id: 'cascade-1',
+                            label: undefined,
+                            target: {
+                                fieldId: 'orders_status',
+                                tableName: 'orders',
+                            },
+                            operator: FilterOperator.EQUALS,
+                            values: ['completed'],
+                            parentScope: 'tab',
+                            parentTabUuid: 'revenue-costs-1',
+                            parentTabSlug: 'overview',
+                        } as AnyType,
+                    ],
+                    metrics: [],
+                    tableCalculations: [],
+                },
+                tabs,
+                warnings,
+            );
+
+            expect(filters.dimensions[0].parentTabUuid).toBe(
+                'revenue-costs-uuid',
+            );
+            expect(warnings).toEqual([]);
+        });
+
+        it('does not resolve the parentTabSlug alias outside tab scope', () => {
+            const warnings: string[] = [];
+            const tabs = resolveDashboardTabs(
+                [{ slug: 'overview', name: 'Overview', order: 0 }],
+                dashboard.tabs,
+            );
+
+            const filters = getFiltersWithLocalLockedTabs(
+                {
+                    dimensions: [
+                        {
+                            id: 'cascade-1',
+                            label: undefined,
+                            target: {
+                                fieldId: 'orders_status',
+                                tableName: 'orders',
+                            },
+                            operator: FilterOperator.EQUALS,
+                            values: ['completed'],
+                            parentScope: 'global',
+                            parentTabSlug: 'overview',
+                        } as AnyType,
+                    ],
+                    metrics: [],
+                    tableCalculations: [],
+                },
+                tabs,
+                warnings,
+            );
+
+            expect(filters.dimensions[0].parentTabUuid).toBeUndefined();
+            expect(warnings).toEqual([]);
+        });
+
+        it('keeps an unresolvable parentTabSlug value as-is', () => {
+            const warnings: string[] = [];
+            const tabs = resolveDashboardTabs(
+                [{ slug: 'overview', name: 'Overview', order: 0 }],
+                dashboard.tabs,
+            );
+
+            const filters = getFiltersWithLocalLockedTabs(
+                {
+                    dimensions: [
+                        {
+                            id: 'cascade-1',
+                            label: undefined,
+                            target: {
+                                fieldId: 'orders_status',
+                                tableName: 'orders',
+                            },
+                            operator: FilterOperator.EQUALS,
+                            values: ['completed'],
+                            parentScope: 'tab',
+                            parentTabSlug: 'ghost-tab',
+                        } as AnyType,
+                    ],
+                    metrics: [],
+                    tableCalculations: [],
+                },
+                tabs,
+                warnings,
+            );
+
+            expect(filters.dimensions[0].parentTabUuid).toBe('ghost-tab');
+            expect(warnings).toEqual([]);
+        });
     });
 
     describe('applyResolvedTabUuidsToTiles', () => {

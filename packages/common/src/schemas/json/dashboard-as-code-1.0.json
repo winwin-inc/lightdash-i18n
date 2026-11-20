@@ -746,6 +746,10 @@
                     "enum": ["global", "tab"],
                     "type": "string"
                 },
+                "parentTabSlug": {
+                    "description": "父级筛选器的 Tab slug（与 parentTabUuid 等价，YAML 推荐写这个；两者都给时以 parentTabUuid 为准）",
+                    "type": "string"
+                },
                 "parentTabUuid": {
                     "description": "父级筛选器所在的 Tab uuid（parentScope === 'tab' 时有效）。\n缺省表示与当前筛选器在同一个 Tab。\n\n注意：这是库内形态。as-code 下载时该值会转成可移植的 tab slug，\n上传时再按 slug 解析回目标环境的 tab uuid，因此跨环境同步后级联仍成立。",
                     "type": "string"
