@@ -47,8 +47,8 @@
     },
     "scripts": {
         "dev": "tsc --build --watch --preserveWatchOutput --incremental ./tsconfig.build.json",
-        "build": "tsc --build ./tsconfig.build.json",
-        "typecheck": "tsc --project tsconfig.json --noEmit",
+        "build": "NODE_OPTIONS=--max-old-space-size=8192 tsc --build ./tsconfig.build.json",
+        "typecheck": "NODE_OPTIONS=--max-old-space-size=8192 tsc --project tsconfig.json --noEmit",
         "linter": "eslint -c .eslintrc.js --ignore-path ./../../.gitignore",
         "formatter": "prettier --config .prettierrc.js --ignore-unknown --ignore-path ./../../.gitignore",
         "lint": "pnpm run linter ./src",
