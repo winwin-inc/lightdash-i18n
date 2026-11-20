@@ -216,9 +216,17 @@
     "is_being_exported": "{{name}} is being exported. This might take a few seconds.",
     "success": "Success!",
     "success_export": "Success! {{name}} was exported.",
+    "export_truncated": "Export finished, but some charts were truncated at the row limit",
+    "export_partial_failed": "Export finished, but {{count}} charts failed ({{names}})",
+    "export_progress": "{{done}}/{{total}}",
+    "export_progress_tab": "{{name}}",
+    "export_progress_chart": "{{name}}",
+    "export_row_limit_exceeded": "Dashboard export exceeded the row limit ({{rows}} rows exported, limit {{limit}}); the export is incomplete",
+    "export_timeout": "Export timed out; the job may still be running in the background. Check the task log for the result or narrow the range and retry.",
     "failed_export": "Failed to export {{name}}",
     "failed_preview": "Failed to generate preview for {{name}}",
     "missing_file_url": "Missing file url for {{name}}",
+    "no_charts_to_export": "No charts to export in the selected tabs — try another tab.",
     "something_went_wrong": "Something went wrong",
     "failed_to_export": "Failed to export {{name}}",
     "dashboard_not_found": "Dashboard not found",
@@ -1342,10 +1350,6 @@
         "all_results": "All results",
         "custom": "Custom...",
         "results_are_limited": "Results are limited to {{limit}} cells for each file",
-        "xlsx_output": "XLSX output",
-        "xlsx_output_help": "Separate files puts each dashboard tile in its own XLSX file inside a ZIP. Single workbook puts each tile on its own sheet in one XLSX file.",
-        "xlsx_zip": "Separate files (ZIP)",
-        "xlsx_workbook": "Single workbook",
         "tabs": {
           "title": "Tabs",
           "tooltip": "Select all tabs to include all tabs in the delivery. If you don't select this option, only selected tab will be included in the delivery.",
@@ -4242,12 +4246,9 @@
   },
   "components_common_modal_dashboard_export": {
     "alert_title": "Date zoom is enabled",
-    "alert": "Your CSV export will include data for the selected date zoom granularity.",
-    "tooltip": {
-      "label": "Export results in table for all charts in a zip file",
-      "button": "Export CSV",
-      "button_xlsx": "Export XLSX"
-    },
+    "alert": "Your export will include data for the selected date zoom granularity.",
+    "table_limit_hint": "Each chart exports the rows currently shown in its table view",
+    "total_row_limit_hint": "All results exports every row of the chart aggregated query (no row cap); it does not include the underlying detail rows. One dashboard export is still capped at {{rows}} rows in total and {{csvCellsLimit}} cells per chart.",
     "tabs_label": "Tabs",
     "select_all_tabs_tooltip": "Select all tabs to include all tabs in the export. If you don't select this option, only selected tabs will be included.",
     "include_all_tabs": "Include all tabs",
@@ -4257,8 +4258,7 @@
     "export_dashboard": "Export dashboard",
     "tabs": {
       "image": "Image",
-      "csv": ".csv",
-      "xlsx": ".xlsx"
+      "data": "Data"
     }
   },
   "components_common_modal_dashboard_update": {

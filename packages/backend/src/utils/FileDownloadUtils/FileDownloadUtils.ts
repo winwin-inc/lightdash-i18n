@@ -18,6 +18,23 @@ export const isRowValueTimestamp = (
 ): value is MomentInput =>
     isMomentInput(value) && field.type === DimensionType.TIMESTAMP;
 
+/**
+ * Display name for a dashboard tile in exports (Excel sheet names, CSV file
+ * names, progress text).
+ *
+ * Dashboards let tiles override the chart title, so the tile title is what the
+ * user sees on the page; it wins when present. Blank/absent titles fall back
+ * to the chart's own name. Sanitization and de-duplication stay with the
+ * callers (sheet names, zip entries).
+ */
+export function resolveExportTileName(
+    tileTitle: string | undefined | null,
+    chartName: string,
+): string {
+    const trimmedTitle = tileTitle?.trim();
+    return trimmedTitle || chartName;
+}
+
 export const isRowValueDate = (
     value: unknown,
     field: { type: DimensionType },
@@ -229,5 +246,33 @@ export async function streamJsonlData<T>({
         lineReader.on('error', (error) => {
             reject(error);
         });
+    });
+}
+
+/**
+ * 为 zip 条目生成唯一文件名。
+ *
+ * 解压工具在 Windows / macOS 上是大小写不敏感的（`Sales.xlsx` 与 `sales.xlsx`
+ * 会互相覆盖），所以去重键统一小写，输出仍保留原始大小写。
+ */
+export function dedupeZipEntryNames(
+    baseNames: string[],
+    extension: string,
+): string[] {
+    const usedNames = new Set<string>();
+    return baseNames.map((baseName) => {
+        const base = sanitizeGenericFileName(baseName);
+        let name = `${base}.${extension}`;
+        if (usedNames.has(name.toLowerCase())) {
+            let suffix = 2;
+            while (
+                usedNames.has(`${base}_${suffix}.${extension}`.toLowerCase())
+            ) {
+                suffix += 1;
+            }
+            name = `${base}_${suffix}.${extension}`;
+        }
+        usedNames.add(name.toLowerCase());
+        return name;
     });
 }

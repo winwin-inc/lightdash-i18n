@@ -15897,11 +15897,6 @@
                         "type": "string",
                         "description": "UI language for delivery emails; missing => zh"
                     },
-                    "xlsxFileLayout": {
-                        "type": "string",
-                        "enum": ["zip", "workbook"],
-                        "description": "Dashboard XLSX: zip of files (default) or one multi-sheet workbook"
-                    },
                     "asAttachment": {
                         "type": "boolean"
                     },

@@ -8,6 +8,7 @@ import {
     MissingConfigError,
     PivotConfig,
     pivotResultsAsCsv,
+    type ExportFilterColumn,
     type ReadyQueryResultsPage,
 } from '@lightdash/common';
 import { stringify } from 'csv-stringify';
@@ -149,9 +150,11 @@ export class PivotTableService extends BaseService {
             hiddenFields: string[];
             pivotConfig: PivotConfig;
             attachmentDownloadName?: string;
+            /** 透视 CSV 左侧前置的筛选器常量列（看板导出） */
+            leadingColumns?: ExportFilterColumn[];
         };
     }): Promise<{ fileUrl: string; truncated: boolean }> {
-        const { onlyRaw, customLabels, pivotConfig } = options;
+        const { onlyRaw, customLabels, pivotConfig, leadingColumns } = options;
 
         // Load rows from the results file using shared streaming utility
         // Use the same logic as regular CSV exports - respect csvCellsLimit with field count
@@ -215,6 +218,7 @@ export class PivotTableService extends BaseService {
             truncated: finalTruncated,
             customLabels,
             pivotDetails,
+            leadingColumns,
         });
 
         return {
@@ -239,6 +243,7 @@ export class PivotTableService extends BaseService {
         truncated,
         customLabels,
         pivotDetails,
+        leadingColumns = [],
     }: {
         name?: string;
         projectUuid: string;
@@ -252,6 +257,8 @@ export class PivotTableService extends BaseService {
         truncated: boolean;
         customLabels: Record<string, string> | undefined;
         metricsAsRows?: boolean;
+        /** 透视矩阵左侧前置的筛选器常量列（看板导出） */
+        leadingColumns?: ExportFilterColumn[];
     }): Promise<AttachmentUrl> {
         // PivotQueryResults expects a formatted ResultRow[] type, so we need to convert it first
         // TODO: refactor pivotQueryResults to accept a Record<string, any>[] simple row type for performance
@@ -269,16 +276,39 @@ export class PivotTableService extends BaseService {
             maxColumnLimit: this.lightdashConfig.pivotTable.maxColumnLimit,
             pivotDetails,
         });
+        const csvRowsWithLeadingColumns = PivotTableService.prependLeadingColumns(
+            csvResults,
+            leadingColumns,
+        );
 
         // Stream the CSV straight to disk/S3 instead of joining it into one giant
         // string and copying it into a Buffer. For wide pivots that used to mean
         // 3-4 copies of the whole file (string matrix -> joined string -> Buffer).
         return this.writeCsvRowsToFile({
-            csvRows: csvResults,
+            csvRows: csvRowsWithLeadingColumns,
             fileName: name || exploreId,
             projectUuid,
             truncated,
         });
+    }
+
+    /**
+     * 在透视矩阵左侧插入常量列：首行写列名，其余行（含多级表头）写取值。
+     * 不做合并单元格，单元格与行列的对应关系保持简单。
+     */
+    static prependLeadingColumns(
+        rows: string[][],
+        leadingColumns: ExportFilterColumn[],
+    ): string[][] {
+        if (leadingColumns.length === 0) return rows;
+
+        const headerRow = leadingColumns.map((column) => column.header);
+        const valueRow = leadingColumns.map((column) => column.value);
+
+        return rows.map((row, index) => [
+            ...(index === 0 ? headerRow : valueRow),
+            ...row,
+        ]);
     }
 
     /**

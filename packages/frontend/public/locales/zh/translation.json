@@ -210,9 +210,17 @@
     "is_being_exported": "{{name}} 正在导出。这可能需要几秒钟。",
     "success": "成功！",
     "success_export": "成功！{{name}} 已导出。",
+    "export_truncated": "导出完成，但部分图表超过行数上限已被截断",
+    "export_partial_failed": "导出完成，但 {{count}} 张图失败（{{names}}）",
+    "export_progress": "{{done}}/{{total}}",
+    "export_progress_tab": "{{name}}",
+    "export_progress_chart": "{{name}}",
+    "export_row_limit_exceeded": "看板导出超过行数上限（已导出 {{rows}} 行，上限 {{limit}} 行），导出结果不完整",
+    "export_timeout": "导出超时，任务可能仍在后台执行，请到任务日志查看结果或缩小范围重试",
     "failed_export": "导出 {{name}} 失败",
     "failed_preview": "生成 {{name}} 预览失败",
     "missing_file_url": "{{name}} 缺少文件 URL",
+    "no_charts_to_export": "所选 Tab 下没有可导出的图表，换个 Tab 再试。",
     "something_went_wrong": "Something went wrong",
     "failed_to_export": "导出 {{name}} 失败",
     "dashboard_not_found": "看板未找到",
@@ -1350,10 +1358,6 @@
         "all_results": "全部结果",
         "custom": "自定义...",
         "results_are_limited": "每个文件的结果被限制在 {{limit}} 个单元格内",
-        "xlsx_output": "XLSX 输出",
-        "xlsx_output_help": "「分文件 ZIP」将每个看板磁贴导出为独立 XLSX；「单个工作簿」将每个磁贴放到同一 XLSX 的不同工作表。",
-        "xlsx_zip": "分文件（ZIP）",
-        "xlsx_workbook": "单个工作簿",
         "tabs": {
           "title": "选项卡",
           "tooltip": "选择所有选项卡以将所有选项卡包含在交付中。如果您不选择此选项，则仅选定的选项卡将包含在交付中。",
@@ -4265,12 +4269,9 @@
   },
   "components_common_modal_dashboard_export": {
     "alert_title": "已启用日期缩放",
-    "alert": "您的 CSV 导出将包括所选日期缩放粒度的数据。",
-    "tooltip": {
-      "label": "以 zip 文件形式导出所有图表的表格结果",
-      "button": "导出 CSV",
-      "button_xlsx": "导出 XLSX"
-    },
+    "alert": "您的导出将包括所选日期缩放粒度的数据。",
+    "table_limit_hint": "每个图表按当前表格展示的行数导出",
+    "total_row_limit_hint": "所有结果 = 该图表聚合结果的全部行（去掉行数上限），不含聚合点背后的底层明细；单次看板导出仍受累计 {{rows}} 行与单图 {{csvCellsLimit}} 格上限约束。",
     "tabs_label": "选项卡",
     "select_all_tabs_tooltip": "选择所有选项卡以包含所有选项卡。如果您不选择此选项，则仅选择选项卡将被包含。",
     "include_all_tabs": "包含所有选项卡",
@@ -4280,8 +4281,7 @@
     "export_dashboard": "导出看板",
     "tabs": {
       "image": "图片",
-      "csv": ".csv",
-      "xlsx": ".xlsx"
+      "data": "数据"
     }
   },
   "components_common_modal_dashboard_update": {

@@ -666,7 +666,7 @@ export class SchedulerWorker extends SchedulerTask {
                         },
                     ),
                     helpers.job,
-                    this.lightdashConfig.scheduler.jobTimeout,
+                    this.lightdashConfig.scheduler.exportJobTimeout,
                     async (job, e) => {
                         await this.schedulerService.logSchedulerJob({
                             task: SCHEDULER_TASKS.EXPORT_CSV_DASHBOARD,
@@ -700,7 +700,7 @@ export class SchedulerWorker extends SchedulerTask {
                         },
                     ),
                     helpers.job,
-                    this.lightdashConfig.scheduler.jobTimeout,
+                    this.lightdashConfig.scheduler.exportJobTimeout,
                     async (job, e) => {
                         await this.schedulerService.logSchedulerJob({
                             task: SCHEDULER_TASKS.EXPORT_CONTENT,

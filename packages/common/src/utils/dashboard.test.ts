@@ -1,6 +1,6 @@
 import { type DashboardTile } from '../types/dashboard';
 import { ParameterError } from '../types/errors';
-import { validateSelectedTabs } from './dashboard';
+import { isTileInSelectedTabs, validateSelectedTabs } from './dashboard';
 
 describe('validateSelectedTabs', () => {
     // Simple mock that focuses on just the tabUuid property
@@ -50,5 +50,39 @@ describe('validateSelectedTabs', () => {
         expect(() =>
             validateSelectedTabs(['any-tab'], tilesWithoutTabUuid),
         ).toThrow('None of the selected tabs exist in the dashboard');
+    });
+});
+
+describe('isTileInSelectedTabs', () => {
+    // 看板导出（CSV / XLSX）与定时投递都用它决定某个 tile 是否属于选中的 Tab
+    const tiles = [
+        { tabUuid: 'tab1' },
+        { tabUuid: 'tab2' },
+        { tabUuid: null },
+        { tabUuid: undefined },
+    ];
+
+    it('includes every tile when selectedTabs is null', () => {
+        expect(tiles.filter((t) => isTileInSelectedTabs(t, null))).toHaveLength(
+            4,
+        );
+    });
+
+    it('keeps only tiles of the selected tabs', () => {
+        const kept = tiles.filter((t) => isTileInSelectedTabs(t, ['tab1']));
+        expect(kept).toEqual([
+            { tabUuid: 'tab1' },
+            { tabUuid: null },
+            { tabUuid: undefined },
+        ]);
+    });
+
+    it('treats legacy tiles without tabUuid as part of every tab', () => {
+        expect(isTileInSelectedTabs({ tabUuid: null }, ['tab2'])).toBe(true);
+        expect(isTileInSelectedTabs({}, ['tab2'])).toBe(true);
+    });
+
+    it('excludes tiles of other tabs', () => {
+        expect(isTileInSelectedTabs({ tabUuid: 'tab2' }, ['tab1'])).toBe(false);
     });
 });

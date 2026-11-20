@@ -11,6 +11,7 @@ import {
     type DashboardFilters,
     type DateZoom,
     type DownloadAsyncQueryResultsPayload,
+    type ExportFilterColumn,
     type Filters,
     type ItemsMap,
     type ParametersValuesMap,
@@ -51,6 +52,13 @@ export type DownloadAsyncQueryResultsArgs = Omit<
     hiddenFields?: string[];
     pivotConfig?: PivotConfig;
     attachmentDownloadName?: string;
+    /**
+     * XLSX 专用：保留生成的本地文件并返回路径，供同进程内后续合并使用（省一次 S3 往返）。
+     * 调用方负责删除。
+     */
+    keepTempFile?: boolean;
+    /** 导出文件左侧前置的「筛选器常量列」（看板导出用） */
+    leadingColumns?: ExportFilterColumn[];
 };
 
 export type ScheduleDownloadAsyncQueryResultsArgs = Omit<

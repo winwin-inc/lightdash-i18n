@@ -205,6 +205,9 @@ dashboardRouter.post(
                     req.params.dashboardUuid,
                     req.body.filters,
                     req.body.dateZoomGranularity,
+                    req.body.selectedTabs ?? null,
+                    req.body.tabFilters,
+                    req.body.locale,
                 );
 
             res.json({

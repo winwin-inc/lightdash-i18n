@@ -4,6 +4,7 @@ import { type ApiSuccess } from './api/success';
 import type { DownloadFileType } from './downloadFile';
 import { type Explore, type ExploreError } from './explore';
 import { type DashboardFilterRule, type DashboardFilters } from './filter';
+import { type ExportFilterColumn } from '../utils/dashboardExportFilters';
 import { type KnexPaginatedData } from './knex-paginate';
 import { type MetricQuery } from './metricQuery';
 import { type ParametersValuesMap } from './parameters';
@@ -15,8 +16,8 @@ export type SchedulerCsvOptions = {
     formatted: boolean;
     limit: 'table' | 'all' | number;
     asAttachment?: boolean;
-    /** Dashboard XLSX: zip of files (default) or one multi-sheet workbook */
-    xlsxFileLayout?: 'zip' | 'workbook';
+    // 看板 XLSX 产物固定为「每个 Tab 一个 xlsx，包内每个 xlsx 里每张图一个 sheet」
+    // （旧的「每张图一个文件」/「单文件多工作表」布局已移除，不再有布局选项）
     /** UI language for delivery emails; missing => zh */
     locale?: string;
 };
@@ -429,7 +430,16 @@ export type NotificationPayloadBase = {
             filename: string;
             localPath: string;
             truncated: boolean;
+            /** 看板导出：该文件所属的 Tab（按 Tab 分文件时用） */
+            tabUuid?: string | null;
+            tabName?: string;
         }[];
+        /** 看板导出部分失败的图表清单：tile 查询失败 / 合并失败 / 整 Tab 被跳过时记录。
+         *  全部成功时缺省；旧队列 payload 可能没有该字段，读取点需按 undefined 处理 */
+        failedExports?: Array<{
+            filename: string;
+            reason: string;
+        }>;
         pdfFile?: {
             source: string;
             fileName: string;
@@ -529,10 +539,34 @@ export type ApiJobStatusResponse = {
 
 export type SchedulerCronUpdate = { schedulerUuid: string; cron: string };
 
+/**
+ * 看板导出的进度（写在 scheduler_log.details.progress 里，跑动中就能读到）。
+ * 前端据 currentTabName / currentChartName 展示「正在导出哪一页的哪张图」。
+ */
+export type ExportJobProgress = {
+    /** 已完成的图数 */
+    done: number;
+    /** 本次要导出的图数 */
+    total: number;
+    /** 正在处理的 Tab 名（看板没有 Tab 时为 undefined） */
+    currentTabName?: string;
+    /** 正在处理的图表名 */
+    currentChartName?: string;
+};
+
 export type ExportCsvDashboardPayload = TraceTaskBase & {
     dashboardUuid: string;
     dashboardFilters: DashboardFilters;
     dateZoomGranularity?: DateGranularity;
+    /** null / undefined 表示导出全部 Tab */
+    selectedTabs?: string[] | null;
+    /**
+     * 每个 Tab 实际生效的筛选器（已合并全局 + Tab），键为 tabUuid。
+     * 前端导出时带上页面当前取值；缺省时后端按看板保存的定义合并。
+     */
+    tabFilters?: Record<string, DashboardFilters>;
+    /** UI 语言：筛选器列名与取值用词（缺省中文） */
+    locale?: string;
 };
 
 /** Dashboard one-click export (CSV/XLSX). Image stays on the legacy /export route. */
@@ -550,6 +584,8 @@ export type ExportContentPayload = TraceTaskBase & {
     customViewportWidth?: number;
     selectedTabs?: string[] | null;
     parameters?: ParametersValuesMap;
+    /** 每个 Tab 实际生效的筛选器（已合并全局 + Tab），键为 tabUuid */
+    tabFilters?: Record<string, DashboardFilters>;
 };
 
 export type ExportContentRequest = {
@@ -560,6 +596,8 @@ export type ExportContentRequest = {
     customViewportWidth?: number;
     selectedTabs?: string[] | null;
     parameters?: ParametersValuesMap;
+    /** 每个 Tab 实际生效的筛选器（已合并全局 + Tab），键为 tabUuid */
+    tabFilters?: Record<string, DashboardFilters>;
 };
 
 export type DownloadAsyncQueryResultsPayload = TraceTaskBase & {
@@ -573,4 +611,6 @@ export type DownloadAsyncQueryResultsPayload = TraceTaskBase & {
     pivotConfig?: PivotConfig;
     attachmentDownloadName?: string;
     encodedJwt?: string;
+    /** 导出文件左侧前置的「筛选器常量列」（看板导出用，普通下载不传） */
+    leadingColumns?: ExportFilterColumn[];
 };

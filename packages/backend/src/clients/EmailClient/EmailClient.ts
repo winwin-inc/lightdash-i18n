@@ -67,6 +67,23 @@ export default class EmailClient {
         attachment: AttachmentUrl,
         format?: SchedulerFormat,
     ): Mail.Attachment {
+        const sourcePath = attachment.localPath || attachment.path;
+
+        // 看板多文件布局（CSV/XLSX 选 zip 或按 Tab 分文件）的产物是 zip，
+        // 不能按单文件扩展名处理，否则得到「zip 内容 + .xlsx 后缀」的坏附件
+        if (
+            attachment.filename.endsWith('.zip') ||
+            /\.zip(\?|$)/i.test(sourcePath)
+        ) {
+            return {
+                filename: attachment.filename.endsWith('.zip')
+                    ? attachment.filename
+                    : `${attachment.filename}.zip`,
+                path: sourcePath,
+                contentType: 'application/zip',
+            };
+        }
+
         const contentType =
             format === SchedulerFormat.XLSX
                 ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
@@ -83,7 +100,7 @@ export default class EmailClient {
 
         return {
             filename: fileName,
-            path: attachment.localPath || attachment.path,
+            path: sourcePath,
             contentType,
         };
     }
@@ -441,14 +458,10 @@ export default class EmailClient {
         locale?: string | null,
     ) {
         const copy = getEmailCopy(locale);
-        const resolvedDeliveryType =
-            deliveryType ?? copy.scheduledDelivery;
+        const resolvedDeliveryType = deliveryType ?? copy.scheduledDelivery;
         const deliveredExpireText = copy.deliveredExpire
             .replace('{{date}}', date)
-            .replace(
-                '{{expirationDays}}',
-                String(expirationDays ?? ''),
-            );
+            .replace('{{expirationDays}}', String(expirationDays ?? ''));
 
         return this.sendEmail({
             to: recipient,
@@ -566,8 +579,28 @@ export default class EmailClient {
         asAttachment?: boolean,
         format?: SchedulerFormat,
         locale?: string | null,
+        /** 看板导出中失败的图表（page.failedExports），旧 payload 可能没有 */
+        failedExports?: Array<{ filename: string; reason: string }>,
     ) {
         const copy = getEmailCopy(locale);
+        // 失败清单只列前 10 个图表名，避免邮件里出现一长串
+        const maxFailedExportNames = 10;
+        const failedExportNames = (failedExports ?? [])
+            .slice(0, maxFailedExportNames)
+            .map((failedExport) => failedExport.filename);
+        const remainingFailedExports =
+            (failedExports?.length ?? 0) - failedExportNames.length;
+        const failedExportsMessage =
+            failedExports && failedExports.length > 0
+                ? `${copy.failedExportsTitle} ${copy.failedExportsBody.replace(
+                      '{{names}}',
+                      remainingFailedExports > 0
+                          ? `${failedExportNames.join(', ')} (+${
+                                remainingFailedExports
+                            } more)`
+                          : failedExportNames.join(', '),
+                  )}`
+                : undefined;
         const maxCells = this.lightdashConfig.query.csvCellsLimit;
         const csvUrls = attachments.filter(
             (attachment) => !attachment.truncated,
@@ -577,8 +610,13 @@ export default class EmailClient {
             (attachment) => attachment.truncated,
         );
 
+        // 附件从「所有有产物的条目」构建，不只取未截断的那批：
+        // 合并后的看板产物只有一条（每 Tab 一个 xlsx / 一个 zip），
+        // 任意一张图触顶就会把它整体标成 truncated，若按 truncated 过滤
+        // 就会出现「勾了作为附件却一个附件都没有」。截断仍由模板的
+        // truncated 区块提示。
         const emailAttachments = asAttachment
-            ? csvUrls
+            ? attachments
                   .filter(
                       (attachment) =>
                           (attachment.localPath || attachment.path) &&
@@ -617,6 +655,7 @@ export default class EmailClient {
                     String(maxCells),
                 ),
                 truncatedHint: copy.truncatedHint,
+                failedExportsMessage,
                 viewDashboard: copy.viewDashboard,
                 scheduledDeliveryLabel: copy.scheduledDelivery,
             }),

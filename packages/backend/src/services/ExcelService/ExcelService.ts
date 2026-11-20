@@ -16,6 +16,7 @@ import {
     PivotConfig,
     pivotResultsAsCsv,
     TimeFrames,
+    type ExportFilterColumn,
     type ReadyQueryResultsPage,
 } from '@lightdash/common';
 import * as Excel from 'exceljs';
@@ -310,6 +311,7 @@ export class ExcelService {
         maxColumnLimit,
         pivotDetails,
         displayTimezone,
+        leadingColumns = [],
     }: {
         rows: Record<string, AnyType>[];
         itemMap: ItemsMap;
@@ -320,6 +322,8 @@ export class ExcelService {
         maxColumnLimit: number;
         pivotDetails: ReadyQueryResultsPage['pivotDetails'];
         displayTimezone?: string;
+        /** 矩阵左侧前置的筛选器常量列（看板导出） */
+        leadingColumns?: ExportFilterColumn[];
     }): Promise<{ filePath: string }> {
         // PivotQueryResults expects a formatted ResultRow[] type, so we need to convert it first
         const formattedRows = formatRows(rows, itemMap, undefined, {
@@ -347,11 +351,23 @@ export class ExcelService {
         });
         const worksheet = workbook.addWorksheet('Pivot Table');
 
+        // 前置常量列与 CSV 保持一致：第一行（透视表的首个表头行）写列名，
+        // 其余行（含次级表头行）写取值，不做合并单元格
+        const leadingHeaders = leadingColumns.map((column) => column.header);
+        const leadingValues = leadingColumns.map((column) => column.value);
+
         csvResults.forEach((row, index) => {
             const excelRow = row.map((value) =>
                 ExcelService.convertToExcelDate(value),
             );
-            const addedRow = worksheet.addRow(excelRow);
+            const addedRow = worksheet.addRow(
+                leadingColumns.length > 0
+                    ? [
+                          ...(index === 0 ? leadingHeaders : leadingValues),
+                          ...excelRow,
+                      ]
+                    : excelRow,
+            );
             addedRow.commit();
 
             // Style headers (first row)
@@ -369,9 +385,10 @@ export class ExcelService {
         // Column widths are sampled: scanning every row of a wide pivot is
         // O(rows x columns) over `toString()` and was a measurable chunk of the export.
         const SAMPLE_ROWS = 200;
+        const widthOffset = leadingColumns.length;
         csvResults.slice(0, SAMPLE_ROWS).forEach((row) => {
             row.forEach((value, index) => {
-                const column = worksheet.getColumn(index + 1);
+                const column = worksheet.getColumn(index + 1 + widthOffset);
                 if (!column) return;
                 const valueLength = String(value ?? '').length;
                 if (valueLength > (column.width ?? 0)) {
@@ -413,8 +430,17 @@ export class ExcelService {
             hiddenFields: string[];
             pivotConfig: PivotConfig;
             attachmentDownloadName?: string;
+            /** 合并多工作表时保留本地临时文件（由调用方负责清理） */
+            keepTempFile?: boolean;
+            /** 透视矩阵左侧前置的筛选器常量列（看板导出） */
+            leadingColumns?: ExportFilterColumn[];
         };
-    }): Promise<{ fileUrl: string; truncated: boolean }> {
+    }): Promise<{
+        fileUrl: string;
+        truncated: boolean;
+        localPath?: string;
+        rowCount: number;
+    }> {
         const { onlyRaw, customLabels, pivotConfig } = options;
 
         // Load rows from the results file using shared streaming utility
@@ -480,11 +506,12 @@ export class ExcelService {
             maxColumnLimit: lightdashConfig.pivotTable.maxColumnLimit,
             pivotDetails,
             displayTimezone: lightdashConfig.query.timezone,
+            leadingColumns: options.leadingColumns,
         });
 
         try {
             // Stream the workbook from disk instead of holding the whole file in memory
-            return await storageClient.transformResultsIntoNewFile(
+            const result = await storageClient.transformResultsIntoNewFile(
                 resultsFileName,
                 formattedFileName,
                 async (_, writeStream: Writable) => {
@@ -504,8 +531,21 @@ export class ExcelService {
                     return { truncated };
                 },
             );
-        } finally {
+            return {
+                ...result,
+                ...(options.keepTempFile ? { localPath: filePath } : {}),
+                // 透视按输入行数计入导出行数预算
+                rowCount: rows.length,
+            };
+        } catch (error) {
+            // 上传/转换失败时本地文件不会被调用方用到，直接清掉
             ExcelService.cleanupTempFile(filePath);
+            throw error;
+        } finally {
+            // keepTempFile 时由调用方在合并完成后清理，避免合并布局还要回 S3 拉一次
+            if (!options.keepTempFile) {
+                ExcelService.cleanupTempFile(filePath);
+            }
         }
     }
 
@@ -537,7 +577,9 @@ export class ExcelService {
         onlyRaw: boolean,
         sortedFieldIds: string[],
         displayTimezone?: string,
-    ): Promise<{ truncated: boolean }> {
+        /** 工作表最左侧的筛选器常量列（看板导出） */
+        leadingColumns: ExportFilterColumn[] = [],
+    ): Promise<{ truncated: boolean; rowCount: number }> {
         // Use the same approach as our working tests - direct filename instead of stream
         const workbook = new Excel.stream.xlsx.WorkbookWriter({
             filename: tempFilePath,
@@ -549,41 +591,52 @@ export class ExcelService {
         });
         const worksheet = workbook.addWorksheet('Sheet1');
 
+        // 前置常量列：列名直接当表头，每行写同一个值
+        const leadingValues = leadingColumns.map((column) => column.value);
+        const leadingHeaders = leadingColumns.map((column) => column.header);
+
         // Set up columns with formatting
-        worksheet.columns = headers.map((header, index) => {
-            const fieldId = sortedFieldIds[index];
-            const item = fields[fieldId];
-            const formatExpression = getFormatExpression(item);
-            const isMetricField =
-                !!item &&
-                'fieldType' in item &&
-                item.fieldType === FieldType.METRIC;
-            const isTemporalField =
-                !!item &&
-                'type' in item &&
-                (item.type === DimensionType.DATE ||
-                    item.type === DimensionType.TIMESTAMP);
-
-            const column: Partial<Excel.Column> = {
+        worksheet.columns = [
+            ...leadingHeaders.map((header, index) => ({
                 header,
-                key: `col_${index}`,
-                width: 15,
-            };
+                key: `leading_${index}`,
+                width: Math.min(Math.max(header.length + 4, 12), 40),
+            })),
+            ...headers.map((header, index) => {
+                const fieldId = sortedFieldIds[index];
+                const item = fields[fieldId];
+                const formatExpression = getFormatExpression(item);
+                const isMetricField =
+                    !!item &&
+                    'fieldType' in item &&
+                    item.fieldType === FieldType.METRIC;
+                const isTemporalField =
+                    !!item &&
+                    'type' in item &&
+                    (item.type === DimensionType.DATE ||
+                        item.type === DimensionType.TIMESTAMP);
 
-            // Apply number formatting at column level for metrics that still
-            // write raw numbers. Compact columns write display strings instead.
-            if (
-                !onlyRaw &&
-                formatExpression &&
-                isMetricField &&
-                !isTemporalField &&
-                !ExcelService.itemHasCompactFormat(item)
-            ) {
-                column.style = { numFmt: formatExpression };
-            }
+                const column: Partial<Excel.Column> = {
+                    header,
+                    key: `col_${index}`,
+                    width: 15,
+                };
 
-            return column;
-        });
+                // Apply number formatting at column level for metrics that still
+                // write raw numbers. Compact columns write display strings instead.
+                if (
+                    !onlyRaw &&
+                    formatExpression &&
+                    isMetricField &&
+                    !isTemporalField &&
+                    !ExcelService.itemHasCompactFormat(item)
+                ) {
+                    column.style = { numFmt: formatExpression };
+                }
+
+                return column;
+            }),
+        ];
 
         let actualRowCount = 0;
 
@@ -606,7 +659,10 @@ export class ExcelService {
                     // Stream directly to Excel temp file. `addRow(array)` maps values to
                     // `worksheet.columns` by index, so we skip building a per-row object
                     // with `col_N` keys.
-                    const row = worksheet.addRow(rowData);
+                    const row = worksheet.addRow([
+                        ...leadingValues,
+                        ...rowData,
+                    ]);
                     row.commit();
                 } else {
                     Logger.warn(
@@ -622,7 +678,7 @@ export class ExcelService {
         worksheet.commit();
         await workbook.commit();
 
-        return { truncated };
+        return { truncated, rowCount: actualRowCount };
     }
 
     /**
@@ -641,8 +697,20 @@ export class ExcelService {
             hiddenFields?: string[];
             attachmentDownloadName?: string;
             displayTimezone?: string;
+            /**
+             * 保留本地临时文件并返回路径，供同进程内的后续处理（如合并成多 sheet 工作簿）直接读取，
+             * 省掉一次 S3 上传 + 下载。调用方负责删除该文件。
+             */
+            keepTempFile?: boolean;
+            /** 工作表最左侧的筛选器常量列（看板导出） */
+            leadingColumns?: ExportFilterColumn[];
         } = {},
-    ): Promise<{ fileUrl: string; truncated: boolean }> {
+    ): Promise<{
+        fileUrl: string;
+        truncated: boolean;
+        localPath?: string;
+        rowCount: number;
+    }> {
         // Handle column ordering and filtering
         const {
             onlyRaw = false,
@@ -652,6 +720,8 @@ export class ExcelService {
             hiddenFields = [],
             attachmentDownloadName,
             displayTimezone,
+            keepTempFile = false,
+            leadingColumns = [],
         } = options;
 
         // Process fields and generate headers using shared utility
@@ -673,15 +743,17 @@ export class ExcelService {
             );
 
             // Step 2: Stream JSONL data to Excel temp file
-            const { truncated } = await ExcelService.streamJsonlToExcelFile(
-                resultsStream,
-                tempFilePath,
-                headers,
-                fields,
-                onlyRaw,
-                sortedFieldIds,
-                displayTimezone,
-            );
+            const { truncated, rowCount } =
+                await ExcelService.streamJsonlToExcelFile(
+                    resultsStream,
+                    tempFilePath,
+                    headers,
+                    fields,
+                    onlyRaw,
+                    sortedFieldIds,
+                    displayTimezone,
+                    leadingColumns,
+                );
 
             // Generate filename with truncated flag
             const formattedFileName = ExcelService.generateFileId(
@@ -705,6 +777,8 @@ export class ExcelService {
             return {
                 fileUrl,
                 truncated,
+                ...(keepTempFile ? { localPath: tempFilePath } : {}),
+                rowCount,
             };
         } catch (error) {
             Logger.error(
@@ -712,8 +786,10 @@ export class ExcelService {
             );
             throw error;
         } finally {
-            // Always clean up temp file, regardless of success or failure
-            ExcelService.cleanupTempFile(tempFilePath);
+            // keepTempFile 时由调用方负责清理（合并完再删）
+            if (!keepTempFile) {
+                ExcelService.cleanupTempFile(tempFilePath);
+            }
         }
     }
 }

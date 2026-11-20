@@ -1,11 +1,32 @@
 import { Readable } from 'stream';
 import {
     createContentDispositionHeader,
+    dedupeZipEntryNames,
     processFieldsForExport,
+    resolveExportTileName,
     sanitizeGenericFileName,
     streamJsonlData,
     stripCompactUnitHintsFromHeader,
 } from './FileDownloadUtils';
+
+describe('resolveExportTileName', () => {
+    it('prefers the dashboard tile title over the chart name', () => {
+        expect(
+            resolveExportTileName('TOP15集团销售额同比', 'Copy of 市场份额'),
+        ).toBe('TOP15集团销售额同比');
+    });
+
+    it('trims surrounding whitespace in the tile title', () => {
+        expect(resolveExportTileName('  销售额  ', 'chart')).toBe('销售额');
+    });
+
+    it('falls back to the chart name when the title is blank or absent', () => {
+        expect(resolveExportTileName(undefined, 'chart')).toBe('chart');
+        expect(resolveExportTileName(null, 'chart')).toBe('chart');
+        expect(resolveExportTileName('   ', 'chart')).toBe('chart');
+        expect(resolveExportTileName('', 'chart')).toBe('chart');
+    });
+});
 
 describe('FileDownloadUtils', () => {
     describe('stripCompactUnitHintsFromHeader', () => {
@@ -336,5 +357,27 @@ describe('FileDownloadUtils', () => {
             expect(results).toHaveLength(3);
             expect(readStream.destroyed).toBe(true);
         });
+    });
+});
+
+describe('dedupeZipEntryNames', () => {
+    it('keeps the original casing and appends suffixes for duplicates', () => {
+        expect(
+            dedupeZipEntryNames(['Sales', 'Sales', 'Sales'], 'xlsx'),
+        ).toEqual(['Sales.xlsx', 'Sales_2.xlsx', 'Sales_3.xlsx']);
+    });
+
+    it('de-duplicates case-insensitively, matching extractor behaviour', () => {
+        expect(dedupeZipEntryNames(['Sales', 'sales'], 'xlsx')).toEqual([
+            'Sales.xlsx',
+            'sales_2.xlsx',
+        ]);
+    });
+
+    it('sanitizes path separators and empty names', () => {
+        expect(dedupeZipEntryNames(['a/b:c', ''], 'xlsx')).toEqual([
+            'a_b_c.xlsx',
+            'download.xlsx',
+        ]);
     });
 });

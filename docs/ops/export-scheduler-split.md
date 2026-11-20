@@ -1,6 +1,6 @@
 # 导出与 API 分进程（scheduler 独立 Deployment）
 
-状态：**待开发**（方案已评估，尚未实施；先在 pre 验证）
+状态：**暂不实现**（方案已评估；当前导出量可接受，API 与 worker 继续同进程。看板 XLSX 布局暂不上线，故不触发该优化。若后续大批量导出回归，再回到本方案）
 范围：部署形态（k8s-config）为主，本项目只做确认，**不需要改代码**
 相关：[csv-export-performance.md](./csv-export-performance.md)、[warehouse-query-cancel.md](./warehouse-query-cancel.md)
 

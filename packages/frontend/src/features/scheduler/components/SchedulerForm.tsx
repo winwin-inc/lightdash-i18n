@@ -22,7 +22,6 @@ import {
     type ParameterDefinitions,
     type ParametersValuesMap,
     type SchedulerAndTargets,
-    type SchedulerCsvOptions,
 } from '@lightdash/common';
 import { getSchedulerFilterRequirements } from '../utils/filterRequirements';
 import {
@@ -105,9 +104,6 @@ const DEFAULT_VALUES = {
         customLimit: 1,
         withPdf: false,
         asAttachment: false,
-        xlsxFileLayout: 'zip' as NonNullable<
-            SchedulerCsvOptions['xlsxFileLayout']
-        >,
     },
     emailTargets: [] as string[],
     slackTargets: [] as string[],
@@ -156,7 +152,8 @@ const getSelectedTabsForDashboardScheduler = (
 const getFormValuesFromScheduler = (schedulerData: SchedulerAndTargets) => {
     const options = schedulerData.options;
 
-    const formOptions = DEFAULT_VALUES.options;
+    // 浅拷贝 options，避免就地改写模块级常量 DEFAULT_VALUES.options
+    const formOptions = { ...DEFAULT_VALUES.options };
 
     if (isSchedulerCsvOptions(options)) {
         formOptions.formatted = options.formatted
@@ -172,7 +169,6 @@ const getFormValuesFromScheduler = (schedulerData: SchedulerAndTargets) => {
             formOptions.customLimit = options.limit as number;
         }
         formOptions.asAttachment = options.asAttachment || false;
-        formOptions.xlsxFileLayout = options.xlsxFileLayout ?? 'zip';
     } else if (isSchedulerImageOptions(options)) {
         formOptions.withPdf = options.withPdf || false;
     }
@@ -400,6 +396,8 @@ const SchedulerForm: FC<Props> = ({
                 ? DEFAULT_VALUES_ALERT
                 : {
                       ...DEFAULT_VALUES,
+                      // options 单独浅拷贝，避免新建表单仍引用模块级常量对象
+                      options: { ...DEFAULT_VALUES.options },
                       selectedTabs: isDashboardTabsAvailable
                           ? dashboard?.tabs.map((tab) => tab.uuid)
                           : null,
@@ -497,11 +495,6 @@ const SchedulerForm: FC<Props> = ({
                         values.emailTargets.length > 0
                             ? values.options.asAttachment
                             : false,
-                    xlsxFileLayout:
-                        values.format === SchedulerFormat.XLSX &&
-                        resource?.type === 'dashboard'
-                            ? values.options.xlsxFileLayout
-                            : undefined,
                     locale: i18n.language?.toLowerCase().startsWith('zh')
                         ? 'zh'
                         : 'en',
@@ -1183,40 +1176,6 @@ const SchedulerForm: FC<Props> = ({
                                                     )}
                                                 </Stack>
                                             </Group>
-                                            {form.values.format ===
-                                                SchedulerFormat.XLSX &&
-                                                isDashboard && (
-                                                    <Radio.Group
-                                                        mt="sm"
-                                                        label={t(
-                                                            'features_scheduler_form.form.tabs_panel_setup.xlsx_output',
-                                                        )}
-                                                        description={t(
-                                                            'features_scheduler_form.form.tabs_panel_setup.xlsx_output_help',
-                                                        )}
-                                                        {...form.getInputProps(
-                                                            'options.xlsxFileLayout',
-                                                        )}
-                                                    >
-                                                        <Stack
-                                                            spacing="xxs"
-                                                            pt="xs"
-                                                        >
-                                                            <Radio
-                                                                label={t(
-                                                                    'features_scheduler_form.form.tabs_panel_setup.xlsx_zip',
-                                                                )}
-                                                                value="zip"
-                                                            />
-                                                            <Radio
-                                                                label={t(
-                                                                    'features_scheduler_form.form.tabs_panel_setup.xlsx_workbook',
-                                                                )}
-                                                                value="workbook"
-                                                            />
-                                                        </Stack>
-                                                    </Radio.Group>
-                                                )}
                                         </Collapse>
                                     </Stack>
                                 )}

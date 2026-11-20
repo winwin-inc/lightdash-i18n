@@ -89,6 +89,7 @@ import {
     type SpaceSummary,
     SqlChart,
     UnexpectedServerError,
+    type ExportFilterColumn,
     WarehouseClient,
     type WarehouseExecuteAsyncQuery,
     type WarehouseResults,
@@ -869,6 +870,8 @@ export class AsyncQueryService extends ProjectService {
         hiddenFields = [],
         pivotConfig,
         attachmentDownloadName,
+        keepTempFile = false,
+        leadingColumns = [],
     }: DownloadAsyncQueryResultsArgs): Promise<
         | ApiDownloadAsyncQueryResults
         | ApiDownloadAsyncQueryResultsAsCsv
@@ -974,6 +977,7 @@ export class AsyncQueryService extends ProjectService {
                             hiddenFields,
                             pivotConfig,
                             attachmentDownloadName,
+                            leadingColumns,
                         },
                     });
                 }
@@ -991,6 +995,7 @@ export class AsyncQueryService extends ProjectService {
                         columnOrder,
                         hiddenFields,
                         pivotConfig,
+                        leadingColumns,
                     },
                     attachmentDownloadName,
                 );
@@ -1015,6 +1020,8 @@ export class AsyncQueryService extends ProjectService {
                             hiddenFields,
                             pivotConfig,
                             attachmentDownloadName,
+                            keepTempFile,
+                            leadingColumns,
                         },
                     });
                 }
@@ -1031,6 +1038,8 @@ export class AsyncQueryService extends ProjectService {
                         hiddenFields,
                         attachmentDownloadName,
                         displayTimezone: this.lightdashConfig.query.timezone,
+                        keepTempFile,
+                        leadingColumns,
                     },
                 );
             case undefined:
@@ -1063,6 +1072,7 @@ export class AsyncQueryService extends ProjectService {
                 streams: { readStream: Readable; writeStream: Writable },
                 displayTimezone?: string,
                 maxLines?: number,
+                leadingColumns?: ExportFilterColumn[],
             ) => Promise<{ truncated: boolean }>;
         },
         options?: {
@@ -1072,6 +1082,7 @@ export class AsyncQueryService extends ProjectService {
             columnOrder?: string[];
             hiddenFields?: string[];
             pivotConfig?: PivotConfig;
+            leadingColumns?: ExportFilterColumn[];
         },
         attachmentDownloadName?: string,
     ): Promise<{ fileUrl: string; truncated: boolean }> {
@@ -1085,6 +1096,7 @@ export class AsyncQueryService extends ProjectService {
             customLabels = {},
             columnOrder = [],
             hiddenFields = [],
+            leadingColumns = [],
         } = options || {};
 
         // Process fields and generate headers using shared utility
@@ -1114,6 +1126,7 @@ export class AsyncQueryService extends ProjectService {
                     this.lightdashConfig.query.timezone,
                     // Hard cap so a runaway "all results" export can't exhaust the pod.
                     this.lightdashConfig.query.exportMaxRows,
+                    leadingColumns,
                 );
 
                 return {

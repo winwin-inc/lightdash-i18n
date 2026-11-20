@@ -2399,9 +2399,15 @@ const DashboardProvider: React.FC<
         if (dashboard?.config?.showTabAddFilterButton) {
             setShowTabAddFilterButton(dashboard.config.showTabAddFilterButton);
         }
+        // 每个 Tab 的筛选层开关：不回填的话，保存过「关闭该 Tab 筛选层」的看板
+        // 刷新后仍会应用 Tab 筛选器，与后端定时交付/导出（按配置判断）不一致
+        if (dashboard?.config?.tabFilterEnabled) {
+            setIsTabFilterEnabled(dashboard.config.tabFilterEnabled);
+        }
     }, [
         dashboard,
         setIsGlobalFilterEnabled,
+        setIsTabFilterEnabled,
         setShowGlobalAddFilterButton,
         setShowTabAddFilterButton,
     ]);
