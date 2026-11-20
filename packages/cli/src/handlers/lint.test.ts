@@ -39,6 +39,24 @@ filters:
 tabs: []
 `;
 
+const legacyNullDashboard = `
+version: 1
+name: Legacy
+slug: legacy
+spaceSlug: shared
+description: null
+config: null
+tiles: []
+filters:
+  dimensions: []
+  metrics: []
+  tableCalculations: []
+tabs:
+  - name: Overview
+    order: 0
+    slug: overview
+`;
+
 describe('lintHandler', () => {
     let tempDir: string;
     const originalExit = process.exit;
@@ -58,6 +76,18 @@ describe('lintHandler', () => {
         await fs.writeFile(
             path.join(tempDir, 'dashboards', 'sales.yml'),
             validDashboard,
+        );
+
+        await lintHandler({ path: tempDir });
+
+        expect(process.exit).not.toHaveBeenCalled();
+    });
+
+    test('accepts legacy downloads with null config and description', async () => {
+        await fs.mkdir(path.join(tempDir, 'dashboards'));
+        await fs.writeFile(
+            path.join(tempDir, 'dashboards', 'legacy.yml'),
+            legacyNullDashboard,
         );
 
         await lintHandler({ path: tempDir });

@@ -14,7 +14,7 @@
 
 导入按 `slug` 匹配。目标环境要有兼容的 dbt explore / 字段 / 指标。对不上的 slug 会丢掉并 warning，不阻断 upload。不要用会剥未知字段的工具改 YAML。
 
-download 有时会写出 `config: null`。本仓 lint 要求 `config` 是 object，要绿就删掉该字段或改成 `{}`。不要为了过官方 lint 去剥 `tab.filters`。
+旧版 download 会写出 `config: null`（看板配置列为可空，老看板库里为 NULL）。已修复：新 download 不再写出该字段；lint 与 upload 都容忍存量的 `config: null`，旧文件不改可直接过。不要为了过官方 lint 去剥 `tab.filters`。
 
 ## 权限
 

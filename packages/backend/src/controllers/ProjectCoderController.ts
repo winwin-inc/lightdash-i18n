@@ -264,7 +264,7 @@ export class ProjectCoderController extends BaseController {
         @Body()
         dashboard: Omit<
             DashboardAsCode,
-            'filters' | 'tiles' | 'description'
+            'filters' | 'tiles' | 'description' | 'tabs' | 'config'
         > & {
             skipSpaceCreate?: boolean;
             publicSpaceCreate?: boolean;
@@ -273,6 +273,14 @@ export class ProjectCoderController extends BaseController {
             filePath?: string;
             filters: AnyType;
             tiles: AnyType;
+            // Tab-level filters strip rule ids for portability, which TSOA
+            // runtime validation would reject (`DashboardFilterRule.id` is
+            // required); tabs travel unvalidated and are restored from the
+            // raw body below, same as filters/tiles.
+            tabs: AnyType;
+            // `config: null` is emitted by older download builds (nullable
+            // DB column); accept it and normalize to "absent".
+            config?: AnyType;
             description?: string | null;
         },
         @Request() req: express.Request,
@@ -284,6 +292,8 @@ export class ProjectCoderController extends BaseController {
             {
                 ...dashboard,
                 description: dashboard.description ?? undefined,
+                config: (dashboard.config ??
+                    undefined) as DashboardAsCode['config'],
             },
             rawBody,
         );

@@ -924,13 +924,20 @@
     "description": "From T, pick a set of properties whose keys are in the union K",
     "properties": {
         "config": {
-            "$ref": "#/$defs/DashboardConfig"
+            "anyOf": [
+                {
+                    "$ref": "#/$defs/DashboardConfig"
+                },
+                {
+                    "type": "null"
+                }
+            ]
         },
         "contentType": {
             "$ref": "#/$defs/ContentAsCodeType.DASHBOARD"
         },
         "description": {
-            "type": "string"
+            "type": ["string", "null"]
         },
         "downloadedAt": {
             "format": "date-time",

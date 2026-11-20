@@ -361,6 +361,24 @@ const overlayCompatibilityRules = (
         };
     }
 
+    // `config: null` is emitted by older download builds (nullable DB
+    // column); tolerate it so legacy files still pass lint and re-upload.
+    if (rootProperties.config) {
+        const existing = toObject(rootProperties.config);
+        rootProperties.config = {
+            ...(existing.description
+                ? { description: existing.description }
+                : {}),
+            anyOf: [{ $ref: '#/$defs/DashboardConfig' }, { type: 'null' }],
+        };
+    }
+
+    // `description: null` is emitted by older download builds (nullable DB
+    // column); tolerate it so legacy files still pass lint.
+    if (rootProperties.description) {
+        rootProperties.description = { type: ['string', 'null'] };
+    }
+
     root.properties = rootProperties;
     root.additionalProperties = false;
     root.required = ['name', 'slug', 'spaceSlug', 'version', 'tiles', 'tabs'];

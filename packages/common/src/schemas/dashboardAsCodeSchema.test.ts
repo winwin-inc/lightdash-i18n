@@ -71,6 +71,17 @@ describe('dashboardAsCodeSchema', () => {
         ).toBe(true);
     });
 
+    test('accepts legacy null config and null description from old downloads', () => {
+        expect(
+            validate({
+                ...baseDashboard,
+                description: null,
+                config: null,
+                tabs: [{ slug: 'overview', name: 'Overview', order: 0 }],
+            }),
+        ).toBe(true);
+    });
+
     test('rejects a dashboard missing its name', () => {
         expect(
             validate({
