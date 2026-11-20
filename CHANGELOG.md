@@ -7,6 +7,25 @@
 > -   自 **v2.0** 起产品主版本独立编号
 
 
+## v2.7.7 (2026-11-20)
+
+-   **CLI 内容同步（as-code）：下载/上传链路修复**
+    -   修复 `download` 写出非法 null 导致「lint 报错 + upload 失败」：看板 `config`、图表/看板 `description` 在库内为可空列，老内容取到 NULL 时曾原样写进 YAML；现归一为字段缺省，新下载不再产出 `config: null`
+    -   修复「看板含 Tab 级筛选器时 lint 能过、upload 400」：下载端按可移植设计剥掉规则 `id`，而上传的运行时校验把 `id` 当必填，请求在校验层就被拒；现让上传的 `tabs`/`config` 走与 `filters`/`tiles` 相同的宽松处理，`config: null` 也归一为缺省
+    -   修复图表上传拒绝 `dashboardSlug: null`：lint schema 本就允许该写法（图表不属看板），上传类型只接受字符串，形成「lint 绿、上传 400」；现上传接受并归一为缺省
+    -   存量 YAML 无需修改：lint 与上传都容忍旧的 `config: null` / `description: null`
+    -   注意：lint 用的 schema 编译进 CLI bundle，要拿到 lint 侧修复需更新 CLI 版本
+-   **CLI 内容同步：Tab 级联引用可移植**
+    -   修复筛选器跨 Tab 级联字段 `parentTabUuid` 在下载时未转 slug、上传时未转回 uuid，导致跨环境同步后级联引用悬空；现在导出/导入双向转译，跨环境同步后级联仍成立
+    -   新增可读别名 `parentTabSlug`：上传两个名字都认（同时存在以 `parentTabUuid` 为准，别名消费后不落库），`download` 仍只输出 `parentTabUuid`，存量文件与旧后端不受影响；lint schema 两种写法都接受
+-   **CLI 内容同步：看板负责人可按邮箱同步**
+    -   `ownerEmail` 此前只导出、上传被忽略；现在上传按邮箱在当前组织解析成员并设为看板负责人（创建与更新两条路径），邮箱不存在时给警告并跳过，不阻断上传；负责人未变化不重复写
+-   **CLI 内容同步：字段静默吞掉的问题收敛**
+    -   `verified`：本 fork 无内容校验功能，该字段不往返；上传遇到时明确提示 `Ignored verified: content verification is not available on this instance`（看板走响应 warnings，图表走服务端日志），不再静默忽略
+-   **CLI 内容同步：能力覆盖回归**
+    -   新增覆盖矩阵文档 `docs/cli/as-code-coverage.md`：按 CHANGELOG 盘点看板/图表/筛选器哪些能力可往返、哪些转译后往返、哪些不进 as-code
+    -   补三层回归测试：字段往返（筛选器分组/范围/级联、表格分组/分页/排序、冻结列/列宽/条件格式）、lint schema、上传运行时校验；并补看板 YAML 说明（筛选器与图表能力、null 口径、`parentTabSlug` 别名）
+
 ## v2.7.6 (2026-11-19)
 
 -   **看板颜色同步：根因修复后重新合入（重要）**
