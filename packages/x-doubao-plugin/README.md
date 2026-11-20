@@ -31,11 +31,14 @@ packages/x-doubao-plugin/
 │   ├── mcp.json                              MCP 连接声明（HTTPS，禁 localhost）
 │   ├── com.doubao/
 │   │   ├── assets/plugin-icon.png
-│   │   └── auth/x.json                       ← 凭据表单声明（不含真实值）
+│   │   ├── auth/x.json                       ← 凭据表单声明（不含真实值）
+│   │   └── cli.json                          ← CLI 连接器声明（msy-x 命令行）
 │   └── skills/brandct-x-insight/              ← 这个目录本身就是「技能包」根
 │       ├── SKILL.md                          技能入口上传时必须在根
 │       ├── assets/icon.png                   512×512
-│       └── references/fields.md              字段与取数速查
+│       └── references/
+│           ├── fields.md                     字段与取数速查
+│           └── cli.md                        CLI 通道速查（命令 / 退出码 / 失败话术）
 ├── proxy/                                    ← 批量代理（可选，解决 N 次往返）
 │   ├── proxy.ts                              透传上游工具 + 额外 x_batch_query
 │   ├── upstream.ts                           用注入的 x-api-key 连上游
@@ -43,7 +46,7 @@ packages/x-doubao-plugin/
 │   ├── mock-upstream.ts                      假上游，本地联调用
 │   └── smoke.mjs                             串行 vs 批量对比实验
 └── scripts/
-    ├── verify.mjs                            插件包自检（12 条发布红线）
+    ├── verify.mjs                            插件包自检（发布红线，含 CLI 连接器规则）
     ├── verify-skill.mjs                      技能包自检（根目录 / frontmatter / 图标）
     ├── build-plugin.mjs                      打插件包 ZIP（根含 plugin.json）
     ├── build-skill.mjs                       打技能包 ZIP（根含 SKILL.md）
@@ -86,7 +89,57 @@ packages/x-doubao-plugin/
 
 ---
 
-## 4. 本地跑通
+## 4. CLI 连接器通道（msy-x）
+
+插件包内现在有**两个通道并存**：MCP 连接器（`mcp.json`，服务键 `x`）与 CLI 连接器（`com.doubao/cli.json`，连接器键 `msy-x`）。CLI 连接器由平台按声明安装并调用 `msy-x` 命令行（Node ≥ 20），子命令即 MCP 工具；`SKILL.md` 的「CLI 通道」小节负责路由（有 CLI 用 CLI，未装则回退 MCP），命令 / 退出码 / 失败话术详见 `references/cli.md`。
+
+### 4.1 `com.doubao/cli.json` 契约
+
+| 字段 | 值 | 说明 |
+|---|---|---|
+| `install.default` | `npm install -g <公网 tgz 地址>` | 必填；平台按序执行，任一失败即安装失败；也可用 `linux`/`darwin`/`win32` 平台键，但 linux 命中的项只能是 npm 安装命令 |
+| `versionCheck` | `msy-x --version` | 输出 `msy-x <semver>` 单行 |
+| `statusMatchRegex` | `"logged_in"\s*:\s*true` | 平台用它从 `status` 输出判定登录态（`auth status` 未登录也退 `0`，靠该正则区分） |
+| `auth` / `unAuth` | `msy-x auth login` / `msy-x auth logout` | 登录为 OAuth（自动拉浏览器，阻塞至终态）；登出幂等 |
+| `status` / `help` | `msy-x auth status` / `msy-x --help` | 状态输出单行 JSON 且 `logged_in` 为首键；help 无副作用 |
+
+> ⚠️ **发布前必须替换占位域名**：`install.default` 当前是占位地址
+> `https://static.example.com/msy-x-cli/msy-x-cli-0.1.0.tgz`，
+> **必须替换为真实公网 tgz 地址**（HTTPS、无鉴权、可直连，由运维提供托管）后才能提交审核；
+> 拿到 npm 账号后改为 `npm install -g msy-x-cli` 即可。
+> `verify.mjs` 检测到占位域名会给出 WARN 提醒（不阻断本地自检，但控制台审核过不去）。
+
+约束（均由 `verify.mjs` 强制）：连接器键匹配 `^[a-z0-9-]+$` 且不得与 `mcp.json` 的服务键重名；各命令字段均为非空字符串数组；`statusMatchRegex` 必须可被 `new RegExp` 编译；包内不得含 `.exe`/`.node`/可执行二进制与 `ldpat_`/`Bearer` 明文。
+
+### 4.2 单连接器裁剪（提交审核前按运营要求二选一）
+
+| 裁剪为 | 删除 | 保留 |
+|---|---|---|
+| **只留 CLI** | `plugin/mcp.json`；`plugin.json` 里 `extensions["com.doubao"].mcpServers` 整段；`com.doubao/auth/x.json`（如不再需要） | `com.doubao/cli.json`、`references/cli.md`、`SKILL.md`「CLI 通道」小节 |
+| **只留 MCP** | `plugin/com.doubao/cli.json`；`references/cli.md`；`SKILL.md` 的「CLI 通道」小节及失败处理里的 CLI 分支 | `mcp.json`、`plugin.json` 现有 mcpServers 配置 |
+
+裁剪后分别跑 `node scripts/verify.mjs`（两种形态都必须全绿；只留 MCP 时若 `references/cli.md` 未删干净会出 WARN）与 `node scripts/build-plugin.mjs`（断言会按源目录自适应：删了 `cli.json` 就不再要求 ZIP 内出现它）。
+
+### 4.3 提交问卷字段对照表（平台自检问卷）
+
+| 问卷字段 | 本产品填写 |
+|---|---|
+| 安装方式 | 命令安装（npm） |
+| Runtime 及最低版本 | Node.js ≥ 20 |
+| 可执行文件名 | `msy-x` |
+| 版本检查 | `msy-x --version`（输出 `msy-x <semver>` 单行） |
+| 是否需要登录 | 需要 |
+| 登录命令 | `msy-x auth login`（非交互启动、自动拉浏览器、阻塞至终态） |
+| 登录状态检查 | `msy-x auth status`（JSON，`logged_in` 首键） |
+| 状态正则 | `"logged_in"\s*:\s*true` |
+| 登出命令 | `msy-x auth logout` |
+| 帮助命令 | `msy-x --help`（无副作用） |
+| 远程依赖 | `x.brandct.com`（MCP + OAuth authorize/token/register）、npm 源或 tgz 托管域名 |
+| 升级方式 | `npm install -g` 覆盖安装；发版以 npm 版本或 tgz 路径为准 |
+
+---
+
+## 5. 本地跑通
 
 ```bash
 cd packages/x-doubao-plugin
@@ -110,9 +163,9 @@ node proxy/smoke.mjs                                   # 对比实验
 
 ---
 
-## 5. 发布到豆包
+## 6. 发布到豆包
 
-### 5.1 只发技能（先验证话术效果，最快）
+### 6.1 只发技能（先验证话术效果，最快）
 
 ```bash
 node scripts/verify-skill.mjs     # 7 条规则
@@ -122,12 +175,12 @@ node scripts/build-skill.mjs      # dist/brandct-x-insight.zip，根含 SKILL.md
 控制台 → **技能 → 创建技能** → 上传。
 注意：**独立技能不带连接器**，用户还得自己在客户端加 MCP、填 PAT。适合先测 skill 的措辞和触发。
 
-### 5.2 发插件（推荐，MCP + 技能一次装好）
+### 6.2 发插件（推荐，MCP + 技能一次装好）
 
-1. `node scripts/verify.mjs` —— 必须全绿（12 条规则，见第 6 节）
+1. `node scripts/verify.mjs` —— 必须全绿（规则清单见第 7 节）
 2. `node scripts/build-plugin.mjs` —— 产出 `dist/x-platform-assistant.zip`
 3. 控制台 → **插件 → 创建插件** → 上传 ZIP → 等自动校验
-4. `子能力信息`：连接器传输方式选 `Streamable HTTP`，鉴权选 `API Key / 自定义鉴权`，填**测试 PAT** 供审核实测
+4. `子能力信息`：连接器传输方式选 `Streamable HTTP`，鉴权选 `API Key / 自定义鉴权`，填**测试 PAT** 供审核实测；CLI 连接器需另附问卷自检材料（对照表见 4.3 节），发布前确认 `cli.json` 占位域名已替换（见 4.1 节警告）
 5. `技能信息`：填评测报告（飞书文档链接，对审核开放）+ 5–10 条示例提示词
 6. 提交审核（约 3 个工作日）→ 平台运营验收 → 统一发版
 
@@ -135,7 +188,7 @@ node scripts/build-skill.mjs      # dist/brandct-x-insight.zip，根含 SKILL.md
 
 ---
 
-## 6. 自检脚本覆盖的红线
+## 7. 自检脚本覆盖的红线
 
 | 规则 | 来源 |
 |---|---|
@@ -147,16 +200,18 @@ node scripts/build-skill.mjs      # dist/brandct-x-insight.zip，根含 SKILL.md
 | `credentials[].id` 唯一、字母开头；`secret` 必填 boolean | MCP Server §3.1 |
 | `injections[].target` 只能是 `header`；`value` 必须引用已声明 `${id}` | MCP Server §3.2 |
 | 注入头不得与 `mcp.json.headers` 重名（大小写不敏感） | MCP Server §3.2 |
-| 包内不得含真实密钥 / 令牌 | 插件总览 §5.3 |
+| 包内不得含真实密钥 / 令牌（含 `ldpat_` / `Bearer` 明文） | 插件总览 §5.3 + CLI 连接器指南 §4.1 |
 | `SKILL.md` frontmatter：`name` / `description` ≤300 字符、`metadata` 全字符串 | 技能规范 §4 |
 | 图标 512×512、≤500KB、路径 `./` 开头 | 技能规范 §4.2 |
+| `cli.json` 必须位于 `com.doubao/`；`connectors` 非空；连接器键 `^[a-z0-9-]+$` 且不与 mcp.json 服务键重名；`install` 含 `linux` 或 `default` 且平台数组非空（npm 安装）；`auth/status/unAuth/help/versionCheck` 非空字符串数组；`statusMatchRegex` 可编译；带 `cli.json` 必须成对带 `references/cli.md` | CLI 连接器指南 §4.1 + 设计稿 §9.1 |
+| 包内不得含 `.exe`/`.node`/可执行二进制（含魔数嗅探） | CLI 连接器指南 §4.1 |
 | ZIP ≤16MB、≤1024 条目、单文件 ≤2MB、Skill ≤10、MCP ≤10 | 插件总览 §5.1 |
 
 `verify.mjs` 是**规则子集**，最终仍以控制台校验为准；但它能提前干掉“多套一层目录”“服务键对不上”“localhost URL”这三类最高频的驳回。
 
 ---
 
-## 7. 已知限制 / 待实测
+## 8. 已知限制 / 待实测
 
 - **插件只支持远程 MCP**：客户端手动加的“自定义连接器”支持 STDIO，但插件包发布不支持本地进程。
 - **凭据改不了**：客户端只有「我安装的 → 查看/卸载」，没有“编辑凭据”。PAT 失效只能卸载重装重填 —— 这一点已写进 `SKILL.md` 的失败处理。

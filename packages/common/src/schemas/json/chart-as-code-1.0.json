@@ -2797,7 +2797,7 @@
             ]
         },
         "description": {
-            "type": "string"
+            "type": ["string", "null"]
         },
         "downloadedAt": {
             "format": "date-time",

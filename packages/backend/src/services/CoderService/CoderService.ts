@@ -109,6 +109,12 @@ const isAnyChartTile = (
     tile.type === DashboardTileTypes.SAVED_CHART ||
     tile.type === DashboardTileTypes.SQL_CHART;
 
+// This fork has no content verification feature: the upstream `verified`
+// field is accepted in as-code files for forward compatibility but is never
+// persisted, so uploads surface this warning instead of failing silently.
+const IGNORED_VERIFIED_WARNING =
+    'Ignored verified: content verification is not available on this instance';
+
 export class CoderService extends BaseService {
     lightdashConfig: LightdashConfig;
 
@@ -239,7 +245,7 @@ export class CoderService extends BaseService {
 
         return {
             name: chart.name,
-            description: chart.description,
+            description: chart.description ?? undefined,
             tableName: chart.tableName,
             updatedAt: chart.updatedAt,
             metricQuery: chart.metricQuery,
@@ -569,7 +575,7 @@ export class CoderService extends BaseService {
 
         const dashboardAsCode: DashboardAsCode = {
             name: dashboard.name,
-            description: dashboard.description,
+            description: dashboard.description ?? undefined,
             updatedAt: dashboard.updatedAt,
             tiles: tilesWithoutUuids,
 
@@ -1049,6 +1055,9 @@ export class CoderService extends BaseService {
         const project = await this.projectModel.get(projectUuid);
 
         CoderService.assertCanUpload(user, project);
+        if (chartAsCode.verified !== undefined) {
+            this.logger.warn(IGNORED_VERIFIED_WARNING);
+        }
         const [chart] = await this.savedChartModel.find({
             slug,
             projectUuid,
@@ -1364,6 +1373,26 @@ export class CoderService extends BaseService {
             ? await this.dashboardModel.getByIdOrSlug(dashboardSummary.uuid)
             : undefined;
         const warnings: string[] = [];
+        if (dashboardAsCode.verified !== undefined) {
+            warnings.push(IGNORED_VERIFIED_WARNING);
+            this.logger.warn(IGNORED_VERIFIED_WARNING);
+        }
+        const ownerEmail = dashboardAsCode.ownerEmail?.trim();
+        let ownerUserUuid: string | undefined;
+        if (ownerEmail) {
+            try {
+                const owner =
+                    await this.organizationMemberProfileModel.getOrganizationMemberByEmail(
+                        project.organizationUuid,
+                        ownerEmail,
+                    );
+                ownerUserUuid = owner.userUuid;
+            } catch {
+                warnings.push(
+                    `Skipped ownerEmail "${ownerEmail}": no matching member in this organization`,
+                );
+            }
+        }
         const resolvedTiles = await this.convertTileWithSlugsToUuids(
             projectUuid,
             dashboardAsCode.tiles,
@@ -1420,6 +1449,7 @@ export class CoderService extends BaseService {
                     forceSlug: true,
                     filters: dashboardFilters,
                     config: dashboardConfig,
+                    ownerUserUuid,
                 },
                 user,
                 projectUuid,
@@ -1526,6 +1556,17 @@ export class CoderService extends BaseService {
             promotionChanges,
             true,
         );
+
+        // The promote flow never touches the dashboard owner, so we sync it
+        // separately from the uploaded ownerEmail when it actually changed
+        if (
+            ownerUserUuid !== undefined &&
+            ownerUserUuid !== dashboard.owner?.userUuid
+        ) {
+            await this.dashboardModel.update(dashboard.uuid, {
+                ownerUserUuid,
+            });
+        }
 
         this.logger.info(
             `Finished updating dashboard "${dashboard.name}" on project ${projectUuid}: ${promotionChanges.dashboards[0].action}`,
@@ -1819,7 +1860,9 @@ export class CoderService extends BaseService {
             const space = spacesByUuid.get(chart.space.uuid);
             return {
                 name: chart.name,
-                description: chart.description,
+                // Nullable DB column: emit "field absent" instead of
+                // `description: null` so downloaded YAML stays clean.
+                description: chart.description ?? undefined,
                 slug: chart.slug,
                 sql: chart.sql,
                 limit: chart.limit,
@@ -1884,7 +1927,7 @@ export class CoderService extends BaseService {
                 projectUuid,
                 {
                     name: sqlChartAsCode.name,
-                    description: sqlChartAsCode.description,
+                    description: sqlChartAsCode.description ?? null,
                     sql: sqlChartAsCode.sql,
                     limit: sqlChartAsCode.limit,
                     config: sqlChartAsCode.config,
@@ -1928,7 +1971,7 @@ export class CoderService extends BaseService {
             sqlChart: {
                 unversionedData: {
                     name: sqlChartAsCode.name,
-                    description: sqlChartAsCode.description,
+                    description: sqlChartAsCode.description ?? null,
                     spaceUuid: space.uuid,
                 },
                 versionedData: {

@@ -14,6 +14,43 @@ import Logger from '../logging/logger';
 
 export const DEFAULT_OAUTH_CLIENT_ID = 'lightdash-cli';
 
+export type DeviceCodeStatus = 'pending' | 'authorized' | 'denied' | 'consumed';
+
+/**
+ * RFC 8628 device-flow session, persisted in oauth2_device_codes so any
+ * replica can serve both the CLI polling and the QR activation request
+ * (production runs multiple replicas behind a headless Service).
+ */
+export type DeviceCodeSession = {
+    deviceCode: string;
+    userCode: string;
+    clientId: string;
+    status: DeviceCodeStatus;
+    userId: number | null;
+    organizationUuid: string | null;
+    expiresAt: Date;
+};
+
+type DeviceCodeRow = {
+    device_code: string;
+    user_code: string;
+    client_id: string;
+    status: DeviceCodeStatus;
+    user_id: number | null;
+    organization_uuid: string | null;
+    expires_at: Date | string;
+};
+
+const mapDeviceCodeRow = (row: DeviceCodeRow): DeviceCodeSession => ({
+    deviceCode: row.device_code,
+    userCode: row.user_code,
+    clientId: row.client_id,
+    status: row.status,
+    userId: row.user_id,
+    organizationUuid: row.organization_uuid,
+    expiresAt: new Date(row.expires_at),
+});
+
 export class OAuth2Model implements AuthorizationCodeModel {
     constructor(private database: Knex) {}
 
@@ -87,7 +124,9 @@ export class OAuth2Model implements AuthorizationCodeModel {
 
         if (validScopes.length !== requestedScopes.length) {
             Logger.warn(
-                `OAuth: dropping unregistered scopes for client ${client.id}: requested ${requestedScopes.join(
+                `OAuth: dropping unregistered scopes for client ${
+                    client.id
+                }: requested ${requestedScopes.join(
                     ' ',
                 )}, granted ${validScopes.join(' ')}`,
             );
@@ -420,6 +459,167 @@ export class OAuth2Model implements AuthorizationCodeModel {
             scopes: client.scopes,
             createdAt: client.created_at,
         };
+    }
+
+    /* ------------------------------------------------------------------
+     * Device flow (RFC 8628) — shared Postgres session store.
+     *
+     * The CLI (POST /device, POST /device/token) and the user's browser
+     * (GET/POST /device/activate) hit different replicas in production,
+     * so sessions must live in the database, not in process memory.
+     * ------------------------------------------------------------------ */
+
+    async saveDeviceCode({
+        deviceCode,
+        userCode,
+        clientId,
+        expiresAt,
+    }: {
+        deviceCode: string;
+        userCode: string;
+        clientId: string;
+        expiresAt: Date;
+    }): Promise<void> {
+        await this.database('oauth2_device_codes').insert({
+            device_code: deviceCode,
+            user_code: userCode,
+            client_id: clientId,
+            expires_at: expiresAt,
+        });
+    }
+
+    async getDeviceCodeByUserCode(
+        userCode: string,
+    ): Promise<DeviceCodeSession | null> {
+        const row = await this.database('oauth2_device_codes')
+            .select('*')
+            .where('user_code', userCode.toUpperCase())
+            .first();
+
+        return row ? mapDeviceCodeRow(row) : null;
+    }
+
+    async getDeviceCodeByDeviceCode(
+        deviceCode: string,
+    ): Promise<DeviceCodeSession | null> {
+        const row = await this.database('oauth2_device_codes')
+            .select('*')
+            .where('device_code', deviceCode)
+            .first();
+
+        return row ? mapDeviceCodeRow(row) : null;
+    }
+
+    /**
+     * Atomically transitions a pending, unexpired session to authorized.
+     * Returns false when the code is unknown, already resolved or expired,
+     * so concurrent approve attempts only ever succeed once.
+     */
+    async authorizeDeviceCode({
+        deviceCode,
+        userId,
+        organizationUuid,
+    }: {
+        deviceCode: string;
+        userId: number;
+        organizationUuid: string;
+    }): Promise<boolean> {
+        const updated = await this.database('oauth2_device_codes')
+            .where('device_code', deviceCode)
+            .andWhere('status', 'pending')
+            .andWhere('expires_at', '>', this.database.fn.now())
+            .update({
+                status: 'authorized',
+                user_id: userId,
+                organization_uuid: organizationUuid,
+            });
+
+        return updated > 0;
+    }
+
+    /** Atomically denies a pending, unexpired session. */
+    async denyDeviceCode(deviceCode: string): Promise<boolean> {
+        const updated = await this.database('oauth2_device_codes')
+            .where('device_code', deviceCode)
+            .andWhere('status', 'pending')
+            .andWhere('expires_at', '>', this.database.fn.now())
+            .update({ status: 'denied' });
+
+        return updated > 0;
+    }
+
+    /**
+     * One-time consumption: atomically flips an authorized, unexpired
+     * session to 'consumed' and returns the occupied row. A concurrent
+     * poll loses the race and gets null so the same session can never be
+     * redeemed twice. The row is kept (not deleted) so a failed token
+     * minting can be compensated by releaseDeviceCode.
+     */
+    async consumeDeviceCode(
+        deviceCode: string,
+    ): Promise<DeviceCodeSession | null> {
+        const rows = (await this.database('oauth2_device_codes')
+            .where('device_code', deviceCode)
+            .andWhere('status', 'authorized')
+            .andWhere('expires_at', '>', this.database.fn.now())
+            .update({ status: 'consumed' }, [
+                'device_code',
+                'user_code',
+                'client_id',
+                'status',
+                'user_id',
+                'organization_uuid',
+                'expires_at',
+            ])) as DeviceCodeRow[];
+
+        if (!rows || rows.length === 0) {
+            return null;
+        }
+
+        return mapDeviceCodeRow(rows[0]);
+    }
+
+    /**
+     * Best-effort compensation: flips a consumed session back to
+     * 'authorized' so the CLI can retry polling after a failed token
+     * minting without re-scanning the QR code.
+     */
+    async releaseDeviceCode(deviceCode: string): Promise<boolean> {
+        const released = await this.database('oauth2_device_codes')
+            .where('device_code', deviceCode)
+            .andWhere('status', 'consumed')
+            .update({ status: 'authorized' });
+
+        return released > 0;
+    }
+
+    async deleteDeviceCode(deviceCode: string): Promise<boolean> {
+        const deleted = await this.database('oauth2_device_codes')
+            .where('device_code', deviceCode)
+            .del();
+
+        return deleted > 0;
+    }
+
+    /** Drops every expired row; returns the number of rows removed. */
+    async deleteExpiredDeviceCodes(): Promise<number> {
+        return this.database('oauth2_device_codes')
+            .where('expires_at', '<=', this.database.fn.now())
+            .del();
+    }
+
+    /**
+     * Counts unexpired sessions still pending, authorized or consumed.
+     * Consumed sessions count towards the cap until they expire so a
+     * retry/redeem window cannot punch holes in the abuse guard.
+     */
+    async countActiveDeviceCodes(): Promise<number> {
+        const result = await this.database('oauth2_device_codes')
+            .count('device_code as count')
+            .where('expires_at', '>', this.database.fn.now())
+            .whereIn('status', ['pending', 'authorized', 'consumed']);
+
+        return Number(result[0]?.count ?? 0);
     }
 
     // Optional not implemented methods

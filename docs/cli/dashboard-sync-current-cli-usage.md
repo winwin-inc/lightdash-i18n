@@ -14,7 +14,33 @@
 
 导入按 `slug` 匹配。目标环境要有兼容的 dbt explore / 字段 / 指标。对不上的 slug 会丢掉并 warning，不阻断 upload。不要用会剥未知字段的工具改 YAML。
 
-download 有时会写出 `config: null`。本仓 lint 要求 `config` 是 object，要绿就删掉该字段或改成 `{}`。不要为了过官方 lint 去剥 `tab.filters`。
+旧版 download 会写出 `config: null`（看板配置列为可空，老看板库里为 NULL）以及 `description: null`。已修复：新 download 不再写出这些字段；lint 与 upload 都容忍存量的 null，旧文件不改可直接过。图表的 `dashboardSlug: null` 同理（lint 允许，upload 现已接受）。不要为了过官方 lint 去剥 `tab.filters`。
+
+## 筛选器能力（全部随 YAML 往返）
+
+看板筛选器（全局 + `tabs[].filters`）的这些 fork 能力不需要额外开关，下载上传都保留：
+
+- 必填分组：`requiredGroupId`（同组内任一项有值即解锁）
+- 范围限制：`minAllowedDate` / `maxAllowedDate`、`enableDynamicMaxAllowedDate`、`rollingMinAllowedMonths`、`dataAvailableFromDay`
+- 操作符与取值：`allowedOperators`、`excludedValues`、`clearable`、`singleValue`
+- 联动 / 级联：`parentFieldId`、`parentScope`、`parentTabUuid`（或别名 `parentTabSlug`）、`categoryLevel`
+- 可视与作用域：`hidden`、`readOnly`、`hideTilesWhenEmpty`、`lockedTabUuids`、`tileTargets`
+
+其中三个引用型字段会转成可移植形态再转回，跨环境同步后引用不悬空：
+
+| YAML 里的形态 | 库内形态 |
+|---|---|
+| `tileTargets` 的键 = 图表 slug | 图表所在 tile 的 uuid |
+| `lockedTabUuids` = tab slug 列表 | tab uuid 列表 |
+| `parentTabUuid` = tab slug | tab uuid |
+
+注意 `parentTabUuid` 的字段名仍叫 uuid，但 YAML 里存的是 **tab slug**（Tab 级联）；上传时若还是旧环境 uuid 也能解析。也可以写别名 `parentTabSlug`（推荐，语义清晰），两者同时存在时以 `parentTabUuid` 为准；`download` 仍只输出 `parentTabUuid`。
+
+## 图表能力（随 `chartConfig` / `metricQuery` 往返）
+
+表格：`showRowGrouping`、`showSubtotals`、`enablePagination` + `pageSize`、`columns.*`（显隐 / 别名 / 冻结 / 列宽 / 展示样式）、`cellAlignment`、`conditionalFormattings`、透视布局（`metricsAsRows`、`pivotMetricHeaderPosition`、`pivotAutoFillWidth`、`pivotDimensionColumnMaxWidth`、`pivotColumnMaxWidth`、`pivotRowDimensionAlignment`）。
+
+排序与分页游标：`metricQuery.sorts`（含 `nullsFirst`、`valueOrder`）、`metricQuery.offset` / `limit`。改这些会被识别为图表更新，不会被当成「无变更」跳过。
 
 ## 权限
 

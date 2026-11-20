@@ -1,0 +1,4 @@
+dist
+dist-msy-x
+*.tsbuildinfo
+node_modules

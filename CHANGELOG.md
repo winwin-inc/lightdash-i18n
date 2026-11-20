@@ -7,6 +7,108 @@
 > -   自 **v2.0** 起产品主版本独立编号
 
 
+## v2.7.7 (2026-11-20)
+
+-   **CLI 内容同步（as-code）：下载/上传链路修复**
+    -   修复 `download` 写出非法 null 导致「lint 报错 + upload 失败」：看板 `config`、图表/看板 `description` 在库内为可空列，老内容取到 NULL 时曾原样写进 YAML；现归一为字段缺省，新下载不再产出 `config: null`
+    -   修复「看板含 Tab 级筛选器时 lint 能过、upload 400」：下载端按可移植设计剥掉规则 `id`，而上传的运行时校验把 `id` 当必填，请求在校验层就被拒；现让上传的 `tabs`/`config` 走与 `filters`/`tiles` 相同的宽松处理，`config: null` 也归一为缺省
+    -   修复图表上传拒绝 `dashboardSlug: null`：lint schema 本就允许该写法（图表不属看板），上传类型只接受字符串，形成「lint 绿、上传 400」；现上传接受并归一为缺省
+    -   存量 YAML 无需修改：lint 与上传都容忍旧的 `config: null` / `description: null`
+    -   注意：lint 用的 schema 编译进 CLI bundle，要拿到 lint 侧修复需更新 CLI 版本
+-   **CLI 内容同步：Tab 级联引用可移植**
+    -   修复筛选器跨 Tab 级联字段 `parentTabUuid` 在下载时未转 slug、上传时未转回 uuid，导致跨环境同步后级联引用悬空；现在导出/导入双向转译，跨环境同步后级联仍成立
+    -   新增可读别名 `parentTabSlug`：上传两个名字都认（同时存在以 `parentTabUuid` 为准，别名消费后不落库），`download` 仍只输出 `parentTabUuid`，存量文件与旧后端不受影响；lint schema 两种写法都接受
+-   **CLI 内容同步：看板负责人可按邮箱同步**
+    -   `ownerEmail` 此前只导出、上传被忽略；现在上传按邮箱在当前组织解析成员并设为看板负责人（创建与更新两条路径），邮箱不存在时给警告并跳过，不阻断上传；负责人未变化不重复写
+-   **CLI 内容同步：字段静默吞掉的问题收敛**
+    -   `verified`：本 fork 无内容校验功能，该字段不往返；上传遇到时明确提示 `Ignored verified: content verification is not available on this instance`（看板走响应 warnings，图表走服务端日志），不再静默忽略
+-   **CLI 内容同步：能力覆盖回归**
+    -   新增覆盖矩阵文档 `docs/cli/as-code-coverage.md`：按 CHANGELOG 盘点看板/图表/筛选器哪些能力可往返、哪些转译后往返、哪些不进 as-code
+    -   补三层回归测试：字段往返（筛选器分组/范围/级联、表格分组/分页/排序、冻结列/列宽/条件格式）、lint schema、上传运行时校验；并补看板 YAML 说明（筛选器与图表能力、null 口径、`parentTabSlug` 别名）
+
+## v2.7.6 (2026-11-19)
+
+-   **看板颜色同步：根因修复后重新合入（重要）**
+    -   背景：该功能在 v2.7.5 期间回退到 v2.7.4 行为（切调色板后部分系列取不到色板色、同图撞色）；v2.7.6 修复根因后恢复，色板规格收敛为 14 色
+    -   根因一（同图出现两条一样的线）：`visibleColorKeys` 把**不渲染的历史透视系列**也算进容量——看板实测 `visibleKeys = 147` 而真正渲染只有十几条（147 个 key 里混着「(永叔公)290g土磨坊麻油白腐乳」这类与当前过滤矛盾的历史品种）。147 个 key 吃光 20 色板与扩展变体后落进「只要求不重复」的兜底，产出 `#ebec13` / `#eceb13`（RGB 相距 1.4）这类肉眼同色的线
+    -   根因二（"蓝色太接近 / 紫色太接近"）：色差用 RGB 欧氏距离，与人眼脱节——`#00FF00/#00FF40` 是 ΔE00 2.52 却 RGB 64，阈值 45/60 全部放过；`expandPalette` 的同色相明暗变体（ΔE00 2.5–13）也被当成"分得开"
+    -   根因三：`hueCandidateAt` 第 12 个候选是 12×30°=360° 回绕，与基色 ΔE00 只有 2.1–4.1，且不同基色会收敛到同一格（`#ECEC13` 同时是 `#FFFF00` 第 12 与 `#8000FF` 第 5 个候选）
+    -   修复一：`collectVisibleColorKeys` 只统计真正渲染的系列（过滤 `isFilteredOut`），`pivotDetails` 去重；DEV 下 `window.__msyColorSync` 暴露 `renderedSeriesCount` / `skippedFilteredOutCount`，容量口径漂移会告警
+    -   修复二：`colorDifference` 换 CIEDE2000（导出签名不变，hex→Lab 缓存），阈值 45/60 → ΔE00 12/15；主题色段改两趟（先取与已用色 ΔE ≥ 12 的色板色，无解才退回任一无重复色板色），容量内仍只出色板原色
+    -   修复三：`expandPalette` 每基色变体 4→2 且色相错开；`hueCandidateAt` 去掉 360° 回绕；兜底改 216 网格 max-min + 阶梯阈值（<40→12、40–79→8、≥80→5），**永不返回 ΔE < 5**
+    -   色板规格统一：除「图表默认」（ECharts 原生 9 色）外，其余预设一律 **14 色** = 12 色系各 1 + 黑 + 灰（「一个色系一个」的物理上限；20 色必然同族重复），数据矩阵两两 ΔE00 ≥ 20.0；各预设旧 20 色登记进 `legacyColors`
+    -   旧看板迁移：新增 `reconcileColorPalette`，读路径把命中 `legacyColors` 的已保存色板换成当前色值（保存后落库），否则换了色值老看板仍画旧色
+    -   范围：标准图表 / 饼图 / 自定义图表（Vega-Lite）跨图、跨 Tab 同系列同色；SQL 图表不参与；同步范围仍由「选择图表」白名单决定
+    -   已知边界：单图系列数 > 14 时超出部分用生成色（与色板任意色 ΔE00 ≥ 12，但不是色板原色），且该图不再与其它图共享同名色（本图可读性优先）
+    -   测试：`palettePresets.test.ts`（14 色规格、色族上限、ΔE 闸门、legacy 对账）、`hashColorAssignment.test.ts`（147/240 系列回归、两趟色板、确定性）、`collectVisibleColorKeys.test.ts`（147→14）
+
+## v2.7.5 (2026-11-18)
+
+-   **内置 MCP：修复扫码登录在多副本下失效（重要）**
+    -   现象：`msy-x auth login --qr` 手机扫码后约 50% 概率报 `Invalid Code`（`The code "XXXX-XXXX" is not valid.`），或换 token 时报 `invalid_grant`
+    -   根因：RFC 8628 设备码会话此前存在 `oauthRouter` 的**进程内存 Map** 里，代码注释假设「后端单实例」；实际生产 `lightdash` / `lightdash-internal` 均为 `replicas: 2` + headless Service，CLI 的 `POST /device` 与手机的 `GET /device/activate` 会落到不同 pod，查不到 code。CLI 与手机浏览器无共同 cookie，粘滞会话无法解决
+    -   修复：新增迁移 `oauth2_device_codes` 表，设备码会话改存 Postgres，四个端点全部走共享存储；`expires_at` 用 `TIMESTAMPTZ` 与 `now()` 比较，避免无时区列在非 UTC 会话时区下误判过期
+    -   顺带收紧：批准/拒绝改为原子 `UPDATE ... WHERE status='pending' AND expires_at > now()`（并发双批准只成功一次）；换 token 改为先原子标 `consumed` 再签发（先消费后签发阶段失败会回退为 `authorized` 并返回 500 `server_error`，下一轮轮询可重试，无需重新扫码）；四个设备码 handler 补 try/catch → `next(error)`（Express 4 不会自动转发 async 拒绝，DB 异常此前会让请求悬挂而非 500）；`user_code` 由 DB UNIQUE 约束并冲突重试
+    -   已知限制：`POST /device` 与 `/device/token` **无限流**，仅靠跨副本共享的「进行中会话 ≤ 1 万」全局上限（超出 429），建议入口网关按 IP 限速；`deleteExpiredDeviceCodes` 无批量上限（积压时单请求承担一次大 DELETE），列入后续工作
+    -   部署注意：**先执行迁移再滚镜像**（新旧版本可共存，旧 pod 仍走内存，重启即丢）；迁移需在品牌站与内部站两个库各跑一次
+-   **命令行工具（msy-x-cli）**
+    -   设备码流程健壮性：`interval` 缺失/非法时回退 5s（此前 `NaN` 会退化成 0ms 热轮询）；`expires_in` 缺失时回退 10 分钟；`invalid_grant` 单独映射为「设备码无效或已过期」；5xx / 非 JSON 响应 / 网络抖动不再直接判终态，而是在 deadline 内继续轮询（网络类超时退 6，服务端类退 3）；`POST /device` 返回 404 时明确提示「站点不支持扫码登录（镜像需 ≥ 2.7.5）」，429 提示稍后重试
+    -   `doctor --remote` 新增 `device-flow` 探测项：用未注册 client_id 探 `POST /device`，`400 unauthorized_client` 视为端点就绪，404 判 fail 并提示镜像版本要求
+-   **发版脚本**
+    -   `scripts/bump-workspace-version.mjs` 跳过 `packages/msy-x-cli`：该包独立发版（`pnpm bump-msyx`），此前被主站版本连带 bump 成 `2.7.4`，与 `src/lib/version.ts` 的 `CLI_VERSION` 脱节
+-   **设备码确认页中文化与登录方式提示**
+    -   确认页（终端登录确认）、授权页、成功/失败提示页全部中文化；协议错误码（如 `invalid_grant`）保持英文，CLI 依赖它们
+    -   确认页验证码下方按站点显示登录方式提示，三层判定：OIDC 端点域名关键词（IdP 直连）→ 内置自建 SSO 映射（线上品牌 `brandct.com` → 微信、品牌预发 `brand.pre.banmahui.cn` → 微信、内部平台 `admin.banmahui.cn` → 钉钉）→ 通用扫码提示；默认零配置，`LOGIN_HINT_WECHAT_DOMAINS` / `LOGIN_HINT_DINGTALK_DOMAINS` 可覆盖
+    -   排查结论沉淀：微信内置 webview 的 session cookie 会在 OIDC 跨站跳转链上随机丢失，点「允许」时报 401，不能作为可靠的确认入口；引导用 PC 浏览器或移动端系统浏览器打开 `verification_uri_complete`
+    -   测试：`oauthRouter` 14 个用例 + `resolveDeviceLoginHint` 10 个单测
+-   **文档**
+    -   `docs/cli/msy-x-cli-design.md` 补 §6.4 设备码（扫码）登录契约（端点、会话存储、有效期、失败语义、部署前提）与 `device-flow` 探测说明；补充确认页文案/登录提示机制与微信 webview 已知限制
+
+## v2.7.4 (2026-11-17)
+
+-   **内置 MCP：修复查询工具判别键丢失（重要）**
+    -   `run_metric_query` / `search_field_values` 此前会必然失败：MCP 兼容层为了客户端友好把 AI schema 的 `type` 判别键从下发的 inputSchema 剥掉，但这两个工具的 handler 复用共享实现、又用含必填 `type` 的原始 schema 二次解析
+    -   修复方式：透传前补回判别键（新增 `withToolDiscriminator`），并加回归测试与源码级守门；`customMetrics` / `tableCalculations` / `filters` 等可空字段不受影响
+    -   影响：升级后这两个工具恢复可用；未升级的镜像上 `msy-x query flat` / `values` 仍会报 `Invalid literal value`（CLI 已给出明确提示，`doctor --remote` 可直接探测）
+-   **看板颜色同步：同图重复色修复**
+    -   根因一：候选色用尽后兜底会**返回冲突色**——调色板 9 色 + 扩展色之后是固定 +30° 色相轮转，只能产生 12 个色相，第 13 次绕回；看板已占色较多时（`MIN_COLOR_DIFF=45` 下几乎全冲突）循环耗尽直接返回上一轮颜色，不同系列拿到同一个色值（实测 known=60 时 15 系列仅 7 种颜色）
+    -   根因二：标准图渲染期只查「看板级色表」，未命中直接走 `getHashColor` 取模（9 色板对 15 系列必然撞，实测仅 5–6 种），且要等布局副作用注册后才纠正
+    -   修复：候选色第 13 个起改用黄金角扩色相空间并轻微摆动饱和度/亮度，且**唯一性优先**（不再返回已用色）；标准图改为在渲染期用 `appendUnknownHashColors` 按**本图可见集**避让，已保存系列仍沿用看板映射
+    -   阈值分层：主题色板仍按 45 使用（≤9 系列的小图颜色逐项不变），生成色（扩展色/色相旋转）改用 60——实测扩展 45 色最小间距只有 17.5，同色相明暗变体视觉上仍像同一个色
+    -   容量保护：60 的有效容量约 16–19 色，看板已用色超过 20 时自动降级回 45，避免候选提前耗尽反而产出近似色（实测 known=30 时首图色差由 29 回升到 ≈45）
+    -   已知限制：看板级色表是「整块看板避让」，图很多时（几十个运行期系列）单图色差仍会被挤到 15–35；根治需改为「只避让同图共现的邻居」并保持同名同色，属于后续独立改动
+-   **看板**
+    -   修复：筛选器「无值隐藏图表」触发后仍残留隐藏提示条
+-   **扫码登录（OAuth 设备码流程）**
+    -   后端新增 RFC 8628 设备码端点：`POST /api/v1/oauth/device` 申请 `device_code` + `user_code`；`GET/POST /api/v1/oauth/device/activate` 手机确认页（需登录态）；`POST /api/v1/oauth/device/token` 轮询换 token（含 refresh_token）
+    -   设备会话内存存储，上限 1 万条、随申请清扫过期（10 分钟 TTL）；迁移预注册 `msy-x-cli` 公开客户端（`scope=mcp:read`，幂等插入）
+    -   **现有 `authorize` / `token` / `introspect` / DCR 流程零改动**：浏览器授权与扫码并存
+    -   CLI：`msy-x auth login --qr` 在终端打印二维码，手机（微信/相机）扫码确认即完成登录，凭证与浏览器 OAuth 同构、refresh 复用；**WSL2 且未配置 `$BROWSER` 时自动降级为扫码**并在 stderr 提示；`openBrowser` 优先读 `$BROWSER`（如 wslview）
+-   **命令行工具**
+    -   新增仓库内包 `msy-x-cli`（MCP 命令行客户端，独立发版，不进主站镜像）：当前 0.1.1，含 OAuth（DCR + PKCE + 扫码）/ PAT 登录、35 个任务化命令、`doctor` 自检与能力探测、`verified`、`--verbose` 请求日志；已发布到 CDN `msy-x/cli/msy-x-cli/0.1.1/`
+    -   豆包 Plugin 增加 CLI 连接器通道（`com.doubao/cli.json` + 技能说明 + 发布前自检规则）
+    -   dbt CLI（`lightdash`）已单独发版 2.2.0：新增 `sql`、`run-chart`、`warehouse-catalog`、`config` 四件套与 `export-chart-image`
+-   **文档**
+    -   新增 `docs/cli/msy-x-cli-design.md` 与 `docs/cli/msy-x-cli-usage.md`（对外自包含），内部发版与 CDN 基线见 `docs/cli/msy-x-cli-dev-plan.md`
+
+## v2.7.3 (2026-11-12)
+
+-   **看板筛选器：无值隐藏图表（hideTilesWhenEmpty）**
+    -   规则级开关：筛选器无值时隐藏依赖它的磁贴；未开启该开关的看板行为完全不变（含 as-code 往返、引用检查与审计）
+    -   审计与还原白名单、导出路径加固；补 as-code round-trip 与组件回归测试
+-   **日期可选范围约束（延续 v2.7.2 能力）**
+    -   数据可用日放开为规则级配置 `dataAvailableFromDay`（缺省 4 号，1–28 校验）：前端展示 / 钳制 / 校验与后端定时推送解析共用同一配置
+    -   单值月份「是」接入可选范围约束（与「在之间」同构互斥）；动态默认改为可配置「N 个可用月前」
+    -   动态模式默认开启「按数据更新限制最晚」；约束编辑器 UI 收敛（模式 Radio 上提、单位改静态后缀、tooltip 联动 `{{day}}`）
+-   **CLI（dbt / 内容同步）**
+    -   补齐 6 个命令：`sql`、`run-chart`、`warehouse-catalog`、`config set-project` / `list-projects` / `get-project` / `unset-project`
+    -   新增 `export-chart-image`（REST + CLI）：把已部署图表导出为 PNG
+-   **修复**
+    -   ⓘ 帮助图标不可见（MantineIcon 传 `dimmed` 时把字面量写进 svg stroke，非法颜色导致图标空白）
+    -   月份「是」默认值缺少分节标题；数据可用日相关 tooltip 未跟随输入值联动；说明文案颜色与开关行不对齐
+-   **文档**
+    -   新增仓库提交信息规范（`.agents/rules/commits.md`）
+
 ## v2.7.2 (2026-11-11)
 
 -   **看板筛选器：日期可选范围约束（近 N 个整月滚动窗口）**

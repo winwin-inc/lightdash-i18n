@@ -134,7 +134,9 @@ export const getConfigWithPortableRefs = (
     getTileSlug: (tileUuid: string) => string | undefined,
 ): DashboardConfig | undefined => {
     const { config } = dashboard;
-    if (!config) return config;
+    // Nullable DB column: emit "field absent" instead of `config: null` so
+    // downloaded YAML passes lint and re-uploads cleanly.
+    if (!config) return undefined;
     const warnings: string[] = [];
     const resolveTabKey = (key: string) =>
         getDashboardTabSlug(dashboard, key) ?? (isUuid(key) ? undefined : key);
@@ -221,26 +223,34 @@ const remapLockedTabRefs = (
         .filter((value): value is string => Boolean(value));
 };
 
-type FilterRuleWithLockedTabs = { lockedTabUuids?: string[] };
-type FiltersWithLockedTabs = {
-    dimensions?: FilterRuleWithLockedTabs[];
-    metrics?: FilterRuleWithLockedTabs[];
-    tableCalculations?: FilterRuleWithLockedTabs[];
+type FilterRuleWithTabRefs = {
+    lockedTabUuids?: string[];
+    parentScope?: 'global' | 'tab';
+    parentTabUuid?: string;
+};
+type FiltersWithTabRefs = {
+    dimensions?: FilterRuleWithTabRefs[];
+    metrics?: FilterRuleWithTabRefs[];
+    tableCalculations?: FilterRuleWithTabRefs[];
 };
 
-export const getFiltersWithPortableLockedTabs = <
-    T extends FiltersWithLockedTabs,
->(
+export const getFiltersWithPortableLockedTabs = <T extends FiltersWithTabRefs>(
     dashboard: DashboardDAO,
     filters: T,
 ): T => {
     const resolve = (tabUuid: string) =>
         getDashboardTabSlug(dashboard, tabUuid);
-    const mapRule = <TRule extends FilterRuleWithLockedTabs>(
+    const mapRule = <TRule extends FilterRuleWithTabRefs>(
         rule: TRule,
     ): TRule => ({
         ...rule,
         lockedTabUuids: remapLockedTabRefs(rule.lockedTabUuids, resolve, []),
+        // Cross-scope cascade references a tab by its environment-local uuid;
+        // export it as a portable tab slug (keep original when unresolvable).
+        parentTabUuid:
+            rule.parentScope === 'tab' && rule.parentTabUuid !== undefined
+                ? resolve(rule.parentTabUuid) ?? rule.parentTabUuid
+                : rule.parentTabUuid,
     });
     return {
         ...filters,
@@ -256,14 +266,34 @@ export const getFiltersWithLocalLockedTabs = (
     warnings: string[],
 ): DashboardFilters => {
     const resolve = (value: string) => resolveTabUuid(tabs, value, value);
-    const mapRule = (rule: DashboardFilterRule): DashboardFilterRule => ({
-        ...rule,
-        lockedTabUuids: remapLockedTabRefs(
-            rule.lockedTabUuids,
-            resolve,
-            warnings,
-        ),
-    });
+    const mapRule = (rule: DashboardFilterRule): DashboardFilterRule => {
+        // `parentTabSlug` is a YAML-friendly alias for `parentTabUuid` (which
+        // actually carries a tab slug in as-code files). The canonical field
+        // wins when both are present; the alias is consumed here only and
+        // never persisted.
+        const { parentTabSlug, ...ruleWithoutAlias } =
+            rule as DashboardFilterRule & {
+                parentTabSlug?: string;
+            };
+        const parentTabRef =
+            rule.parentTabUuid !== undefined
+                ? rule.parentTabUuid
+                : parentTabSlug;
+        return {
+            ...ruleWithoutAlias,
+            lockedTabUuids: remapLockedTabRefs(
+                rule.lockedTabUuids,
+                resolve,
+                warnings,
+            ),
+            // Portable as-code files carry a tab slug (or a legacy tab uuid);
+            // resolve it back to the local tab uuid for this environment.
+            parentTabUuid:
+                rule.parentScope === 'tab' && parentTabRef !== undefined
+                    ? resolve(parentTabRef) ?? parentTabRef
+                    : rule.parentTabUuid,
+        };
+    };
     return {
         dimensions: (filters.dimensions ?? []).map(mapRule),
         metrics: (filters.metrics ?? []).map(mapRule),

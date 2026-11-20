@@ -347,6 +347,36 @@ const applyDashboardTabCompatibilityRules = (
     return nextDefs;
 };
 
+const DASHBOARD_FILTER_RULE_DEF_NAME =
+    'Pick_DashboardFilterRule.Exclude_keyofDashboardFilterRule.id__';
+
+const applyDashboardFilterRuleCompatibilityRules = (
+    defs: Record<string, JsonObject>,
+): Record<string, JsonObject> => {
+    const nextDefs = { ...defs };
+    const filterRule = nextDefs[DASHBOARD_FILTER_RULE_DEF_NAME];
+    if (!filterRule) {
+        return nextDefs;
+    }
+
+    // YAML authors write a portable tab slug; `parentTabUuid` is the
+    // canonical (upstream) field and wins when both are present.
+    const flattened = flattenObjectSchema(filterRule, nextDefs);
+    const properties = toObject(flattened.properties);
+    properties.parentTabSlug = {
+        type: 'string',
+        description:
+            '父级筛选器的 Tab slug（与 parentTabUuid 等价，YAML 推荐写这个；两者都给时以 parentTabUuid 为准）',
+    };
+
+    nextDefs[DASHBOARD_FILTER_RULE_DEF_NAME] = {
+        ...flattened,
+        properties,
+    };
+
+    return nextDefs;
+};
+
 const overlayCompatibilityRules = (
     schema: JsonObject,
     defs: Record<string, JsonObject>,
@@ -361,13 +391,33 @@ const overlayCompatibilityRules = (
         };
     }
 
+    // `config: null` is emitted by older download builds (nullable DB
+    // column); tolerate it so legacy files still pass lint and re-upload.
+    if (rootProperties.config) {
+        const existing = toObject(rootProperties.config);
+        rootProperties.config = {
+            ...(existing.description
+                ? { description: existing.description }
+                : {}),
+            anyOf: [{ $ref: '#/$defs/DashboardConfig' }, { type: 'null' }],
+        };
+    }
+
+    // `description: null` is emitted by older download builds (nullable DB
+    // column); tolerate it so legacy files still pass lint.
+    if (rootProperties.description) {
+        rootProperties.description = { type: ['string', 'null'] };
+    }
+
     root.properties = rootProperties;
     root.additionalProperties = false;
     root.required = ['name', 'slug', 'spaceSlug', 'version', 'tiles', 'tabs'];
 
     const defsWithStrictTiles = applyDashboardTileCompatibilityRules(defs);
-    const defsWithCompatibility =
+    const defsWithTabRules =
         applyDashboardTabCompatibilityRules(defsWithStrictTiles);
+    const defsWithCompatibility =
+        applyDashboardFilterRuleCompatibilityRules(defsWithTabRules);
 
     return { schema: root, defs: defsWithCompatibility };
 };

@@ -1,6 +1,6 @@
 {
     "name": "lightdash",
-    "version": "2.7.4-test.5",
+    "version": "2.7.7",
     "main": "index.js",
     "license": "MIT",
     "private": true,
@@ -156,6 +156,14 @@
         "bump-version": "node scripts/bump-workspace-version.mjs",
         "bump-cli": "node scripts/bump-cli-version.mjs",
         "bump-mcp": "node scripts/bump-versions.mjs",
+        "bump-msyx": "node scripts/bump-msy-x-cli-version.mjs",
+        "set-msyx-url": "node scripts/set-msy-x-cli-install-url.mjs",
+        "msy-x-cli-build": "pnpm -F msy-x-cli build",
+        "msy-x-cli-dev": "pnpm -F msy-x-cli dev",
+        "msy-x-cli-typecheck": "pnpm -F msy-x-cli typecheck",
+        "msy-x-cli-test": "pnpm -F msy-x-cli test",
+        "msy-x-cli-lint": "pnpm -F msy-x-cli lint",
+        "pack-msyx": "pnpm -F msy-x-cli pack:tgz",
         "list-mcp-tools": "node scripts/list-mcp-tool-names.mjs"
     },
     "lint-staged": {

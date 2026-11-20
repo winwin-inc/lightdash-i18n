@@ -39,6 +39,37 @@ filters:
 tabs: []
 `;
 
+const legacyNullDashboard = `
+version: 1
+name: Legacy
+slug: legacy
+spaceSlug: shared
+description: null
+config: null
+tiles: []
+filters:
+  dimensions: []
+  metrics: []
+  tableCalculations: []
+tabs:
+  - name: Overview
+    order: 0
+    slug: overview
+`;
+
+const nullDescriptionSqlChart = `
+version: 1
+name: SQL chart
+description: null
+slug: sql-chart
+spaceSlug: shared
+sql: select 1
+limit: 500
+config: {}
+chartKind: table
+contentType: sql_chart
+`;
+
 describe('lintHandler', () => {
     let tempDir: string;
     const originalExit = process.exit;
@@ -58,6 +89,30 @@ describe('lintHandler', () => {
         await fs.writeFile(
             path.join(tempDir, 'dashboards', 'sales.yml'),
             validDashboard,
+        );
+
+        await lintHandler({ path: tempDir });
+
+        expect(process.exit).not.toHaveBeenCalled();
+    });
+
+    test('accepts SQL chart files, which are not schema-validated', async () => {
+        await fs.mkdir(path.join(tempDir, 'charts'));
+        await fs.writeFile(
+            path.join(tempDir, 'charts', 'sql-chart.sql.yml'),
+            nullDescriptionSqlChart,
+        );
+
+        await lintHandler({ path: tempDir });
+
+        expect(process.exit).not.toHaveBeenCalled();
+    });
+
+    test('accepts legacy downloads with null config and description', async () => {
+        await fs.mkdir(path.join(tempDir, 'dashboards'));
+        await fs.writeFile(
+            path.join(tempDir, 'dashboards', 'legacy.yml'),
+            legacyNullDashboard,
         );
 
         await lintHandler({ path: tempDir });

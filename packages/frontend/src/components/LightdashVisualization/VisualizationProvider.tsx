@@ -31,11 +31,12 @@ import {
 } from 'react';
 import { type CartesianTypeOptions } from '../../hooks/cartesianChartConfig/useCartesianChartConfig';
 import { type EChartSeries } from '../../hooks/echarts/useEchartsCartesianConfig';
+import { lookupSyncedColor } from '../../hooks/useChartColorConfig/colorSyncKeys';
 import {
-    lookupSyncedColor,
-    pieRowColorKeys,
-} from '../../hooks/useChartColorConfig/colorSyncKeys';
-import { resolveSyncedHashColor } from '../../hooks/useChartColorConfig/hashColorAssignment';
+    assignVisibleChartColors,
+    createChartColorAllocator,
+    resolveSyncedHashColor,
+} from '../../hooks/useChartColorConfig/hashColorAssignment';
 import { type SeriesLike } from '../../hooks/useChartColorConfig/types';
 import { useChartColorConfig } from '../../hooks/useChartColorConfig/useChartColorConfig';
 import {
@@ -58,11 +59,49 @@ import VisualizationPieConfig from './VisualizationConfigPie';
 import VisualizationTableConfig from './VisualizationConfigTable';
 import VisualizationTreemapConfig from './VisualizationConfigTreemap';
 import VisualizationCustomConfig from './VisualizationCustomConfig';
+import { collectVisibleColorKeys } from './collectVisibleColorKeys';
 import Context, { type TablePaginationState } from './context';
 import { type VisualizationConfig } from './types';
 import { type useVisualizationContext } from './useVisualizationContext';
 
 const EMPTY_COLOR_MAP: Record<string, string> = {};
+
+/* ------------------------------------------------------------------------
+ * 开发期颜色同步诊断（仅 import.meta.env.DEV 生效，生产构建会被 tree-shake）
+ *
+ * 用浏览器控制台检查 `window.__msyColorSync`：
+ * - useHashBased：本图是否真的参与了看板颜色同步
+ * - paletteSize / visibleKeys / assignments：本图色表实际覆盖了哪些系列名
+ * - renderedSeriesCount / skippedFilteredOutCount：CARTESIAN 容量口径自检——
+ *   visibleKeys 明显多于渲染系列数说明 stale key 又混进来了
+ * - misses：取色时在色表里找不到、已回退到无避让哈希（会造成同图撞色）的系列名
+ * --------------------------------------------------------------------- */
+type ColorSyncDebugPayload = {
+    useHashBased: boolean;
+    paletteSize: number;
+    visibleKeys: string[];
+    /** 过滤 isFilteredOut 后真正渲染的系列数（CARTESIAN；其他图为 null） */
+    renderedSeriesCount: number | null;
+    /** 被 isFilteredOut 跳过的历史 pivot 系列数（CARTESIAN；其他图为 null） */
+    skippedFilteredOutCount: number | null;
+    assignments: Record<string, string>;
+    misses: string[];
+};
+
+const colorSyncMisses = new Set<string>();
+
+const recordColorSyncMiss = (identifier: string): void => {
+    if (colorSyncMisses.size < 200) colorSyncMisses.add(identifier);
+};
+
+const publishColorSyncDebug = (
+    payload: Omit<ColorSyncDebugPayload, 'misses'>,
+): void => {
+    (globalThis as unknown as Record<string, unknown>).__msyColorSync = {
+        ...payload,
+        misses: [...colorSyncMisses],
+    };
+};
 
 export type VisualizationProviderProps = {
     minimal?: boolean;
@@ -191,7 +230,7 @@ const VisualizationProvider: FC<
     const { validPivotDimensions, setPivotDimensions } = usePivotDimensions(
         initialPivotDimensions,
         useSqlPivotResults?.enabled
-            ? unsavedMetricQuery ?? lastValidResultsData?.metricQuery
+            ? (unsavedMetricQuery ?? lastValidResultsData?.metricQuery)
             : lastValidResultsData?.metricQuery,
     );
 
@@ -200,43 +239,105 @@ const VisualizationProvider: FC<
         [onChartTypeChange],
     );
 
-    const visibleColorKeys = useMemo(() => {
-        const keys: string[] = [];
-
-        if (chartConfig.type === ChartType.CARTESIAN) {
-            const allSeries =
-                computedSeries && computedSeries.length > 0
-                    ? computedSeries
-                    : chartConfig.config?.eChartsConfig.series;
-            (allSeries ?? []).forEach((series) => {
-                const completeIdentifier =
-                    calculateSeriesLikeIdentifier(series)[1];
-                if (completeIdentifier) keys.push(completeIdentifier);
-            });
-        }
-
-        if (chartConfig.type === ChartType.PIE) {
-            const pie = chartConfig.config;
-            Object.keys(pie?.groupColorOverrides ?? {}).forEach((name) =>
-                keys.push(name),
-            );
-            Object.keys(pie?.metadata ?? {}).forEach((name) => keys.push(name));
-            (pie?.groupSortOverrides ?? []).forEach((name) => keys.push(name));
-            const groupFieldIds = pie?.groupFieldIds ?? [];
-            keys.push(...pieRowColorKeys(resultsData?.rows, groupFieldIds));
-        }
-
-        return keys;
-    }, [chartConfig, computedSeries, resultsData]);
+    // 容量口径见 collectVisibleColorKeys：只统计真正渲染的系列 +
+    // pivotDetails 去重补齐。依赖保持原有三项，不要增删。
+    const {
+        keys: visibleColorKeys,
+        renderedSeriesCount,
+        skippedFilteredOutCount,
+    } = useMemo(
+        () =>
+            collectVisibleColorKeys({
+                chartConfig,
+                computedSeries,
+                resultsData,
+            }),
+        [chartConfig, computedSeries, resultsData],
+    );
 
     const registerVisibleColorKeys = useRegisterDashboardVisibleColorKeys();
 
+    // 把本图可见名注册进看板级追加表；ECharts 与 Vega 通道共用同一份表。
+    // 追加表只增不改已有 key；同一批次的分配在 appendDashboardUnknownHashColors
+    // 内按 UTF-16 排序后进行，与注册顺序无关。
     useLayoutEffect(() => {
         if (!useHashBased) return;
         registerVisibleColorKeys(visibleColorKeys);
     }, [registerVisibleColorKeys, useHashBased, visibleColorKeys]);
 
-    const chartHashAssignments = hashAssignments;
+    /**
+     * 本图色表（ECharts 通道）= 按本图容量重分配（assignVisibleChartColors）：
+     * 以看板基准色 knownHashAssignments 作 preferred 继承，其余按哈希基准色
+     * 只在本图内避让。
+     *
+     * 本图优先保证「调色板保真 + 本图内不重复」：本图可见系列数不超过调色板
+     * 去重颜色数时，每条系列都拿调色板原色且两两不同，不再被整板几十个
+     * 系列名挤成生成色；跨图同名同色由哈希基准色（确定性）与 preferred
+     * 继承保证，与本图可读性冲突时以本图优先。preferred 里不属于当前
+     * 调色板的色一律忽略（切换调色板后立即全部切到新调色板）。
+     *
+     * 注意：Vega 通道（colorSync.hashAssignments）保持不动，仍用看板合并表。
+     */
+    const chartHashAssignments = useMemo(
+        () =>
+            useHashBased
+                ? assignVisibleChartColors({
+                      visibleKeys: visibleColorKeys,
+                      colorPalette,
+                      preferredAssignments: knownHashAssignments,
+                  })
+                : knownHashAssignments,
+        [useHashBased, visibleColorKeys, colorPalette, knownHashAssignments],
+    );
+
+    /**
+     * 本图取色器：以 chartHashAssignments 为种子，遇到色表未覆盖的系列名时
+     * 现场分配（仍在本图内避让），保证不会回退到无避让的纯哈希而撞色。
+     */
+    const chartColorAllocator = useMemo(
+        () =>
+            createChartColorAllocator({
+                colorPalette,
+                seedAssignments: chartHashAssignments,
+            }),
+        [colorPalette, chartHashAssignments],
+    );
+
+    const resolveChartColor = useCallback(
+        (identifier: string): string | undefined =>
+            chartColorAllocator.resolve(identifier),
+        [chartColorAllocator],
+    );
+
+    if (import.meta.env.DEV) {
+        // eslint-disable-next-line react-hooks/rules-of-hooks
+        useEffect(() => {
+            publishColorSyncDebug({
+                useHashBased,
+                paletteSize: colorPalette.length,
+                visibleKeys: visibleColorKeys,
+                renderedSeriesCount,
+                skippedFilteredOutCount,
+                assignments: chartHashAssignments,
+            });
+            if (
+                renderedSeriesCount !== null &&
+                renderedSeriesCount > 0 &&
+                visibleColorKeys.length > renderedSeriesCount * 2
+            ) {
+                console.warn(
+                    `[ColorSync] 容量口径漂移：visibleKeys(${visibleColorKeys.length}) 明显多于本图渲染系列数(${renderedSeriesCount})，stale key 在挤占调色板（检查 isFilteredOut 过滤 / pivotDetails 去重）`,
+                );
+            }
+        }, [
+            useHashBased,
+            colorPalette,
+            visibleColorKeys,
+            renderedSeriesCount,
+            skippedFilteredOutCount,
+            chartHashAssignments,
+        ]);
+    }
 
     /** 看板级颜色同步信息，供自定义图表（Vega-Lite）注入 color scale 使用 */
     const colorSync = useMemo(
@@ -244,14 +345,15 @@ const VisualizationProvider: FC<
             enabled: useHashBased,
             palette: colorPalette,
             knownHashAssignments: knownHashAssignments ?? {},
-            hashAssignments: chartHashAssignments,
+            // Vega 通道保持看板表（known + 看板追加），行为不变
+            hashAssignments,
             registerVisibleColorKeys,
         }),
         [
             useHashBased,
             colorPalette,
             knownHashAssignments,
-            chartHashAssignments,
+            hashAssignments,
             registerVisibleColorKeys,
         ],
     );
@@ -261,6 +363,7 @@ const VisualizationProvider: FC<
             colorPalette,
             useHashBased,
             hashAssignments: chartHashAssignments,
+            resolveColor: resolveChartColor,
         });
 
     // cartesian config related
@@ -316,11 +419,13 @@ const VisualizationProvider: FC<
                 sortedSeriesIdentifiers.map((identifier) => {
                     const parts = identifier.split('|');
                     const value = parts[parts.length - 1] ?? identifier;
-                    const color = resolveSyncedHashColor(
-                        value,
-                        colorPalette,
-                        chartHashAssignments,
-                    );
+                    const color =
+                        resolveChartColor(value) ??
+                        resolveSyncedHashColor(
+                            value,
+                            colorPalette,
+                            chartHashAssignments,
+                        );
                     return [identifier, color];
                 }),
             );
@@ -340,6 +445,7 @@ const VisualizationProvider: FC<
         computedSeries,
         useHashBased,
         chartHashAssignments,
+        resolveChartColor,
     ]);
 
     const handleChartConfigChange = useCallback(
@@ -436,11 +542,12 @@ const VisualizationProvider: FC<
                 return Object.fromEntries(
                     identifiers.map((identifier) => [
                         identifier,
-                        resolveSyncedHashColor(
-                            identifier,
-                            colorPalette,
-                            chartHashAssignments,
-                        ),
+                        resolveChartColor(identifier) ??
+                            resolveSyncedHashColor(
+                                identifier,
+                                colorPalette,
+                                chartHashAssignments,
+                            ),
                     ]),
                 );
             }
@@ -452,7 +559,13 @@ const VisualizationProvider: FC<
                 ]),
             );
         },
-        [chartHashAssignments, colorPalette, getGroupColor, useHashBased],
+        [
+            chartHashAssignments,
+            colorPalette,
+            getGroupColor,
+            resolveChartColor,
+            useHashBased,
+        ],
     );
 
     const isCalculateSeriesColorEnabled = useFeatureFlagEnabled(
@@ -480,11 +593,18 @@ const VisualizationProvider: FC<
             const completeIdentifier = seriesIdentifier[1] ?? '';
 
             if (useHashBased) {
+                const resolved = resolveChartColor(completeIdentifier);
+                if (resolved) return resolved;
                 const mapped = lookupSyncedColor(
                     completeIdentifier,
                     chartHashAssignments,
                 );
                 if (mapped) return mapped;
+                // 开发期诊断：命中不到色表时记录真实系列名，便于定位
+                // 「调色板没覆盖 / 同图撞色」到底是不是 key 没对齐
+                if (import.meta.env.DEV && completeIdentifier) {
+                    recordColorSyncMiss(completeIdentifier);
+                }
             } else {
                 const serieId = seriesIdentifier.join('.');
                 const metadata =
@@ -538,6 +658,7 @@ const VisualizationProvider: FC<
             chartHashAssignments,
             itemsMap,
             isCalculateSeriesColorEnabled,
+            resolveChartColor,
             useHashBased,
         ],
     );

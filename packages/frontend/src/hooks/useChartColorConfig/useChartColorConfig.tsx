@@ -56,12 +56,18 @@ export const useChartColorConfig = ({
     colorPalette,
     useHashBased = false,
     hashAssignments = {},
+    resolveColor,
 }: {
     colorPalette: string[];
     /** 当为 true 时，使用哈希分配颜色，相同 identifier 获得相同颜色 */
     useHashBased?: boolean;
     /** 看板已知系列名的确定性哈希色，筛选新系列只避让这些槽 */
     hashAssignments?: Record<string, string>;
+    /**
+     * 哈希模式下的系列名 → 颜色解析器（`createChartColorAllocator().resolve`）。
+     * 传入后不再回退到无避让的纯哈希，保证未覆盖的系列也不会撞色。
+     */
+    resolveColor?: (identifier: string) => string | undefined;
 }) => {
     const theme = useMantineTheme();
     const { colorMappings } = useChartColorMappingContext();
@@ -73,6 +79,8 @@ export const useChartColorConfig = ({
             }
 
             if (useHashBased) {
+                const resolved = resolveColor?.(identifier);
+                if (resolved) return resolved;
                 return resolveSyncedHashColor(
                     identifier,
                     colorPalette,
@@ -101,7 +109,14 @@ export const useChartColorConfig = ({
 
             return colorHex;
         },
-        [colorPalette, colorMappings, hashAssignments, theme, useHashBased],
+        [
+            colorPalette,
+            colorMappings,
+            hashAssignments,
+            resolveColor,
+            theme,
+            useHashBased,
+        ],
     );
 
     const calculateSeriesColorAssignment = useCallback(

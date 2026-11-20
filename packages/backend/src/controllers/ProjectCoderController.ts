@@ -179,7 +179,7 @@ export class ProjectCoderController extends BaseController {
         @Body()
         chart: Omit<
             ChartAsCode,
-            'metricQuery' | 'chartConfig' | 'description'
+            'metricQuery' | 'chartConfig' | 'description' | 'dashboardSlug'
         > & {
             skipSpaceCreate?: boolean;
             publicSpaceCreate?: boolean;
@@ -188,6 +188,10 @@ export class ProjectCoderController extends BaseController {
             filePath?: string;
             chartConfig: AnyType;
             metricQuery: AnyType;
+            // Lint schema allows `dashboardSlug: null` (chart not in a
+            // dashboard) but TSOA's union is `string | undefined`; accept null
+            // and normalize it to "absent".
+            dashboardSlug?: string | null;
             description?: string | null;
         },
         @Request() req: express.Request,
@@ -201,6 +205,7 @@ export class ProjectCoderController extends BaseController {
                 {
                     ...chart,
                     description: chart.description ?? undefined,
+                    dashboardSlug: chart.dashboardSlug ?? undefined,
                 },
                 chart.skipSpaceCreate,
                 chart.publicSpaceCreate,
@@ -264,7 +269,7 @@ export class ProjectCoderController extends BaseController {
         @Body()
         dashboard: Omit<
             DashboardAsCode,
-            'filters' | 'tiles' | 'description'
+            'filters' | 'tiles' | 'description' | 'tabs' | 'config'
         > & {
             skipSpaceCreate?: boolean;
             publicSpaceCreate?: boolean;
@@ -273,6 +278,14 @@ export class ProjectCoderController extends BaseController {
             filePath?: string;
             filters: AnyType;
             tiles: AnyType;
+            // Tab-level filters strip rule ids for portability, which TSOA
+            // runtime validation would reject (`DashboardFilterRule.id` is
+            // required); tabs travel unvalidated and are restored from the
+            // raw body below, same as filters/tiles.
+            tabs: AnyType;
+            // `config: null` is emitted by older download builds (nullable
+            // DB column); accept it and normalize to "absent".
+            config?: AnyType;
             description?: string | null;
         },
         @Request() req: express.Request,
@@ -284,6 +297,8 @@ export class ProjectCoderController extends BaseController {
             {
                 ...dashboard,
                 description: dashboard.description ?? undefined,
+                config: (dashboard.config ??
+                    undefined) as DashboardAsCode['config'],
             },
             rawBody,
         );

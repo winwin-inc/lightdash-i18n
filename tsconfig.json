@@ -31,6 +31,9 @@
         },
         {
             "path": "./packages/lightdash-mcp"
+        },
+        {
+            "path": "./packages/msy-x-cli"
         }
     ],
     "exclude": [

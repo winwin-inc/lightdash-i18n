@@ -23871,6 +23871,95 @@ const models: TsoaRoute.Models = {
         },
     },
     // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+    'Pick_ChartAsCode.Exclude_keyofChartAsCode.metricQuery-or-chartConfig-or-description-or-dashboardSlug__':
+        {
+            dataType: 'refAlias',
+            type: {
+                dataType: 'nestedObjectLiteral',
+                nestedProperties: {
+                    name: { dataType: 'string', required: true },
+                    updatedAt: { dataType: 'datetime', required: true },
+                    version: { dataType: 'double', required: true },
+                    slug: { dataType: 'string', required: true },
+                    tableName: { dataType: 'string', required: true },
+                    pivotConfig: {
+                        dataType: 'union',
+                        subSchemas: [
+                            {
+                                dataType: 'nestedObjectLiteral',
+                                nestedProperties: {
+                                    columns: {
+                                        dataType: 'array',
+                                        array: { dataType: 'string' },
+                                        required: true,
+                                    },
+                                },
+                            },
+                            { dataType: 'undefined' },
+                        ],
+                    },
+                    merge: {
+                        dataType: 'union',
+                        subSchemas: [
+                            { ref: 'SavedMergeQuery' },
+                            { dataType: 'enum', enums: [null] },
+                            { dataType: 'undefined' },
+                        ],
+                    },
+                    tableConfig: {
+                        dataType: 'nestedObjectLiteral',
+                        nestedProperties: {
+                            columnOrder: {
+                                dataType: 'array',
+                                array: { dataType: 'string' },
+                                required: true,
+                            },
+                        },
+                        required: true,
+                    },
+                    parameters: {
+                        dataType: 'union',
+                        subSchemas: [
+                            { ref: 'ParametersValuesMap' },
+                            { dataType: 'undefined' },
+                        ],
+                    },
+                    spaceSlug: { dataType: 'string', required: true },
+                    downloadedAt: {
+                        dataType: 'union',
+                        subSchemas: [
+                            { dataType: 'datetime' },
+                            { dataType: 'undefined' },
+                        ],
+                    },
+                    contentType: {
+                        dataType: 'union',
+                        subSchemas: [
+                            { ref: 'ContentAsCodeType.CHART' },
+                            { dataType: 'undefined' },
+                        ],
+                    },
+                    verified: {
+                        dataType: 'union',
+                        subSchemas: [
+                            { dataType: 'boolean' },
+                            { dataType: 'undefined' },
+                        ],
+                    },
+                },
+                validators: {},
+            },
+        },
+    // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+    'Omit_ChartAsCode.metricQuery-or-chartConfig-or-description-or-dashboardSlug_':
+        {
+            dataType: 'refAlias',
+            type: {
+                ref: 'Pick_ChartAsCode.Exclude_keyofChartAsCode.metricQuery-or-chartConfig-or-description-or-dashboardSlug__',
+                validators: {},
+            },
+        },
+    // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
     ApiSqlChartAsCodeUpsertResponse: {
         dataType: 'refAlias',
         type: {
@@ -23925,6 +24014,66 @@ const models: TsoaRoute.Models = {
         dataType: 'refAlias',
         type: {
             ref: 'Pick_SqlChartAsCode.Exclude_keyofSqlChartAsCode.config-or-description__',
+            validators: {},
+        },
+    },
+    // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+    'Pick_DashboardAsCode.Exclude_keyofDashboardAsCode.filters-or-tiles-or-description-or-tabs-or-config__':
+        {
+            dataType: 'refAlias',
+            type: {
+                dataType: 'nestedObjectLiteral',
+                nestedProperties: {
+                    name: { dataType: 'string', required: true },
+                    updatedAt: { dataType: 'datetime', required: true },
+                    version: { dataType: 'double', required: true },
+                    slug: { dataType: 'string', required: true },
+                    parameters: {
+                        dataType: 'union',
+                        subSchemas: [
+                            { ref: 'DashboardParameters' },
+                            { dataType: 'undefined' },
+                        ],
+                    },
+                    spaceSlug: { dataType: 'string', required: true },
+                    downloadedAt: {
+                        dataType: 'union',
+                        subSchemas: [
+                            { dataType: 'datetime' },
+                            { dataType: 'undefined' },
+                        ],
+                    },
+                    contentType: {
+                        dataType: 'union',
+                        subSchemas: [
+                            { ref: 'ContentAsCodeType.DASHBOARD' },
+                            { dataType: 'undefined' },
+                        ],
+                    },
+                    verified: {
+                        dataType: 'union',
+                        subSchemas: [
+                            { dataType: 'boolean' },
+                            { dataType: 'undefined' },
+                        ],
+                    },
+                    ownerEmail: {
+                        dataType: 'union',
+                        subSchemas: [
+                            { dataType: 'string' },
+                            { dataType: 'enum', enums: [null] },
+                            { dataType: 'undefined' },
+                        ],
+                    },
+                },
+                validators: {},
+            },
+        },
+    // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+    'Omit_DashboardAsCode.filters-or-tiles-or-description-or-tabs-or-config_': {
+        dataType: 'refAlias',
+        type: {
+            ref: 'Pick_DashboardAsCode.Exclude_keyofDashboardAsCode.filters-or-tiles-or-description-or-tabs-or-config__',
             validators: {},
         },
     },
@@ -50568,12 +50717,19 @@ export function RegisterRoutes(app: Router) {
             dataType: 'intersection',
             subSchemas: [
                 {
-                    ref: 'Omit_ChartAsCode.metricQuery-or-chartConfig-or-description_',
+                    ref: 'Omit_ChartAsCode.metricQuery-or-chartConfig-or-description-or-dashboardSlug_',
                 },
                 {
                     dataType: 'nestedObjectLiteral',
                     nestedProperties: {
                         description: {
+                            dataType: 'union',
+                            subSchemas: [
+                                { dataType: 'string' },
+                                { dataType: 'enum', enums: [null] },
+                            ],
+                        },
+                        dashboardSlug: {
                             dataType: 'union',
                             subSchemas: [
                                 { dataType: 'string' },
@@ -50748,7 +50904,7 @@ export function RegisterRoutes(app: Router) {
             dataType: 'intersection',
             subSchemas: [
                 {
-                    ref: 'Omit_DashboardAsCode.filters-or-tiles-or-description_',
+                    ref: 'Omit_DashboardAsCode.filters-or-tiles-or-description-or-tabs-or-config_',
                 },
                 {
                     dataType: 'nestedObjectLiteral',
@@ -50760,6 +50916,8 @@ export function RegisterRoutes(app: Router) {
                                 { dataType: 'enum', enums: [null] },
                             ],
                         },
+                        config: { ref: 'AnyType' },
+                        tabs: { ref: 'AnyType', required: true },
                         tiles: { ref: 'AnyType', required: true },
                         filters: { ref: 'AnyType', required: true },
                         filePath: { dataType: 'string' },

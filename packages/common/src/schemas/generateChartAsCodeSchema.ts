@@ -360,6 +360,12 @@ const overlayCompatibilityRules = (schema: JsonObject): JsonObject => {
         };
     }
 
+    // `description: null` is emitted by older download builds (nullable DB
+    // columns); tolerate it so legacy files still pass lint.
+    if (rootProperties.description) {
+        rootProperties.description = { type: ['string', 'null'] };
+    }
+
     root.properties = rootProperties;
     root.additionalProperties = false;
     return root;
