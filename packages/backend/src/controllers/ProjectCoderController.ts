@@ -179,7 +179,7 @@ export class ProjectCoderController extends BaseController {
         @Body()
         chart: Omit<
             ChartAsCode,
-            'metricQuery' | 'chartConfig' | 'description'
+            'metricQuery' | 'chartConfig' | 'description' | 'dashboardSlug'
         > & {
             skipSpaceCreate?: boolean;
             publicSpaceCreate?: boolean;
@@ -188,6 +188,10 @@ export class ProjectCoderController extends BaseController {
             filePath?: string;
             chartConfig: AnyType;
             metricQuery: AnyType;
+            // Lint schema allows `dashboardSlug: null` (chart not in a
+            // dashboard) but TSOA's union is `string | undefined`; accept null
+            // and normalize it to "absent".
+            dashboardSlug?: string | null;
             description?: string | null;
         },
         @Request() req: express.Request,
@@ -201,6 +205,7 @@ export class ProjectCoderController extends BaseController {
                 {
                     ...chart,
                     description: chart.description ?? undefined,
+                    dashboardSlug: chart.dashboardSlug ?? undefined,
                 },
                 chart.skipSpaceCreate,
                 chart.publicSpaceCreate,

@@ -128,6 +128,49 @@ const postDashboard = async (
     return { status: response.status, body: parsed };
 };
 
+const postChart = async (
+    url: string,
+    body: unknown,
+): Promise<{ status: number; body: { message?: string } }> => {
+    const { hostname, port } = new URL(url);
+    const payload = JSON.stringify(body);
+    const response = await new Promise<{ status: number; text: string }>(
+        (resolve, reject) => {
+            const req = httpRequest(
+                {
+                    hostname,
+                    port: Number(port),
+                    path: '/api/v1/projects/test-project/code/charts/test-slug',
+                    method: 'POST',
+                    headers: {
+                        'content-type': 'application/json',
+                        'content-length': Buffer.byteLength(payload),
+                    },
+                },
+                (res) => {
+                    let text = '';
+                    res.on('data', (chunk: Buffer) => {
+                        text += chunk.toString();
+                    });
+                    res.on('end', () => {
+                        resolve({ status: res.statusCode ?? 0, text });
+                    });
+                },
+            );
+            req.on('error', reject);
+            req.write(payload);
+            req.end();
+        },
+    );
+    let parsed: { message?: string } = {};
+    try {
+        parsed = JSON.parse(response.text) as { message?: string };
+    } catch {
+        parsed = { message: response.text.slice(0, 200) };
+    }
+    return { status: response.status, body: parsed };
+};
+
 const validDashboardBody = {
     name: 'Dashboard',
     slug: 'test-slug',
@@ -251,6 +294,94 @@ describe('upsertCodeDashboard TSOA validation', () => {
                     },
                 },
             ],
+        });
+
+        expect(String(body.message)).toContain('CONTAINER_REACHED');
+    });
+});
+
+describe('upsertCodeChart TSOA validation', () => {
+    let server: Server;
+    let url: string;
+
+    beforeAll(async () => {
+        ({ server, url } = await startApp());
+    });
+
+    afterAll(async () => {
+        await new Promise<void>((resolve, reject) => {
+            server.close((error) => (error ? reject(error) : resolve()));
+        });
+    });
+
+    it('accepts table grouping, pagination and sorting payloads', async () => {
+        const { body } = await postChart(url, {
+            name: 'Chart',
+            slug: 'test-slug',
+            spaceSlug: 'space',
+            version: 1,
+            updatedAt: new Date().toISOString(),
+            tableName: 'orders',
+            dashboardSlug: null,
+            force: true,
+            tableConfig: { columnOrder: ['orders_status', 'revenue'] },
+            chartConfig: {
+                type: 'table',
+                config: {
+                    showRowGrouping: true,
+                    enablePagination: true,
+                    pageSize: 25,
+                    columns: {
+                        orders_status: {
+                            visible: true,
+                            name: '状态',
+                            frozen: true,
+                            displayStyle: 'text',
+                            width: 120,
+                        },
+                    },
+                    conditionalFormattings: [],
+                },
+            },
+            metricQuery: {
+                exploreName: 'orders',
+                dimensions: ['orders_status'],
+                metrics: ['revenue'],
+                filters: {},
+                sorts: [
+                    { fieldId: 'revenue', descending: true, nullsFirst: false },
+                    { fieldId: 'orders_status', descending: false },
+                ],
+                limit: 500,
+                offset: 100,
+                tableCalculations: [],
+            },
+            pivotConfig: { columns: ['orders_status'] },
+        });
+
+        expect(String(body.message)).toContain('CONTAINER_REACHED');
+    });
+
+    it('accepts a null dashboardSlug like the lint schema does', async () => {
+        const { body } = await postChart(url, {
+            name: 'Chart',
+            slug: 'test-slug',
+            spaceSlug: 'space',
+            version: 1,
+            updatedAt: new Date().toISOString(),
+            tableName: 'orders',
+            dashboardSlug: null,
+            tableConfig: { columnOrder: [] },
+            chartConfig: { type: 'table', config: {} },
+            metricQuery: {
+                exploreName: 'orders',
+                dimensions: [],
+                metrics: [],
+                filters: {},
+                sorts: [],
+                limit: 500,
+                tableCalculations: [],
+            },
         });
 
         expect(String(body.message)).toContain('CONTAINER_REACHED');

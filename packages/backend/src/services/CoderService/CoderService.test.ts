@@ -519,3 +519,108 @@ describe('fork filter fields survive the as-code round-trip', () => {
         });
     });
 });
+
+describe('table chart grouping, pagination and sorting survive as-code', () => {
+    /* One chart carrying every fork table capability: row grouping,
+     * warehouse pagination, per-column props, conditional formatting,
+     * pivot grouping and multi-key sorting. */
+    const tableChartConfig = {
+        type: 'table',
+        config: {
+            showRowGrouping: true,
+            showSubtotals: false,
+            enablePagination: true,
+            pageSize: 25,
+            hideRowNumbers: true,
+            metricsAsRows: false,
+            showFieldDescriptionTooltip: false,
+            cellAlignment: 'center',
+            pivotRowDimensionAlignment: 'right',
+            pivotAutoFillWidth: true,
+            pivotDimensionColumnMaxWidth: 240,
+            pivotColumnMaxWidth: 180,
+            pivotMetricHeaderPosition: 'top',
+            columns: {
+                orders_status: {
+                    visible: true,
+                    name: '状态',
+                    frozen: true,
+                    displayStyle: 'text',
+                    width: 120,
+                },
+                revenue: { visible: false },
+            },
+            conditionalFormattings: [
+                {
+                    target: { fieldId: 'revenue' },
+                    color: '#ff0000',
+                    rules: [],
+                },
+            ],
+        },
+    };
+
+    const metricQuery = {
+        exploreName: 'orders',
+        dimensions: ['orders_status'],
+        metrics: ['revenue'],
+        filters: {},
+        sorts: [
+            { fieldId: 'revenue', descending: true, nullsFirst: false },
+            { fieldId: 'orders_status', descending: false, valueOrder: [] },
+        ],
+        limit: 500,
+        offset: 100,
+        tableCalculations: [],
+        additionalMetrics: [],
+        customDimensions: [],
+        timezone: 'Asia/Shanghai',
+    };
+
+    const chart = {
+        name: 'Chart',
+        description: null,
+        tableName: 'orders',
+        updatedAt: new Date(),
+        metricQuery,
+        chartConfig: tableChartConfig,
+        tableConfig: { columnOrder: ['orders_status', 'revenue'] },
+        pivotConfig: { columns: ['orders_status'] },
+        parameters: { param1: { parameterName: 'p1', value: 'x' } },
+        merge: null,
+        dashboardUuid: null,
+        slug: 'chart-slug',
+        spaceUuid: 'space-1',
+        colorPalette: [],
+        isPrivate: false,
+        access: [],
+    };
+
+    const spaces = [{ uuid: 'space-1', path: 'root.space_1' }];
+
+    it('downloads every grouping/pagination/sorting field verbatim', () => {
+        const result = (CoderService as AnyType).transformChart(
+            chart,
+            spaces,
+            {},
+        );
+
+        expect(result.chartConfig).toEqual(tableChartConfig);
+        expect(result.chartConfig.config.enablePagination).toBe(true);
+        expect(result.chartConfig.config.pageSize).toBe(25);
+        expect(result.chartConfig.config.showRowGrouping).toBe(true);
+        expect(result.chartConfig.config.columns.orders_status.frozen).toBe(
+            true,
+        );
+        expect(result.chartConfig.config.columns.orders_status.width).toBe(120);
+        expect(result.chartConfig.config.conditionalFormattings).toHaveLength(
+            1,
+        );
+        expect(result.metricQuery.sorts).toEqual(metricQuery.sorts);
+        expect(result.metricQuery.limit).toBe(500);
+        expect(result.metricQuery.offset).toBe(100);
+        expect(result.pivotConfig).toEqual({ columns: ['orders_status'] });
+        expect(result.parameters).toEqual(chart.parameters);
+        expect(result.tableConfig).toEqual(chart.tableConfig);
+    });
+});
