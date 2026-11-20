@@ -76,7 +76,7 @@ YAML 写可移植 slug，库内存本地 uuid；`upload` 时按目标环境解�
 |---|---|---|---|
 | filter rule `tileTargets` 的键 | 图表 slug | tile uuid | `CoderService.test.ts:19`（`getFiltersWithTileSlugs`）/ `:139`（`getFiltersWithTileUuids`） |
 | filter rule `lockedTabUuids` | tab slug 列表 | tab uuid 列表 | `dashboardAsCodeReferences.ts:237-283`；`dashboardAsCodeReferences.test.ts:123,230` |
-| filter rule `parentTabUuid` | tab slug（字段名仍叫 uuid） | tab uuid | `dashboardAsCodeReferences.ts:250-253`；`dashboardAsCodeReferences.test.ts:151`（`remaps parentTabUuid as a portable slug and back`） |
+| filter rule `parentTabUuid` | tab slug（别名为 `parentTabSlug`，字段名仍叫 uuid） | tab uuid | `dashboardAsCodeReferences.ts:250-253`；`dashboardAsCodeReferences.test.ts:151`（`remaps parentTabUuid as a portable slug and back`） |
 | `config.tabFilterEnabled` / `config.showTabAddFilterButton` 的键 | tab slug | tab uuid | `dashboardAsCodeReferences.ts:145-158` |
 | `config.syncChartTileUuids` | tile slug | tile uuid | `dashboardAsCodeReferences.ts:157-161,195-204` |
 | tile 的所属 Tab | `tabSlug` | `tabUuid` | `dashboards.ts:28-31`；`dashboardAsCodeReferences.test.ts:304`（`prefers tabSlug over a stale tabUuid`） |
@@ -104,11 +104,11 @@ YAML 写可移植 slug，库内存本地 uuid；`upload` 时按目标环境解�
 
 1. **`ownerEmail`**：`download` 导出 `ownerEmail`（`CoderService.ts:594`）；`upload` 按邮箱解析成本环境成员并设为负责人，邮箱在本组织不存在时 warning 跳过，不阻断上传（创建与更新两条路径都覆盖，见 `CoderService.test.ts` 的 `upsertDashboard ownerEmail`）。即「单向携带、按环境解析」，不保证跨环境一定有人。
 2. **引用解析失败一律降级**：`tileTargets` / `lockedTabUuids` / `syncChartTileUuids` 中解析不到的条目会被丢弃并 warning，`upload` 不中断。缺 chart 时 tile 仍建，只是暂时空着。
-3. **旧色板色值会被改写**：看板 `colorPalette` 里命中 `legacyColors` 的旧 20 色，读路径 `reconcileColorPalette` 会换成当前色值并在保存后落库（CHANGELOG v2.7.6）。因此拿旧 YAML 上传后，再 `download` 出来的色值可能与源文件不同（属预期迁移）。
+3. **旧色板只由 UI 操作改写，as-code 往返稳定**：`reconcileColorPalette` / `legacyColors` 对账只存在于前端（`packages/frontend/src/providers/DashboardChartColorSync/DashboardChartColorSyncProvider.tsx`、`packages/frontend/src/pages/palettePresets.ts`），后端 `packages/backend/src` 里没有任何 reconcile 逻辑。`download` 读的是库内原始 `colorPalette`，`upload` 也是原样写回，所以「旧 YAML 上传 → 再 `download`」的色值不变。旧 20 色换成当前色值只发生在用户在 UI 打开看板并保存时（CHANGELOG v2.7.6），迁移后的值成为新基线。即：导致色值变化的唯一来源是 UI 保存，不是 as-code 往返。
 4. **颜色一致性的边界**：`syncChartColors` 只同步「哪些图表参与」与看板色板映射；单图系列数超过色板容量（14）时超出部分用生成色，跨图不再保证同系列同色（CHANGELOG v2.7.6 已知边界）。SQL 图表不参与颜色同步。
 5. **`config` 为空的老看板**：老库 `config` 列为 `NULL`，新 `download` 省略该字段；`upload` 与 lint 容忍存量 `config: null`（`dashboardAsCodeReferences.test.ts:140`）。
-6. **审核中的语义差异**：`parentTabUuid` 在 YAML 里存 slug 但字段名保留 `uuid`；如上游工具按名字校验会误判，暂不改名以免破坏存量文件。
-7. **`verified` 字段尚未落地**：`ChartAsCode` / `DashboardAsCode` 类型里有 `verified?: boolean`，但 `download` 从不写、`upload` 也不消费——校验状态（内容治理）目前不进 as-code。要跨环境携带需另做决定（校验是环境级治理行为，未必应该同步）。
+6. **`parentTabUuid` 的命名与别名**：该字段在 YAML 里存 slug 但字段名保留 `uuid`，上游工具若按名字校验会误判。为避免改名破坏存量文件，现改为增加别名：`upload` 同时接受 `parentTabSlug`（推荐写这个，语义清晰），两者都给时以 `parentTabUuid` 为准；`download` 仍只输出 `parentTabUuid`，存量 YAML 与旧后端都不受影响；lint schema 两个名字都接受。
+7. **`verified` 不往返，但现在会明确提示**：本 fork 没有内容校验功能（无 verifications 表、无 `verifiedAt`，MCP 侧按可选的上游扩展处理），`ChartAsCode` / `DashboardAsCode` 里的 `verified?: boolean` 此前是 `download` 不写、`upload` 静默忽略。现在 `upload` 遇到 YAML 带 `verified` 时，会返回/记录一条 `Ignored verified: content verification is not available on this instance` 警告（看板走上传响应的 warnings，图表走服务端日志），数据不变。要跨环境携带校验状态仍需另做决定（校验是环境级治理行为，未必应该同步）。
 
 ## 五、核对方式
 

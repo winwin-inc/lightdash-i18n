@@ -23,7 +23,7 @@
 - 必填分组：`requiredGroupId`（同组内任一项有值即解锁）
 - 范围限制：`minAllowedDate` / `maxAllowedDate`、`enableDynamicMaxAllowedDate`、`rollingMinAllowedMonths`、`dataAvailableFromDay`
 - 操作符与取值：`allowedOperators`、`excludedValues`、`clearable`、`singleValue`
-- 联动 / 级联：`parentFieldId`、`parentScope`、`parentTabUuid`、`categoryLevel`
+- 联动 / 级联：`parentFieldId`、`parentScope`、`parentTabUuid`（或别名 `parentTabSlug`）、`categoryLevel`
 - 可视与作用域：`hidden`、`readOnly`、`hideTilesWhenEmpty`、`lockedTabUuids`、`tileTargets`
 
 其中三个引用型字段会转成可移植形态再转回，跨环境同步后引用不悬空：
@@ -34,7 +34,7 @@
 | `lockedTabUuids` = tab slug 列表 | tab uuid 列表 |
 | `parentTabUuid` = tab slug | tab uuid |
 
-注意 `parentTabUuid` 的字段名仍叫 uuid，但 YAML 里存的是 **tab slug**（Tab 级联）；上传时若还是旧环境 uuid 也能解析。
+注意 `parentTabUuid` 的字段名仍叫 uuid，但 YAML 里存的是 **tab slug**（Tab 级联）；上传时若还是旧环境 uuid 也能解析。也可以写别名 `parentTabSlug`（推荐，语义清晰），两者同时存在时以 `parentTabUuid` 为准；`download` 仍只输出 `parentTabUuid`。
 
 ## 图表能力（随 `chartConfig` / `metricQuery` 往返）
 
