@@ -1364,6 +1364,22 @@ export class CoderService extends BaseService {
             ? await this.dashboardModel.getByIdOrSlug(dashboardSummary.uuid)
             : undefined;
         const warnings: string[] = [];
+        const ownerEmail = dashboardAsCode.ownerEmail?.trim();
+        let ownerUserUuid: string | undefined;
+        if (ownerEmail) {
+            try {
+                const owner =
+                    await this.organizationMemberProfileModel.getOrganizationMemberByEmail(
+                        project.organizationUuid,
+                        ownerEmail,
+                    );
+                ownerUserUuid = owner.userUuid;
+            } catch {
+                warnings.push(
+                    `Skipped ownerEmail "${ownerEmail}": no matching member in this organization`,
+                );
+            }
+        }
         const resolvedTiles = await this.convertTileWithSlugsToUuids(
             projectUuid,
             dashboardAsCode.tiles,
@@ -1420,6 +1436,7 @@ export class CoderService extends BaseService {
                     forceSlug: true,
                     filters: dashboardFilters,
                     config: dashboardConfig,
+                    ownerUserUuid,
                 },
                 user,
                 projectUuid,
@@ -1526,6 +1543,17 @@ export class CoderService extends BaseService {
             promotionChanges,
             true,
         );
+
+        // The promote flow never touches the dashboard owner, so we sync it
+        // separately from the uploaded ownerEmail when it actually changed
+        if (
+            ownerUserUuid !== undefined &&
+            ownerUserUuid !== dashboard.owner?.userUuid
+        ) {
+            await this.dashboardModel.update(dashboard.uuid, {
+                ownerUserUuid,
+            });
+        }
 
         this.logger.info(
             `Finished updating dashboard "${dashboard.name}" on project ${projectUuid}: ${promotionChanges.dashboards[0].action}`,

@@ -6,6 +6,8 @@ import {
     DashboardTileTarget,
     DashboardTileTypes,
     FilterOperator,
+    NotFoundError,
+    PromotionAction,
 } from '@lightdash/common';
 import { CoderService } from './CoderService';
 import {
@@ -622,5 +624,371 @@ describe('table chart grouping, pagination and sorting survive as-code', () => {
         expect(result.pivotConfig).toEqual({ columns: ['orders_status'] });
         expect(result.parameters).toEqual(chart.parameters);
         expect(result.tableConfig).toEqual(chart.tableConfig);
+    });
+});
+
+describe('upsertDashboard ownerEmail', () => {
+    const project = {
+        projectUuid: 'project-uuid',
+        organizationUuid: 'org-uuid',
+        type: 'DEFAULT',
+        createdByUserUuid: null,
+        upstreamProjectUuid: null,
+    };
+
+    const user = {
+        userUuid: 'uploader-uuid',
+        userId: 1,
+        organizationUuid: 'org-uuid',
+        ability: {
+            cannot: jest.fn().mockReturnValue(false),
+            can: jest.fn().mockReturnValue(true),
+        },
+    } as AnyType;
+
+    const space = {
+        uuid: 'space-uuid',
+        name: 'My space',
+        path: 'root.my_space',
+        projectUuid: 'project-uuid',
+        organizationUuid: 'org-uuid',
+        isPrivate: false,
+    };
+
+    const baseDashboardAsCode = {
+        name: 'Dashboard',
+        description: undefined,
+        updatedAt: new Date(0),
+        slug: 'dash-slug',
+        version: 1,
+        spaceSlug: 'my_space',
+        tabs: [],
+        tiles: [],
+        filters: { dimensions: [], metrics: [], tableCalculations: [] },
+    };
+
+    type ServiceMocks = {
+        service: CoderService;
+        dashboardModel: {
+            find: jest.Mock;
+            getByIdOrSlug: jest.Mock;
+            create: jest.Mock;
+            update: jest.Mock;
+        };
+        organizationMemberProfileModel: {
+            getOrganizationMemberByEmail: jest.Mock;
+        };
+        promoteService: {
+            getPromotedDashboard: jest.Mock;
+            getPromotionDashboardChanges: jest.Mock;
+            getOrCreateDashboard: jest.Mock;
+            upsertCharts: jest.Mock;
+            updateDashboard: jest.Mock;
+        };
+    };
+
+    const createService = ({
+        existingDashboard,
+        ownerMember,
+        ownerEmailError,
+    }: {
+        existingDashboard?: AnyType;
+        ownerMember?: AnyType;
+        ownerEmailError?: Error;
+    } = {}): ServiceMocks => {
+        const organizationMemberProfileModel = {
+            getOrganizationMemberByEmail: jest.fn(),
+        };
+        if (ownerEmailError) {
+            organizationMemberProfileModel.getOrganizationMemberByEmail.mockRejectedValue(
+                ownerEmailError,
+            );
+        } else if (ownerMember) {
+            organizationMemberProfileModel.getOrganizationMemberByEmail.mockResolvedValue(
+                ownerMember,
+            );
+        }
+
+        const dashboardModel = {
+            find: jest
+                .fn()
+                .mockResolvedValue(
+                    existingDashboard ? [{ uuid: existingDashboard.uuid }] : [],
+                ),
+            getByIdOrSlug: jest.fn().mockResolvedValue(existingDashboard),
+            create: jest
+                .fn()
+                .mockResolvedValue({ ...space, uuid: 'new-dash-uuid' }),
+            update: jest
+                .fn()
+                .mockResolvedValue({ ...space, uuid: 'dash-uuid' }),
+        };
+
+        const spaceModel = {
+            find: jest.fn().mockResolvedValue([space]),
+            getUserSpacesAccess: jest.fn().mockResolvedValue({}),
+        };
+
+        const promotionChanges = {
+            dashboards: [
+                { action: PromotionAction.UPDATE, data: { uuid: 'dash-uuid' } },
+            ],
+            charts: [],
+            spaces: [],
+            sqlCharts: [],
+            conflicts: [],
+            apps: [],
+        };
+        const promoteService = {
+            getPromotedDashboard: jest.fn().mockResolvedValue({
+                promotedDashboard: {
+                    projectUuid: 'project-uuid',
+                    space: { isPrivate: false },
+                    access: [],
+                },
+                upstreamDashboard: { dashboard: undefined },
+            }),
+            getPromotionDashboardChanges: jest
+                .fn()
+                .mockResolvedValue([promotionChanges, []]),
+            getOrCreateDashboard: jest.fn().mockResolvedValue(promotionChanges),
+            upsertCharts: jest.fn().mockResolvedValue(promotionChanges),
+            updateDashboard: jest.fn().mockResolvedValue(promotionChanges),
+        };
+
+        const service = new CoderService({
+            lightdashConfig: {},
+            analytics: { track: jest.fn() },
+            projectModel: { get: jest.fn().mockResolvedValue(project) },
+            savedChartModel: { find: jest.fn().mockResolvedValue([]) },
+            dashboardModel,
+            dashboardService: {},
+            spaceModel,
+            schedulerClient: {},
+            promoteService,
+            savedSqlModel: { find: jest.fn().mockResolvedValue([]) },
+            organizationMemberProfileModel,
+            groupsModel: {},
+        } as AnyType);
+
+        return {
+            service,
+            dashboardModel,
+            organizationMemberProfileModel,
+            promoteService,
+        };
+    };
+
+    it('creates the dashboard with ownerUserUuid when ownerEmail resolves to a member', async () => {
+        const { service, dashboardModel, organizationMemberProfileModel } =
+            createService({ ownerMember: { userUuid: 'owner-uuid' } });
+
+        const result = await service.upsertDashboard(
+            user,
+            'project-uuid',
+            'dash-slug',
+            {
+                ...baseDashboardAsCode,
+                ownerEmail: 'owner@example.com',
+            } as AnyType,
+        );
+
+        expect(
+            organizationMemberProfileModel.getOrganizationMemberByEmail,
+        ).toHaveBeenCalledWith('org-uuid', 'owner@example.com');
+        expect(dashboardModel.create).toHaveBeenCalledTimes(1);
+        expect(dashboardModel.create.mock.calls[0][1].ownerUserUuid).toBe(
+            'owner-uuid',
+        );
+        expect(result.dashboards).toHaveLength(1);
+        expect(result.dashboards[0].action).toBe(PromotionAction.CREATE);
+        expect(result.warnings).toBeUndefined();
+    });
+
+    it('still creates the dashboard and warns when ownerEmail has no matching member', async () => {
+        const { service, dashboardModel } = createService({
+            ownerEmailError: new NotFoundError(
+                'No matching member found in organization',
+            ),
+        });
+
+        const result = await service.upsertDashboard(
+            user,
+            'project-uuid',
+            'dash-slug',
+            {
+                ...baseDashboardAsCode,
+                ownerEmail: 'missing@example.com',
+            } as AnyType,
+        );
+
+        expect(dashboardModel.create).toHaveBeenCalledTimes(1);
+        expect(dashboardModel.create.mock.calls[0][1].ownerUserUuid).toBe(
+            undefined,
+        );
+        expect(result.dashboards).toHaveLength(1);
+        expect(result.warnings).toEqual([
+            'Skipped ownerEmail "missing@example.com": no matching member in this organization',
+        ]);
+    });
+
+    it('trims the ownerEmail before resolving it', async () => {
+        const { service, dashboardModel, organizationMemberProfileModel } =
+            createService({ ownerMember: { userUuid: 'owner-uuid' } });
+
+        await service.upsertDashboard(user, 'project-uuid', 'dash-slug', {
+            ...baseDashboardAsCode,
+            ownerEmail: '  owner@example.com  ',
+        } as AnyType);
+
+        expect(
+            organizationMemberProfileModel.getOrganizationMemberByEmail,
+        ).toHaveBeenCalledWith('org-uuid', 'owner@example.com');
+        expect(dashboardModel.create.mock.calls[0][1].ownerUserUuid).toBe(
+            'owner-uuid',
+        );
+    });
+
+    it.each([undefined, null, ''])(
+        'skips owner resolution when ownerEmail is %p',
+        async (ownerEmail) => {
+            const { service, dashboardModel, organizationMemberProfileModel } =
+                createService();
+
+            const result = await service.upsertDashboard(
+                user,
+                'project-uuid',
+                'dash-slug',
+                {
+                    ...baseDashboardAsCode,
+                    ownerEmail,
+                } as AnyType,
+            );
+
+            expect(
+                organizationMemberProfileModel.getOrganizationMemberByEmail,
+            ).not.toHaveBeenCalled();
+            expect(dashboardModel.create.mock.calls[0][1].ownerUserUuid).toBe(
+                undefined,
+            );
+            expect(result.warnings).toBeUndefined();
+        },
+    );
+
+    it('updates the dashboard owner when ownerEmail resolves to a different user', async () => {
+        const existingDashboard = {
+            uuid: 'dash-uuid',
+            name: 'Dashboard',
+            slug: 'dash-slug',
+            tabs: [],
+            owner: { userUuid: 'old-owner-uuid' },
+        };
+        const { service, dashboardModel } = createService({
+            existingDashboard,
+            ownerMember: { userUuid: 'new-owner-uuid' },
+        });
+
+        const result = await service.upsertDashboard(
+            user,
+            'project-uuid',
+            'dash-slug',
+            {
+                ...baseDashboardAsCode,
+                ownerEmail: 'new-owner@example.com',
+            } as AnyType,
+        );
+
+        expect(dashboardModel.update).toHaveBeenCalledWith('dash-uuid', {
+            ownerUserUuid: 'new-owner-uuid',
+        });
+        expect(result.dashboards).toHaveLength(1);
+        expect(result.warnings).toBeUndefined();
+    });
+
+    it('does not rewrite the owner when it already matches ownerEmail', async () => {
+        const existingDashboard = {
+            uuid: 'dash-uuid',
+            name: 'Dashboard',
+            slug: 'dash-slug',
+            tabs: [],
+            owner: { userUuid: 'owner-uuid' },
+        };
+        const { service, dashboardModel } = createService({
+            existingDashboard,
+            ownerMember: { userUuid: 'owner-uuid' },
+        });
+
+        const result = await service.upsertDashboard(
+            user,
+            'project-uuid',
+            'dash-slug',
+            {
+                ...baseDashboardAsCode,
+                ownerEmail: 'owner@example.com',
+            } as AnyType,
+        );
+
+        expect(dashboardModel.update).not.toHaveBeenCalled();
+        expect(result.warnings).toBeUndefined();
+    });
+
+    it('does not touch the owner on update when ownerEmail is not set', async () => {
+        const existingDashboard = {
+            uuid: 'dash-uuid',
+            name: 'Dashboard',
+            slug: 'dash-slug',
+            tabs: [],
+            owner: { userUuid: 'old-owner-uuid' },
+        };
+        const { service, dashboardModel, organizationMemberProfileModel } =
+            createService({ existingDashboard });
+
+        const result = await service.upsertDashboard(
+            user,
+            'project-uuid',
+            'dash-slug',
+            {
+                ...baseDashboardAsCode,
+                ownerEmail: null,
+            } as AnyType,
+        );
+
+        expect(
+            organizationMemberProfileModel.getOrganizationMemberByEmail,
+        ).not.toHaveBeenCalled();
+        expect(dashboardModel.update).not.toHaveBeenCalled();
+        expect(result.warnings).toBeUndefined();
+    });
+
+    it('still updates the dashboard and warns when ownerEmail has no matching member', async () => {
+        const existingDashboard = {
+            uuid: 'dash-uuid',
+            name: 'Dashboard',
+            slug: 'dash-slug',
+            tabs: [],
+            owner: { userUuid: 'old-owner-uuid' },
+        };
+        const { service, dashboardModel } = createService({
+            existingDashboard,
+            ownerEmailError: new NotFoundError(
+                'No matching member found in organization',
+            ),
+        });
+
+        const result = await service.upsertDashboard(
+            user,
+            'project-uuid',
+            'dash-slug',
+            {
+                ...baseDashboardAsCode,
+                ownerEmail: 'missing@example.com',
+            } as AnyType,
+        );
+
+        expect(dashboardModel.update).not.toHaveBeenCalled();
+        expect(result.dashboards).toHaveLength(1);
+        expect(result.warnings).toEqual([
+            'Skipped ownerEmail "missing@example.com": no matching member in this organization',
+        ]);
     });
 });
