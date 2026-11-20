@@ -1,0 +1,11 @@
+{
+    "//": "Type-check only (no emit). Includes test files so they stay type-checked, unlike the production build config.",
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+        "composite": false,
+        "incremental": false,
+        "noEmit": true
+    },
+    "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.json"],
+    "exclude": ["dist", "node_modules"]
+}

@@ -67,5 +67,14 @@
         "forceConsistentCasingInFileNames": true /* Disallow inconsistently-cased references to the same file. */
     },
     "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.json"],
-    "exclude": ["dist", "node_modules"]
+    // Tests are type-checked by jest/eslint, not by the production build.
+    // They import the whole module graph (generated routes, models, clients),
+    // which is what pushed `tsc --build` past the default Node heap in CI.
+    "exclude": [
+        "dist",
+        "node_modules",
+        "src/**/*.test.ts",
+        "src/**/*.test.tsx",
+        "src/**/*.spec.ts"
+    ]
 }
