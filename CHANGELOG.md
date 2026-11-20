@@ -7,6 +7,24 @@
 > -   自 **v2.0** 起产品主版本独立编号
 
 
+## v2.7.8 (2026-11-20)
+
+-   **看板整体导出（新功能）**
+    -   背景：客户在原平台有「一键下载整个看板全部数据」的高频功能；本次在看板页恢复导出入口，CSV 与 XLSX 双格式落地，产物形态对齐客户样例——zip 内**每个 Tab 一个 xlsx**，每个 xlsx 内**每个图一个 sheet**
+    -   产物边界：无 Tab 看板或只导出一个 Tab 时直接给单个 .xlsx（不再套 zip）；CSV 只有一张图有数据时直接给 .csv，多份才打 zip；空产物（筛选后无数据/合不出 sheet）统一报可本地化错误，不再产出空 zip
+    -   命名：XLSX sheet 名、zip 内文件名与失败提示一律优先用 tile 自定义标题（为空才回退图表名），避免出现与看板对不上的「Copy of …」；sheet/zip 条目名去重改为大小写不敏感并剥首尾空白/单引号（符合 Excel 规范，避免解压互相覆盖）
+    -   导出弹窗：与图表「导出数据」同一套控件（选项卡 → 文件格式 CSV/XLSX → 值 格式化/原始 → 行数限制 表格/所有/自定义），限制项按 ChangeCsvResults 权限展示；CSV 改走 `POST /dashboards/:uuid/exports` 并支持选择 Tab（与 XLSX 共用同一份选择）；图片页签仅在实例启用 headless browser 时出现
+    -   Tab 筛选器生效：导出按「全局 + 该 Tab」筛选器合并后生效并按 tile 收敛（与页面查询一致），解决「导出数据看不出属于哪个时间/类目」的问题；每张表行首追加筛选器常量列（列名=筛选器名，值=该 Tab 生效取值，按界面语言格式化），CSV 与 XLSX 行为一致；SQL 图表 tile 同样按 Tab 过滤
+    -   布局收口：移除「XLSX 输出」三选一布局选项，固定「每个 Tab 一个文件（ZIP）」（该选项从未上线，无需兼容）；合并工作簿保留合并单元格、冻结窗格与筛选设置
+    -   定时交付：看板定期交付复用同一导出链路，邮件附件按产物真实扩展名处理 zip，无 Tab 磁贴按界面语言显示「未分组」
+    -   失败不再静默：逐图记录导出失败的图表清单并写进 job 完成行，交付渠道（邮件/Teams 等）展示失败图表名；进度写入 job details（done/total/当前 Tab/当前图），前端轮询并实时刷新 toast
+    -   护栏与性能：手动导出受累计行数额度约束（`DASHBOARD_EXPORT_MAX_TOTAL_ROWS`，默认 50 万行，超限整次失败并清理中间文件；定时交付保持原有截断语义并透传 truncated 标记）；导出任务专属超时 `SCHEDULER_EXPORT_JOB_TIMEOUT`（默认 30 分钟）；逐 tile 并发限流、流式 zip 打包与压缩级别调优、合并工作簿跳过 S3 往返（keepTempFile），80MB 级 xlsx 的看板可稳定完成
+    -   边界修复一批：zip 上传 ENOENT 竞态（下载页签固定显示 .xlsx）、CSV zip 写入失败不再让任务永久挂起、临时文件定时清理补 catch 避免 unhandled rejection、XLSX 布局默认值污染、失败图表提示用图表名、模板行尾统一 CRLF
+-   **CLI 内容同步（as-code）：SQL 图表下载省略空描述**
+    -   `SqlChart.description` 库内可空，此前 `download` 会原样写出 `description: null`（不影响可用性但 YAML 不干净）；现下载无描述时省略该字段，上传缺省回写 null 保持库内语义，lint schema 接受 `description: null`；随 CLI 2.2.1 发布
+-   **构建稳定性（内部）**
+    -   backend 生产构建排除测试文件；common/frontend/backend 构建与 typecheck 提高 Node 堆，避免 Docker 构建 OOM
+
 ## v2.7.7 (2026-11-20)
 
 -   **CLI 内容同步（as-code）：下载/上传链路修复**
