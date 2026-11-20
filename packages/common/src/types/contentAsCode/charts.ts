@@ -32,15 +32,26 @@ export type ChartAsCode = Pick<
     verified?: boolean;
 };
 
-export type SqlChartAsCode = Pick<
-    SqlChart,
-    'name' | 'description' | 'slug' | 'sql' | 'limit' | 'config' | 'chartKind'
+export type SqlChartAsCode = Omit<
+    Pick<
+        SqlChart,
+        | 'name'
+        | 'description'
+        | 'slug'
+        | 'sql'
+        | 'limit'
+        | 'config'
+        | 'chartKind'
+    >,
+    'description'
 > & {
     version: number;
     contentType?: ContentAsCodeType.SQL_CHART;
     spaceSlug: string;
     updatedAt?: Date;
     downloadedAt?: Date;
+    /** Absent (rather than null) when the SQL chart has no description. */
+    description?: string | null;
 };
 
 export type ApiChartAsCodeListResponse = {

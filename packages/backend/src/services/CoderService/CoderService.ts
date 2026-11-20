@@ -1860,7 +1860,9 @@ export class CoderService extends BaseService {
             const space = spacesByUuid.get(chart.space.uuid);
             return {
                 name: chart.name,
-                description: chart.description,
+                // Nullable DB column: emit "field absent" instead of
+                // `description: null` so downloaded YAML stays clean.
+                description: chart.description ?? undefined,
                 slug: chart.slug,
                 sql: chart.sql,
                 limit: chart.limit,
@@ -1925,7 +1927,7 @@ export class CoderService extends BaseService {
                 projectUuid,
                 {
                     name: sqlChartAsCode.name,
-                    description: sqlChartAsCode.description,
+                    description: sqlChartAsCode.description ?? null,
                     sql: sqlChartAsCode.sql,
                     limit: sqlChartAsCode.limit,
                     config: sqlChartAsCode.config,
@@ -1969,7 +1971,7 @@ export class CoderService extends BaseService {
             sqlChart: {
                 unversionedData: {
                     name: sqlChartAsCode.name,
-                    description: sqlChartAsCode.description,
+                    description: sqlChartAsCode.description ?? null,
                     spaceUuid: space.uuid,
                 },
                 versionedData: {

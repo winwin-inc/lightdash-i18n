@@ -762,7 +762,9 @@ describe('upsertDashboard ownerEmail', () => {
             projectModel: { get: jest.fn().mockResolvedValue(project) },
             savedChartModel: { find: jest.fn().mockResolvedValue([]) },
             dashboardModel,
-            dashboardService: {},
+            dashboardService: {
+                getViewerContentScope: jest.fn().mockResolvedValue(undefined),
+            },
             spaceModel,
             schedulerClient: {},
             promoteService,
@@ -1058,7 +1060,9 @@ describe('upsert verified field feedback', () => {
             projectModel: { get: jest.fn().mockResolvedValue(project) },
             savedChartModel: { find: jest.fn().mockResolvedValue([]) },
             dashboardModel,
-            dashboardService: {},
+            dashboardService: {
+                getViewerContentScope: jest.fn().mockResolvedValue(undefined),
+            },
             spaceModel,
             schedulerClient: {},
             promoteService: {},
@@ -1091,7 +1095,9 @@ describe('upsert verified field feedback', () => {
             projectModel: { get: jest.fn().mockResolvedValue(project) },
             savedChartModel,
             dashboardModel: {},
-            dashboardService: {},
+            dashboardService: {
+                getViewerContentScope: jest.fn().mockResolvedValue(undefined),
+            },
             spaceModel,
             schedulerClient: {},
             promoteService: {},
@@ -1207,5 +1213,118 @@ describe('upsert verified field feedback', () => {
         } as AnyType);
 
         expect(warn).not.toHaveBeenCalled();
+    });
+});
+
+describe('SQL chart description normalization', () => {
+    const project = {
+        projectUuid: 'project-uuid',
+        organizationUuid: 'org-uuid',
+        type: 'DEFAULT',
+        createdByUserUuid: null,
+        upstreamProjectUuid: null,
+    };
+
+    const user = {
+        userUuid: 'uploader-uuid',
+        userId: 1,
+        organizationUuid: 'org-uuid',
+        ability: {
+            cannot: jest.fn().mockReturnValue(false),
+            can: jest.fn().mockReturnValue(true),
+        },
+    } as AnyType;
+
+    const space = {
+        uuid: 'space-uuid',
+        name: 'My space',
+        path: 'root.my_space',
+        projectUuid: 'project-uuid',
+        organizationUuid: 'org-uuid',
+        isPrivate: false,
+    };
+
+    const sqlChartRow = (description: string | null) => ({
+        saved_sql_uuid: 'sql-chart-uuid',
+        saved_sql_version_uuid: 'sql-chart-version-uuid',
+        name: 'SQL chart',
+        description,
+        slug: 'sql-chart',
+        sql: 'select 1',
+        limit: 500,
+        config: {},
+        chart_kind: 'table',
+        space_uuid: 'space-uuid',
+        space_name: 'My space',
+        space_path: 'root.my_space',
+        project_uuid: 'project-uuid',
+        last_updated_at: new Date(0),
+        created_at: new Date(0),
+        updated_by_user_uuid: 'user-uuid',
+    });
+
+    const createService = (description: string | null) => {
+        const savedSqlModel = {
+            find: jest.fn().mockResolvedValue([sqlChartRow(description)]),
+            create: jest.fn().mockResolvedValue({
+                savedSqlUuid: 'created-uuid',
+                slug: 'sql-chart',
+            }),
+            update: jest.fn().mockResolvedValue(undefined),
+        };
+        const service = new CoderService({
+            lightdashConfig: { contentAsCode: { maxDownloads: 50 } },
+            analytics: { track: jest.fn() },
+            projectModel: { get: jest.fn().mockResolvedValue(project) },
+            savedChartModel: {},
+            dashboardModel: {},
+            dashboardService: {
+                getViewerContentScope: jest.fn().mockResolvedValue(undefined),
+            },
+            spaceModel: {
+                find: jest.fn().mockResolvedValue([space]),
+                getUserSpacesAccess: jest.fn().mockResolvedValue({}),
+            },
+            schedulerClient: {},
+            promoteService: {},
+            savedSqlModel,
+            organizationMemberProfileModel: {},
+            groupsModel: {},
+        } as AnyType);
+        return { service, savedSqlModel };
+    };
+
+    it('omits the description key when the stored value is null', async () => {
+        const { service } = createService(null);
+        const result = await service.getSqlCharts(user, 'project-uuid');
+
+        expect(result.sqlCharts).toHaveLength(1);
+        expect(result.sqlCharts[0].description).toBeUndefined();
+    });
+
+    it('keeps the description when present', async () => {
+        const { service } = createService('has description');
+        const result = await service.getSqlCharts(user, 'project-uuid');
+
+        expect(result.sqlCharts[0].description).toBe('has description');
+    });
+
+    it('writes an absent description back as null on upload', async () => {
+        const { service, savedSqlModel } = createService(null);
+        // No existing chart with this slug: exercise the create branch
+        savedSqlModel.find.mockResolvedValue([]);
+
+        await service.upsertSqlChart(user, 'project-uuid', 'sql-chart', {
+            name: 'SQL chart',
+            slug: 'sql-chart',
+            sql: 'select 1',
+            limit: 500,
+            config: {},
+            chartKind: 'table',
+            version: 1,
+            spaceSlug: 'my_space',
+        } as AnyType);
+
+        expect(savedSqlModel.create.mock.calls[0][2].description).toBeNull();
     });
 });

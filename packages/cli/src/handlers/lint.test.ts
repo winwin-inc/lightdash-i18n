@@ -57,6 +57,19 @@ tabs:
     slug: overview
 `;
 
+const nullDescriptionSqlChart = `
+version: 1
+name: SQL chart
+description: null
+slug: sql-chart
+spaceSlug: shared
+sql: select 1
+limit: 500
+config: {}
+chartKind: table
+contentType: sql_chart
+`;
+
 describe('lintHandler', () => {
     let tempDir: string;
     const originalExit = process.exit;
@@ -76,6 +89,18 @@ describe('lintHandler', () => {
         await fs.writeFile(
             path.join(tempDir, 'dashboards', 'sales.yml'),
             validDashboard,
+        );
+
+        await lintHandler({ path: tempDir });
+
+        expect(process.exit).not.toHaveBeenCalled();
+    });
+
+    test('accepts SQL chart files, which are not schema-validated', async () => {
+        await fs.mkdir(path.join(tempDir, 'charts'));
+        await fs.writeFile(
+            path.join(tempDir, 'charts', 'sql-chart.sql.yml'),
+            nullDescriptionSqlChart,
         );
 
         await lintHandler({ path: tempDir });
