@@ -91,9 +91,12 @@ export const getDashboardFiltersForTab = ({
 }): DashboardFilters =>
     mergeDashboardFiltersForTab({
         globalFilters: globalFilters ?? dashboard.filters,
-        tabFilters: dashboard.tabs?.find((tab) => tab.uuid === tabUuid)?.filters,
-        isGlobalFilterEnabled: dashboard.config?.isGlobalFilterEnabled !== false,
-        isTabFilterEnabled: dashboard.config?.tabFilterEnabled?.[tabUuid] ?? true,
+        tabFilters: dashboard.tabs?.find((tab) => tab.uuid === tabUuid)
+            ?.filters,
+        isGlobalFilterEnabled:
+            dashboard.config?.isGlobalFilterEnabled !== false,
+        isTabFilterEnabled:
+            dashboard.config?.tabFilterEnabled?.[tabUuid] ?? true,
     });
 
 /**
@@ -141,9 +144,11 @@ const NOT_PREFIXED_OPERATORS: FilterOperator[] = [
 /**
  * 导出文件的文案跟随 UI 语言（后端从 csvOptions.locale 传进来，缺省中文）。
  * 值要能直接读懂：「不是 其他集团」而不是「!= 其他集团」。
+ *
+ * 列名不再加「筛选：」前缀：导出文件的列名应与字段名一致，
+ * 用「筛选：」区隔会让用户在做透视/公式时对不上字段。
  */
 type ExportWording = {
-    filterPrefix: string;
     between: string;
     notBetween: (range: string) => string;
     notRelative: (range: string) => string;
@@ -153,7 +158,6 @@ type ExportWording = {
 
 const WORDINGS: Record<'zh' | 'en', ExportWording> = {
     zh: {
-        filterPrefix: '筛选：',
         between: ' 至 ',
         notBetween: (range) => `不在 ${range} 内`,
         notRelative: (range) => `不在 ${range} 内`,
@@ -170,7 +174,6 @@ const WORDINGS: Record<'zh' | 'en', ExportWording> = {
         },
     },
     en: {
-        filterPrefix: 'Filter: ',
         between: ' to ',
         notBetween: (range) => `not between ${range}`,
         notRelative: (range) => `not in ${range}`,
@@ -189,9 +192,7 @@ const WORDINGS: Record<'zh' | 'en', ExportWording> = {
 };
 
 const getWording = (locale?: string): ExportWording =>
-    (locale ?? 'zh').toLowerCase().startsWith('zh')
-        ? WORDINGS.zh
-        : WORDINGS.en;
+    (locale ?? 'zh').toLowerCase().startsWith('zh') ? WORDINGS.zh : WORDINGS.en;
 
 const formatDay = (date: moment.Moment): string => {
     const value = date;
@@ -317,8 +318,7 @@ export const formatDashboardFilterRuleValue = (
             : range;
     }
 
-    const formatted =
-        values.filter((value) => value !== '').join(', ') || null;
+    const formatted = values.filter((value) => value !== '').join(', ') || null;
     if (formatted === null) return null;
 
     if (
@@ -335,11 +335,9 @@ export const formatDashboardFilterRuleValue = (
 const getRuleHeader = (
     rule: DashboardFilterRule,
     itemMap: ItemsMap | undefined,
-    locale: string | undefined,
 ): string => {
-    const wording = getWording(locale);
     const customLabel = rule.label?.trim();
-    if (customLabel) return `${wording.filterPrefix}${customLabel}`;
+    if (customLabel) return customLabel;
 
     // 表计算没有 label，用 displayName；SQL 列在筛选器上带 fieldLabel
     const item = itemMap?.[rule.target.fieldId];
@@ -349,14 +347,22 @@ const getRuleHeader = (
     } else if (item && 'displayName' in item) {
         itemLabel = item.displayName;
     }
-    const fieldLabel =
-        itemLabel?.trim() || rule.target.fieldLabel?.trim() || rule.target.fieldId;
-    return `${wording.filterPrefix}${fieldLabel}`;
+    return (
+        itemLabel?.trim() ||
+        rule.target.fieldLabel?.trim() ||
+        rule.target.fieldId
+    );
 };
 
 /**
  * 把生效的看板筛选器转成导出文件的前置常量列。
- * 列名取筛选器自定义名，缺失时退回字段名；同名列去重，避免 Excel 里混淆。
+ * 列名取筛选器自定义名，缺失时退回字段名（不加「筛选：」前缀）。
+ *
+ * 去重规则：
+ * - 字段本身已经作为数据列导出时，不再重复输出常量列；
+ * - 列名与已导出的数据列同名时同样跳过——同名两列在 Excel 里无法区分，
+ *   保留数据列（带完整取值）比保留常量列有用。
+ * - 多个筛选器彼此同名时仍用 `(2)` `(3)` 后缀区分。
  */
 export const getExportFilterColumns = ({
     filters,
@@ -384,6 +390,19 @@ export const getExportFilterColumns = ({
         ...filters.metrics,
         ...filters.tableCalculations,
     ];
+
+    // 已导出的数据列列名：筛选列与它同名时让位给数据列
+    const getExportedHeader = (fieldId: string): string => {
+        const item = itemMap?.[fieldId];
+        let label: string | undefined;
+        if (item && 'label' in item) {
+            label = item.label;
+        } else if (item && 'displayName' in item) {
+            label = item.displayName;
+        }
+        return (label?.trim() || fieldId).trim();
+    };
+    const exportedHeaders = new Set(exportedFieldIds.map(getExportedHeader));
     const usedHeaders = new Set<string>();
     const columns: ExportFilterColumn[] = [];
 
@@ -396,7 +415,10 @@ export const getExportFilterColumns = ({
         });
         if (value === null) return;
 
-        const baseHeader = getRuleHeader(rule, itemMap, locale);
+        const baseHeader = getRuleHeader(rule, itemMap);
+        // 数据列优先：同名/同字段的筛选列不再输出
+        if (exportedHeaders.has(baseHeader)) return;
+
         let header = baseHeader;
         let suffix = 2;
         while (usedHeaders.has(header)) {

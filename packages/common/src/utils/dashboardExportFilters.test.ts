@@ -177,7 +177,10 @@ describe('formatDashboardFilterRuleValue', () => {
     it('joins multiple discrete values', () => {
         expect(
             formatDashboardFilterRuleValue(
-                makeRule({ operator: FilterOperator.INCLUDE, values: ['a', 'b'] }),
+                makeRule({
+                    operator: FilterOperator.INCLUDE,
+                    values: ['a', 'b'],
+                }),
             ),
         ).toBe('a, b');
     });
@@ -254,7 +257,9 @@ describe('formatDashboardFilterRuleValue', () => {
     });
 
     it('returns null for rules without values', () => {
-        expect(formatDashboardFilterRuleValue(makeRule({ values: [] }))).toBeNull();
+        expect(
+            formatDashboardFilterRuleValue(makeRule({ values: [] })),
+        ).toBeNull();
     });
 });
 
@@ -275,15 +280,19 @@ describe('getExportFilterColumns', () => {
             filters: {
                 ...emptyFilters,
                 dimensions: [
-                    makeRule({ id: 'labelled', label: '时间', values: ['2024-05'] }),
+                    makeRule({
+                        id: 'labelled',
+                        label: '时间',
+                        values: ['2024-05'],
+                    }),
                     makeRule({ id: 'unlabelled', values: ['completed'] }),
                 ],
             },
             itemMap,
         });
         expect(columns).toEqual([
-            { header: '筛选：时间', value: '2024-05' },
-            { header: '筛选：订单状态', value: 'completed' },
+            { header: '时间', value: '2024-05' },
+            { header: '订单状态', value: 'completed' },
         ]);
     });
 
@@ -303,7 +312,7 @@ describe('getExportFilterColumns', () => {
                 ],
             },
         });
-        expect(columns).toEqual([{ header: '筛选：商品名称', value: '可乐' }]);
+        expect(columns).toEqual([{ header: '商品名称', value: '可乐' }]);
     });
 
     it('falls back to the field id when the field is unknown', () => {
@@ -313,9 +322,7 @@ describe('getExportFilterColumns', () => {
                 dimensions: [makeRule({ values: ['1'] })],
             },
         });
-        expect(columns).toEqual([
-            { header: '筛选：orders_status', value: '1' },
-        ]);
+        expect(columns).toEqual([{ header: 'orders_status', value: '1' }]);
     });
 
     it('skips filters without a concrete value', () => {
@@ -328,7 +335,7 @@ describe('getExportFilterColumns', () => {
                 ],
             },
         });
-        expect(columns).toEqual([{ header: '筛选：类目', value: '饮料' }]);
+        expect(columns).toEqual([{ header: '类目', value: '饮料' }]);
     });
 
     it('de-duplicates identical headers', () => {
@@ -342,8 +349,8 @@ describe('getExportFilterColumns', () => {
             },
         });
         expect(columns.map((column) => column.header)).toEqual([
-            '筛选：类目',
-            '筛选：类目 (2)',
+            '类目',
+            '类目 (2)',
         ]);
     });
 
@@ -362,7 +369,7 @@ describe('getExportFilterColumns', () => {
             locale: 'en',
         });
         expect(columns).toEqual([
-            { header: 'Filter: Group', value: 'is not 其他集团' },
+            { header: 'Group', value: 'is not 其他集团' },
         ]);
     });
 
@@ -381,13 +388,88 @@ describe('getExportFilterColumns', () => {
                         operator: FilterOperator.NOT_EQUALS,
                         values: ['其他集团'],
                     }),
-                    makeRule({ id: 'time', label: '时间', values: ['近3个月'] }),
+                    makeRule({
+                        id: 'time',
+                        label: '时间',
+                        values: ['近3个月'],
+                    }),
                 ],
             },
             // 图表本身已经导出了 group_name
             exportedFieldIds: ['group_name'],
         });
-        expect(columns).toEqual([{ header: '筛选：时间', value: '近3个月' }]);
+        expect(columns).toEqual([{ header: '时间', value: '近3个月' }]);
+    });
+
+    it('never prefixes headers with the filter wording', () => {
+        const columns = getExportFilterColumns({
+            filters: {
+                ...emptyFilters,
+                dimensions: [
+                    makeRule({ id: 'zh', label: '时间', values: ['近3个月'] }),
+                ],
+            },
+            locale: 'zh',
+        });
+        expect(columns.map((column) => column.header)).toEqual(['时间']);
+
+        const englishColumns = getExportFilterColumns({
+            filters: {
+                ...emptyFilters,
+                dimensions: [
+                    makeRule({
+                        id: 'en',
+                        label: 'Time',
+                        values: ['last 3 months'],
+                    }),
+                ],
+            },
+            locale: 'en',
+        });
+        expect(englishColumns.map((column) => column.header)).toEqual(['Time']);
+    });
+
+    it('lets the data column win when a filter header collides with it', () => {
+        const collidingItemMap = {
+            ...itemMap,
+            // 不同字段但展示名同为「集团」，例如自定义 SQL 维度与普通维度撞名
+            group_name: {
+                name: 'group_name',
+                label: '集团',
+                type: DimensionType.STRING,
+                table: 'orders',
+                fieldType: FieldType.DIMENSION,
+            },
+            custom_group: {
+                name: 'custom_group',
+                label: '集团',
+                type: DimensionType.STRING,
+                table: 'orders',
+                fieldType: FieldType.DIMENSION,
+            },
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        } as any;
+
+        const columns = getExportFilterColumns({
+            filters: {
+                ...emptyFilters,
+                dimensions: [
+                    makeRule({
+                        id: 'group-filter',
+                        target: {
+                            fieldId: 'custom_group',
+                            tableName: 'orders',
+                        },
+                        values: ['东鹏'],
+                    }),
+                ],
+            },
+            itemMap: collidingItemMap,
+            // 图表已经导出了同名的「集团」数据列
+            exportedFieldIds: ['group_name'],
+        });
+
+        expect(columns).toEqual([]);
     });
 
     it('returns no columns for undefined filters', () => {

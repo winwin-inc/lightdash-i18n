@@ -4271,7 +4271,7 @@
     "alert_title": "已启用日期缩放",
     "alert": "您的导出将包括所选日期缩放粒度的数据。",
     "table_limit_hint": "每个图表按当前表格展示的行数导出",
-    "total_row_limit_hint": "单次看板导出最多 {{rows}} 行（跨所有图表累计）；单图仍受 {{csvCellsLimit}} 格上限约束。",
+    "total_row_limit_hint": "所有结果 = 该图表聚合结果的全部行（去掉行数上限），不含聚合点背后的底层明细；单次看板导出仍受累计 {{rows}} 行与单图 {{csvCellsLimit}} 格上限约束。",
     "tabs_label": "选项卡",
     "select_all_tabs_tooltip": "选择所有选项卡以包含所有选项卡。如果您不选择此选项，则仅选择选项卡将被包含。",
     "include_all_tabs": "包含所有选项卡",

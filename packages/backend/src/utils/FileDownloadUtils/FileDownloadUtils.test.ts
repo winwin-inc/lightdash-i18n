@@ -3,10 +3,30 @@ import {
     createContentDispositionHeader,
     dedupeZipEntryNames,
     processFieldsForExport,
+    resolveExportTileName,
     sanitizeGenericFileName,
     streamJsonlData,
     stripCompactUnitHintsFromHeader,
 } from './FileDownloadUtils';
+
+describe('resolveExportTileName', () => {
+    it('prefers the dashboard tile title over the chart name', () => {
+        expect(
+            resolveExportTileName('TOP15集团销售额同比', 'Copy of 市场份额'),
+        ).toBe('TOP15集团销售额同比');
+    });
+
+    it('trims surrounding whitespace in the tile title', () => {
+        expect(resolveExportTileName('  销售额  ', 'chart')).toBe('销售额');
+    });
+
+    it('falls back to the chart name when the title is blank or absent', () => {
+        expect(resolveExportTileName(undefined, 'chart')).toBe('chart');
+        expect(resolveExportTileName(null, 'chart')).toBe('chart');
+        expect(resolveExportTileName('   ', 'chart')).toBe('chart');
+        expect(resolveExportTileName('', 'chart')).toBe('chart');
+    });
+});
 
 describe('FileDownloadUtils', () => {
     describe('stripCompactUnitHintsFromHeader', () => {

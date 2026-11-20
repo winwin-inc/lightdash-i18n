@@ -4248,7 +4248,7 @@
     "alert_title": "Date zoom is enabled",
     "alert": "Your export will include data for the selected date zoom granularity.",
     "table_limit_hint": "Each chart exports the rows currently shown in its table view",
-    "total_row_limit_hint": "One dashboard export is capped at {{rows}} rows across all charts; each chart is still capped by the {{csvCellsLimit}}-cell limit.",
+    "total_row_limit_hint": "All results exports every row of the chart aggregated query (no row cap); it does not include the underlying detail rows. One dashboard export is still capped at {{rows}} rows in total and {{csvCellsLimit}} cells per chart.",
     "tabs_label": "Tabs",
     "select_all_tabs_tooltip": "Select all tabs to include all tabs in the export. If you don't select this option, only selected tabs will be included.",
     "include_all_tabs": "Include all tabs",

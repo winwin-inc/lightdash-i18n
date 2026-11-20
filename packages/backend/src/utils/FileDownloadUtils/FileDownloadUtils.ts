@@ -18,6 +18,23 @@ export const isRowValueTimestamp = (
 ): value is MomentInput =>
     isMomentInput(value) && field.type === DimensionType.TIMESTAMP;
 
+/**
+ * Display name for a dashboard tile in exports (Excel sheet names, CSV file
+ * names, progress text).
+ *
+ * Dashboards let tiles override the chart title, so the tile title is what the
+ * user sees on the page; it wins when present. Blank/absent titles fall back
+ * to the chart's own name. Sanitization and de-duplication stay with the
+ * callers (sheet names, zip entries).
+ */
+export function resolveExportTileName(
+    tileTitle: string | undefined | null,
+    chartName: string,
+): string {
+    const trimmedTitle = tileTitle?.trim();
+    return trimmedTitle || chartName;
+}
+
 export const isRowValueDate = (
     value: unknown,
     field: { type: DimensionType },
@@ -248,7 +265,9 @@ export function dedupeZipEntryNames(
         let name = `${base}.${extension}`;
         if (usedNames.has(name.toLowerCase())) {
             let suffix = 2;
-            while (usedNames.has(`${base}_${suffix}.${extension}`.toLowerCase())) {
+            while (
+                usedNames.has(`${base}_${suffix}.${extension}`.toLowerCase())
+            ) {
                 suffix += 1;
             }
             name = `${base}_${suffix}.${extension}`;

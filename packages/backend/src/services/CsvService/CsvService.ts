@@ -3,7 +3,6 @@ import {
     addDashboardFiltersToMetricQuery,
     AnyType,
     ApiSqlQueryResults,
-    type DashboardQueryContextAttributes,
     applyDimensionOverrides,
     CustomSqlQueryForbiddenError,
     DashboardFilterRule,
@@ -33,8 +32,8 @@ import {
     isDashboardSqlChartTile,
     isField,
     isTableChartConfig,
-    isVizCartesianChartConfig,
     isTileInSelectedTabs,
+    isVizCartesianChartConfig,
     ItemsMap,
     MetricQuery,
     MissingConfigError,
@@ -47,6 +46,7 @@ import {
     SessionUser,
     UnexpectedServerError,
     validateSelectedTabs,
+    type DashboardQueryContextAttributes,
     type ExportFilterColumn,
     type ExportJobProgress,
     type RunQueryTags,
@@ -70,9 +70,6 @@ import {
 } from 'stream';
 import { pipeline as pipelineAsync } from 'stream/promises';
 import { Worker } from 'worker_threads';
-import { ExportRowBudget } from '../../utils/FileDownloadUtils/exportBudget';
-import { getCsvZipEntryNames } from '../../utils/FileDownloadUtils/csvEntryNames';
-import { mapWithConcurrencyLimit } from '../../utils/mapWithConcurrencyLimit';
 import {
     DownloadCsv,
     LightdashAnalytics,
@@ -91,14 +88,18 @@ import { SavedSqlModel } from '../../models/SavedSqlModel';
 import { UserModel } from '../../models/UserModel';
 import { SchedulerClient } from '../../scheduler/SchedulerClient';
 import { runWorkerThread } from '../../utils';
+import { getCsvZipEntryNames } from '../../utils/FileDownloadUtils/csvEntryNames';
+import { ExportRowBudget } from '../../utils/FileDownloadUtils/exportBudget';
 import {
     dedupeZipEntryNames,
     generateGenericFileId,
     isRowValueDate,
     isRowValueTimestamp,
+    resolveExportTileName,
     sanitizeGenericFileName,
 } from '../../utils/FileDownloadUtils/FileDownloadUtils';
 import { formatMomentByTimezone } from '../../utils/FileDownloadUtils/formatMomentByTimezone';
+import { mapWithConcurrencyLimit } from '../../utils/mapWithConcurrencyLimit';
 import { PivotQueryBuilder } from '../../utils/QueryBuilder/PivotQueryBuilder';
 import { BaseService } from '../BaseService';
 import { PivotTableService } from '../PivotTableService/PivotTableService';
@@ -166,6 +167,8 @@ export type CsvTileExportFailure = {
     kind: 'chart' | 'sqlChart';
     chartUuid: string;
     reason: string;
+    /** Dashboard tile title, so the failure list uses what the user sees. */
+    tileName?: string;
 };
 
 export const getSchedulerCsvLimit = (
@@ -735,6 +738,7 @@ export class CsvService extends BaseService {
         invalidateCache,
         schedulerParameters,
         locale,
+        fileName,
         onTileStart,
     }: {
         user: SessionUser;
@@ -742,6 +746,8 @@ export class CsvService extends BaseService {
         options: SchedulerCsvOptions | undefined;
         jobId?: string;
         tileUuid?: string;
+        /** 看板 tile 标题优先的导出可见名（缺省回退图表名） */
+        fileName?: string;
         dashboardFilters?: DashboardFilters;
         /** 行级权限（sql_filter）里引用 dashboard 属性时需要，必须与页面上查询时一致 */
         dashboardContext?: DashboardQueryContextAttributes;
@@ -754,7 +760,9 @@ export class CsvService extends BaseService {
         onTileStart?: (chartName: string) => void;
     }): Promise<AttachmentUrl & { rowCount?: number }> {
         const chart = await this.savedChartModel.get(chartUuid);
-        onTileStart?.(chart.name);
+        // 看板标题优先：CSV 文件名 / 透视名 / 进度都用这个名
+        const displayName = resolveExportTileName(fileName, chart.name);
+        onTileStart?.(displayName);
         const {
             metricQuery,
             chartConfig: { config },
@@ -842,7 +850,7 @@ export class CsvService extends BaseService {
         if (numberRows === 0)
             return {
                 path: '#no-results',
-                filename: `${chart.name} (empty)`,
+                filename: `${displayName} (empty)`,
                 localPath: '',
                 truncated: false,
                 rowCount: 0,
@@ -884,7 +892,7 @@ export class CsvService extends BaseService {
 
             const downloadUrl = this.pivotTableService.downloadPivotTableCsv({
                 pivotConfig,
-                name: chart.name,
+                name: displayName,
                 projectUuid: chart.projectUuid,
                 customLabels,
                 rows,
@@ -918,7 +926,7 @@ export class CsvService extends BaseService {
             metricQueryWithDashboardFilters,
             fields,
             isTableChartConfig(config) ? config.showTableNames ?? false : true,
-            chart.name,
+            displayName,
             truncated,
             getCustomLabelsFromTableConfig(config),
             chart.tableConfig.columnOrder,
@@ -940,7 +948,7 @@ export class CsvService extends BaseService {
 
         const csvAttachment = await this.downloadCsvFile({
             csvContent,
-            fileName: chart.name,
+            fileName: displayName,
             projectUuid: chart.projectUuid,
             truncated,
         });
@@ -953,12 +961,15 @@ export class CsvService extends BaseService {
         sqlChartUuid,
         projectUuid,
         jobId,
+        fileName,
         onTileStart,
     }: {
         user: SessionUser;
         sqlChartUuid: string;
         projectUuid: string;
         jobId?: string;
+        /** 看板 tile 标题优先的导出可见名（缺省回退图表名） */
+        fileName?: string;
         /** 真正开始导出这张图时回调，用于进度展示 */
         onTileStart?: (chartName: string) => void;
     }): Promise<AttachmentUrl & { rowCount?: number }> {
@@ -971,7 +982,8 @@ export class CsvService extends BaseService {
                 `SQL chart ${sqlChartUuid} not found in project ${projectUuid}`,
             );
         }
-        onTileStart?.(sqlChart.name);
+        const displayName = resolveExportTileName(fileName, sqlChart.name);
+        onTileStart?.(displayName);
 
         const analyticProperties: DownloadCsv['properties'] | undefined = jobId
             ? {
@@ -1054,7 +1066,7 @@ export class CsvService extends BaseService {
 
         const csvAttachment = await this.downloadCsvFile({
             csvContent,
-            fileName: sqlChart.name,
+            fileName: displayName,
             projectUuid,
         });
         return { ...csvAttachment, rowCount: resultsFileUrl.rows.length };
@@ -1133,6 +1145,8 @@ export class CsvService extends BaseService {
                 tileUuid: tile.uuid,
                 chartUuid: tile.properties.savedChartUuid!,
                 tabUuid: tile.tabUuid ?? null,
+                // 看板上的 tile 标题优先于图表名（导出可见名）
+                tileName: tile.properties.title,
             }));
         const sqlChartTileUuids = dashboard.tiles
             .filter(isDashboardSqlChartTile)
@@ -1143,6 +1157,8 @@ export class CsvService extends BaseService {
                 tileUuid: tile.uuid,
                 chartUuid: tile.properties.savedSqlUuid!,
                 tabUuid: tile.tabUuid ?? null,
+                // 看板上的 tile 标题优先于图表名（导出可见名）
+                tileName: tile.properties.title,
             }));
 
         this.logger.info(
@@ -1188,6 +1204,8 @@ export class CsvService extends BaseService {
             chartUuid: string;
             tileUuid: string;
             tabUuid: string | null;
+            /** Dashboard tile title: exported as the CSV file name when set. */
+            tileName?: string;
         }> = [
             ...chartTileUuidsWithChartUuids.map((tile) => ({
                 kind: 'chart' as const,
@@ -1217,6 +1235,7 @@ export class CsvService extends BaseService {
                               options,
                               jobId,
                               tileUuid: tile.tileUuid,
+                              fileName: tile.tileName,
                               dashboardFilters: getDashboardFiltersForTile({
                                   filters: getFiltersForTab(tile.tabUuid),
                                   tileUuid: tile.tileUuid,
@@ -1234,6 +1253,7 @@ export class CsvService extends BaseService {
                               sqlChartUuid: tile.chartUuid,
                               projectUuid: dashboard.projectUuid,
                               jobId,
+                              fileName: tile.tileName,
                               onTileStart: (chartName) =>
                                   reportProgress(tabName, chartName),
                           });
@@ -1247,6 +1267,7 @@ export class CsvService extends BaseService {
                         kind: result.item.kind,
                         chartUuid: result.item.chartUuid,
                         reason: getErrorMessage(result.reason),
+                        tileName: result.item.tileName,
                     });
                 }
                 if (result.status === 'fulfilled') {

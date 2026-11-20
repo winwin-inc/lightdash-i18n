@@ -2,7 +2,6 @@ import {
     type Account as AccountType,
     AnyType,
     CompileProjectPayload,
-    NO_CHARTS_TO_EXPORT_MESSAGE,
     CreateProject,
     CreateSchedulerAndTargets,
     CreateSchedulerLog,
@@ -10,25 +9,32 @@ import {
     DashboardFilterRule,
     DashboardFilters,
     DashboardParameterValue,
+    type DateGranularity,
     type DownloadAsyncQueryResultsPayload,
     DownloadCsvPayload,
     DownloadFileType,
     EmailNotificationPayload,
-    ExportCsvDashboardPayload,
     type ExportContentPayload,
+    ExportCsvDashboardPayload,
+    type ExportFilterColumn,
+    type ExportJobProgress,
     FeatureFlags,
     FieldReferenceError,
     ForbiddenError,
     GsheetsNotificationPayload,
+    type ItemsMap,
     LightdashPage,
     MAX_SAFE_INTEGER,
+    type MetricQuery,
     MissingConfigError,
     type MsTeamsNotificationPayload,
+    NO_CHARTS_TO_EXPORT_MESSAGE,
     NotEnoughResults,
     NotificationFrequency,
     NotificationPayloadBase,
     ParameterError,
     ParametersValuesMap,
+    type Account as QueryAccount,
     QueryExecutionContext,
     ReadFileError,
     RenameResourcesPayload,
@@ -84,36 +90,23 @@ import {
     isDashboardChartTileType,
     isDashboardScheduler,
     isDashboardSqlChartTile,
-    isTileInSelectedTabs,
     isDashboardValidationError,
     isSchedulerCsvOptions,
     isSchedulerGsheetsOptions,
     isSchedulerImageOptions,
     isTableChartConfig,
+    isTileInSelectedTabs,
     isVizTableConfig,
     operatorActionValue,
     pivotResultsAsCsv,
     setUuidParam,
-    type DateGranularity,
-    type ExportJobProgress,
-    type Account as QueryAccount,
-    type ExportFilterColumn,
-    type ItemsMap,
-    type MetricQuery,
 } from '@lightdash/common';
 import archiver from 'archiver';
 import fsSync from 'fs';
 import fs from 'fs/promises';
 import { nanoid } from 'nanoid';
-import { Readable } from 'stream';
-import {
-    dedupeZipEntryNames,
-    sanitizeGenericFileName,
-} from '../utils/FileDownloadUtils/FileDownloadUtils';
-import { getCsvZipEntryNames } from '../utils/FileDownloadUtils/csvEntryNames';
-import { WorkbookExportHelper } from '../services/ExcelService/WorkbookExportHelper';
-import { ExportRowBudget } from '../utils/FileDownloadUtils/exportBudget';
 import slackifyMarkdown from 'slackify-markdown';
+import { Readable } from 'stream';
 import {
     DownloadCsv,
     LightdashAnalytics,
@@ -143,6 +136,7 @@ import {
 } from '../services/CsvService/CsvService';
 import { DashboardService } from '../services/DashboardService/DashboardService';
 import { ExcelService } from '../services/ExcelService/ExcelService';
+import { WorkbookExportHelper } from '../services/ExcelService/WorkbookExportHelper';
 import { ProjectService } from '../services/ProjectService/ProjectService';
 import { RenameService } from '../services/RenameService/RenameService';
 import { SchedulerService } from '../services/SchedulerService/SchedulerService';
@@ -153,6 +147,13 @@ import {
 import { UserService } from '../services/UserService';
 import { ValidationService } from '../services/ValidationService/ValidationService';
 import { EncryptionUtil } from '../utils/EncryptionUtil/EncryptionUtil';
+import {
+    dedupeZipEntryNames,
+    resolveExportTileName,
+    sanitizeGenericFileName,
+} from '../utils/FileDownloadUtils/FileDownloadUtils';
+import { getCsvZipEntryNames } from '../utils/FileDownloadUtils/csvEntryNames';
+import { ExportRowBudget } from '../utils/FileDownloadUtils/exportBudget';
 import { mapWithConcurrencyLimit } from '../utils/mapWithConcurrencyLimit';
 import { SchedulerClient } from './SchedulerClient';
 
@@ -533,9 +534,9 @@ export default class SchedulerTask {
                             filename: ExcelService.generateFileId(chart.name),
                             path: downloadResult.fileUrl,
                             localPath:
-                            ('localPath' in downloadResult
-                                ? downloadResult.localPath
-                                : undefined) ?? downloadResult.fileUrl,
+                                ('localPath' in downloadResult
+                                    ? downloadResult.localPath
+                                    : undefined) ?? downloadResult.fileUrl,
                             truncated:
                                 'truncated' in downloadResult
                                     ? downloadResult.truncated
@@ -588,7 +589,10 @@ export default class SchedulerTask {
                             });
                         };
                         // 同一张 explore 只拉一次，用于把筛选器列名换成字段名
-                        const exploreCache = new Map<string, ExportExploreInfo>();
+                        const exploreCache = new Map<
+                            string,
+                            ExportExploreInfo
+                        >();
 
                         const dashboardParameters = dashboard.parameters || {};
                         const schedulerParameters = isDashboardScheduler(
@@ -633,6 +637,8 @@ export default class SchedulerTask {
                                 tabName: tile.tabUuid
                                     ? tabNameByUuid.get(tile.tabUuid)
                                     : undefined,
+                                // 看板上的 tile 标题优先于图表名（导出可见名）
+                                tileName: tile.properties.title,
                             }));
                         const sqlChartTileUuids = dashboard.tiles
                             .filter(isDashboardSqlChartTile)
@@ -648,6 +654,8 @@ export default class SchedulerTask {
                                 tabName: tile.tabUuid
                                     ? tabNameByUuid.get(tile.tabUuid)
                                     : undefined,
+                                // 看板上的 tile 标题优先于图表名（导出可见名）
+                                tileName: tile.properties.title,
                             }));
                         const totalExportTiles =
                             chartTileUuidsWithChartUuids.length +
@@ -663,8 +671,7 @@ export default class SchedulerTask {
                         // 只有 EXPORT_CONTENT（用户点「导出」）才受限。
                         const rowBudget = enforceRowBudget
                             ? new ExportRowBudget(
-                                  this.lightdashConfig.query
-                                      .dashboardExportMaxTotalRows,
+                                  this.lightdashConfig.query.dashboardExportMaxTotalRows,
                               )
                             : undefined;
                         const reportProgress = (
@@ -742,6 +749,8 @@ export default class SchedulerTask {
                             chartUuid: string;
                             tabUuid: string | null;
                             tabName: string | undefined;
+                            /** Dashboard tile title, used as the export display name. */
+                            tileName: string | undefined;
                         };
                         type DashboardExportTileWork =
                             | { kind: 'chart'; tile: DashboardExportTile }
@@ -752,15 +761,21 @@ export default class SchedulerTask {
                             tileUuid,
                             tabUuid,
                             tabName,
+                            tileName,
                         }: DashboardExportTile) => {
                             // 先取图表定义：筛选器列名要靠它的 explore 解析
                             const chart =
                                 await this.schedulerService.savedChartModel.get(
                                     chartUuid,
                                 );
+                            // 看板标题优先：sheet / 文件名 / 进度都用这个名
+                            const displayName = resolveExportTileName(
+                                tileName,
+                                chart.name,
+                            );
                             // 起跑前先看预算：已经超了就别再打数仓
                             rowBudget?.assertWithinLimit();
-                            onTileStart({ tabName, chartName: chart.name });
+                            onTileStart({ tabName, chartName: displayName });
                             const tileFilters = getDashboardFiltersForTile({
                                 filters: getFiltersForTab(tabUuid),
                                 tileUuid,
@@ -769,7 +784,8 @@ export default class SchedulerTask {
                                 await this.getExportFilterColumnsForTile({
                                     filters: tileFilters,
                                     exploreCache,
-                                    timezone: this.lightdashConfig.query.timezone,
+                                    timezone:
+                                        this.lightdashConfig.query.timezone,
                                     locale: csvOptions?.locale,
                                     account,
                                     projectUuid,
@@ -783,8 +799,7 @@ export default class SchedulerTask {
                                         ),
                                     }),
                                 });
-                            const chartLimit =
-                                getSchedulerCsvLimit(csvOptions);
+                            const chartLimit = getSchedulerCsvLimit(csvOptions);
                             const query =
                                 await this.asyncQueryService.executeAsyncDashboardChartQuery(
                                     {
@@ -825,21 +840,25 @@ export default class SchedulerTask {
                                             chart.tableConfig.columnOrder,
                                     },
                                 );
+                            Logger.info(
+                                `Exported dashboard tile "${displayName}" (${chartUuid}) to XLSX: requestedLimit=${
+                                    csvOptions?.limit ?? 'table'
+                                }`,
+                            );
                             return {
-                                filename: chart.name,
+                                filename: displayName,
                                 path: downloadResult.fileUrl,
                                 localPath:
                                     ('localPath' in downloadResult
                                         ? downloadResult.localPath
-                                        : undefined) ??
-                                    downloadResult.fileUrl,
+                                        : undefined) ?? downloadResult.fileUrl,
                                 truncated:
                                     'truncated' in downloadResult
                                         ? downloadResult.truncated
                                         : false,
                                 rowCount:
                                     'rowCount' in downloadResult
-                                        ? (downloadResult.rowCount ?? 0)
+                                        ? downloadResult.rowCount ?? 0
                                         : 0,
                                 tabUuid,
                                 tabName,
@@ -851,6 +870,7 @@ export default class SchedulerTask {
                             tileUuid,
                             tabUuid,
                             tabName,
+                            tileName,
                         }: DashboardExportTile) => {
                             const sqlLimit = getSchedulerCsvLimit(csvOptions);
                             const chart =
@@ -860,8 +880,13 @@ export default class SchedulerTask {
                                         projectUuid,
                                     },
                                 );
+                            // 看板标题优先：sheet / 文件名 / 进度都用这个名
+                            const displayName = resolveExportTileName(
+                                tileName,
+                                chart.name,
+                            );
                             rowBudget?.assertWithinLimit();
-                            onTileStart({ tabName, chartName: chart.name });
+                            onTileStart({ tabName, chartName: displayName });
                             // SQL 图不接收看板筛选器（查询侧要求 tileTargets 显式绑定 SQL 列，
                             // 一般都不满足），所以不写筛选器列，避免导出的列与实际过滤不符
                             const tileFilters = getFiltersForTab(tabUuid);
@@ -917,21 +942,25 @@ export default class SchedulerTask {
                                             ),
                                     },
                                 );
+                            Logger.info(
+                                `Exported dashboard SQL chart tile "${displayName}" (${chartUuid}) to XLSX: requestedLimit=${
+                                    csvOptions?.limit ?? 'table'
+                                }`,
+                            );
                             return {
-                                filename: chart.name,
+                                filename: displayName,
                                 path: downloadResult.fileUrl,
                                 localPath:
                                     ('localPath' in downloadResult
                                         ? downloadResult.localPath
-                                        : undefined) ??
-                                    downloadResult.fileUrl,
+                                        : undefined) ?? downloadResult.fileUrl,
                                 truncated:
                                     'truncated' in downloadResult
                                         ? downloadResult.truncated
                                         : false,
                                 rowCount:
                                     'rowCount' in downloadResult
-                                        ? (downloadResult.rowCount ?? 0)
+                                        ? downloadResult.rowCount ?? 0
                                         : 0,
                                 tabUuid,
                                 tabName,
@@ -1002,6 +1031,7 @@ export default class SchedulerTask {
                                     kind,
                                     tile.chartUuid,
                                     projectUuid,
+                                    tile.tileName,
                                 );
                             Logger.warn(
                                 `Failed to export dashboard ${kind} tile "${failureName}" (${tile.chartUuid}) on scheduled delivery: ${reason}`,
@@ -2127,8 +2157,7 @@ export default class SchedulerTask {
         });
         // 看板没有 Tab（全部图都在 __no_tab__）时，产物就是看板这一页，
         // 文件名用看板名，而不是「未分组」；混合场景仍保留「未分组」以便区分
-        const isSingleNoTabGroup =
-            groups.size === 1 && groups.has(NO_TAB_KEY);
+        const isSingleNoTabGroup = groups.size === 1 && groups.has(NO_TAB_KEY);
 
         const workbooks: Array<{ entryNameBase: string; localPath: string }> =
             [];
@@ -3792,7 +3821,9 @@ export default class SchedulerTask {
                     );
                 }
                 if (!this.s3Client.isEnabled()) {
-                    throw new MissingConfigError('Cloud storage is not enabled');
+                    throw new MissingConfigError(
+                        'Cloud storage is not enabled',
+                    );
                 }
 
                 if (payload.format === SchedulerFormat.CSV) {
@@ -3807,6 +3838,7 @@ export default class SchedulerTask {
                         kind: 'chart' | 'sqlChart';
                         chartUuid: string;
                         reason: string;
+                        tileName?: string;
                     }> = [];
 
                     const csvFiles = await this.csvService
@@ -3816,10 +3848,9 @@ export default class SchedulerTask {
                             dashboardUuid: payload.resourceUuid,
                             options,
                             overrideDashboardFilters: payload.dashboardFilters,
-                            dateZoomGranularity:
-                                payload.dateZoomGranularity as
-                                    | DateGranularity
-                                    | undefined,
+                            dateZoomGranularity: payload.dateZoomGranularity as
+                                | DateGranularity
+                                | undefined,
                             selectedTabs: payload.selectedTabs ?? null,
                             invalidateCache: true,
                             schedulerParameters: payload.parameters,
@@ -3873,6 +3904,7 @@ export default class SchedulerTask {
                             failure.kind,
                             failure.chartUuid,
                             payload.projectUuid,
+                            failure.tileName,
                         );
                         Logger.warn(
                             `Failed to export dashboard ${failure.kind} tile "${failureName}" (${failure.chartUuid}) as CSV: ${failure.reason}`,
@@ -3976,8 +4008,7 @@ export default class SchedulerTask {
                                     DownloadFileType.XLSX,
                                 ),
                                 // 任一图触顶时产物是不完整的，前端要提示
-                                truncated:
-                                    page.csvUrls[0]?.truncated === true,
+                                truncated: page.csvUrls[0]?.truncated === true,
                             },
                             page.failedExports,
                         );
@@ -4131,7 +4162,11 @@ export default class SchedulerTask {
         kind: 'chart' | 'sqlChart',
         chartUuid: string,
         projectUuid: string,
+        preferredName?: string,
     ): Promise<string> {
+        // 看板标题优先：失败提示里也应该叫用户看到的那个名字
+        const trimmedPreferred = preferredName?.trim();
+        if (trimmedPreferred) return trimmedPreferred;
         try {
             const name =
                 kind === 'chart'

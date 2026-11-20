@@ -1,5 +1,28 @@
 import { getCsvZipEntryNames } from './csvEntryNames';
 
+describe('getCsvZipEntryNames with dashboard tile titles', () => {
+    it('uses the tile title as the entry base and keeps the tab prefix', () => {
+        expect(
+            getCsvZipEntryNames([
+                { filename: 'TOP15集团销售额同比', tabName: '集团深度分析' },
+                { filename: '类目CR5占比', tabName: '品类机会洞察' },
+            ]),
+        ).toEqual([
+            '集团深度分析__TOP15集团销售额同比',
+            '品类机会洞察__类目CR5占比',
+        ]);
+    });
+
+    it('keeps the tile title alone when exporting a single tab', () => {
+        expect(
+            getCsvZipEntryNames([
+                { filename: 'TOP15集团销售额同比', tabName: '集团深度分析' },
+                { filename: '类目CR5占比', tabName: '集团深度分析' },
+            ]),
+        ).toEqual(['TOP15集团销售额同比', '类目CR5占比']);
+    });
+});
+
 describe('getCsvZipEntryNames', () => {
     it('keeps plain chart names when the export covers one tab', () => {
         expect(
