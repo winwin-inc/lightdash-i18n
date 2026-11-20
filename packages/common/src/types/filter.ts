@@ -185,6 +185,9 @@ export type DashboardFilterRule<
     /**
      * 父级筛选器所在的 Tab uuid（parentScope === 'tab' 时有效）。
      * 缺省表示与当前筛选器在同一个 Tab。
+     *
+     * 注意：这是库内形态。as-code 下载时该值会转成可移植的 tab slug，
+     * 上传时再按 slug 解析回目标环境的 tab uuid，因此跨环境同步后级联仍成立。
      */
     parentTabUuid?: string;
     /** Values hidden from filter options list */

@@ -207,4 +207,52 @@ describe('upsertCodeDashboard TSOA validation', () => {
 
         expect(String(body.message)).toContain('CONTAINER_REACHED');
     });
+
+    it('accepts fork cascade, group and range-limiter filter fields', async () => {
+        const forkRule = {
+            operator: 'equals',
+            target: { fieldId: 'orders_status', tableName: 'orders' },
+            values: ['completed'],
+            requiredGroupId: 'group-1',
+            clearable: false,
+            dataAvailableFromDay: 5,
+            rollingMinAllowedMonths: 3,
+            enableDynamicMaxAllowedDate: true,
+            minAllowedDate: '2024-01-01',
+            maxAllowedDate: '2025-12-31',
+            allowedOperators: ['equals'],
+            excludedValues: ['cancelled'],
+            parentFieldId: 'orders_status',
+            parentScope: 'tab',
+            parentTabUuid: 'overview',
+            categoryLevel: 2,
+            singleValue: true,
+            hideTilesWhenEmpty: true,
+            readOnly: true,
+            lockedTabUuids: ['overview'],
+        };
+
+        const { body } = await postDashboard(url, {
+            ...validDashboardBody,
+            filters: {
+                dimensions: [{ ...forkRule, id: 'filter-1' }],
+                metrics: [],
+                tableCalculations: [],
+            },
+            tabs: [
+                {
+                    slug: 'overview',
+                    name: 'Overview',
+                    order: 0,
+                    filters: {
+                        dimensions: [forkRule],
+                        metrics: [],
+                        tableCalculations: [],
+                    },
+                },
+            ],
+        });
+
+        expect(String(body.message)).toContain('CONTAINER_REACHED');
+    });
 });

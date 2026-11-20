@@ -5,8 +5,13 @@ import {
     DashboardFilterRule,
     DashboardTileTarget,
     DashboardTileTypes,
+    FilterOperator,
 } from '@lightdash/common';
 import { CoderService } from './CoderService';
+import {
+    getFiltersWithLocalLockedTabs,
+    resolveDashboardTabs,
+} from './dashboardAsCodeReferences';
 
 describe('CoderService', () => {
     describe('getFiltersWithTileSlugs', () => {
@@ -327,6 +332,190 @@ describe('CoderService', () => {
             // so the downloaded file contains no `config:` / `description:` lines
             expect(result.config).toBeUndefined();
             expect(result.description).toBeUndefined();
+        });
+    });
+});
+
+describe('fork filter fields survive the as-code round-trip', () => {
+    /* Every fork-specific dashboard filter capability in one rule: required
+     * groups, dynamic/static range limits, operator allow-lists, cross-scope
+     * tab cascade and the visibility flags. */
+    const forkRule = {
+        id: 'filter-1',
+        label: '状态',
+        operator: FilterOperator.EQUALS,
+        target: { fieldId: 'orders_status', tableName: 'orders' },
+        values: ['completed'],
+        settings: { isCurrency: false },
+        disabled: false,
+        required: true,
+        requiredGroupId: 'group-1',
+        clearable: false,
+        dataAvailableFromDay: 5,
+        rollingMinAllowedMonths: 3,
+        enableDynamicMaxAllowedDate: true,
+        minAllowedDate: '2024-01-01',
+        maxAllowedDate: '2025-12-31',
+        allowedOperators: [FilterOperator.EQUALS],
+        excludedValues: ['cancelled'],
+        parentFieldId: 'orders_status',
+        parentScope: 'tab',
+        parentTabUuid: 'overview-uuid',
+        categoryLevel: 2,
+        singleValue: true,
+        hideTilesWhenEmpty: true,
+        hidden: false,
+        readOnly: true,
+        lockedTabUuids: ['overview-uuid'],
+        tileTargets: { 'tile-1': { fieldId: 'orders_status' } },
+    };
+
+    const forkFieldNames = [
+        'label',
+        'settings',
+        'disabled',
+        'required',
+        'requiredGroupId',
+        'clearable',
+        'dataAvailableFromDay',
+        'rollingMinAllowedMonths',
+        'enableDynamicMaxAllowedDate',
+        'minAllowedDate',
+        'maxAllowedDate',
+        'allowedOperators',
+        'excludedValues',
+        'parentFieldId',
+        'parentScope',
+        'categoryLevel',
+        'singleValue',
+        'hideTilesWhenEmpty',
+        'hidden',
+        'readOnly',
+        'operator',
+        'target',
+        'values',
+    ] as const;
+
+    const dashboard = {
+        tabs: [
+            { uuid: 'overview-uuid', name: 'Overview', order: 0 },
+            { uuid: 'revenue-uuid', name: 'Revenue', order: 1 },
+        ],
+        tiles: [
+            {
+                uuid: 'tile-1',
+                type: DashboardTileTypes.SAVED_CHART,
+                properties: { chartSlug: 'chart-a' },
+            },
+        ],
+        filters: {
+            dimensions: [forkRule],
+            metrics: [],
+            tableCalculations: [],
+        },
+    } as AnyType;
+
+    const expectForkFields = (rule: AnyType) => {
+        forkFieldNames.forEach((field) => {
+            expect([field, rule[field]]).toEqual([field, forkRule[field]]);
+        });
+    };
+
+    it('keeps every fork field on download and exports refs as slugs', () => {
+        const exported = CoderService.getFiltersWithTileSlugs(dashboard);
+        const rule = exported.dimensions[0] as AnyType;
+
+        expectForkFields(rule);
+        expect(rule.id).toBeUndefined();
+        expect(rule.lockedTabUuids).toEqual(['overview']);
+        expect(rule.parentTabUuid).toBe('overview');
+        expect(rule.tileTargets).toEqual({
+            'chart-a': { fieldId: 'orders_status' },
+        });
+    });
+
+    it('restores every fork field on upload and rebuilds local refs', () => {
+        const exported = CoderService.getFiltersWithTileSlugs(dashboard);
+        const tilesWithUuids = [
+            {
+                uuid: 'tile-uuid-1',
+                tileSlug: 'chart-a',
+                type: DashboardTileTypes.SAVED_CHART,
+                properties: { chartSlug: 'chart-a' },
+            },
+        ];
+        const resolvedTabs = resolveDashboardTabs(
+            [
+                { slug: 'overview', name: 'Overview', order: 0 },
+                { slug: 'revenue', name: 'Revenue', order: 1 },
+            ],
+            dashboard.tabs,
+        );
+
+        // Same composition as CoderService.upsertDashboard
+        const imported = getFiltersWithLocalLockedTabs(
+            CoderService.getFiltersWithTileUuids(
+                { filters: exported } as AnyType,
+                tilesWithUuids as AnyType,
+            ),
+            resolvedTabs,
+            [],
+        );
+        const rule = imported.dimensions[0] as AnyType;
+
+        expectForkFields(rule);
+        expect(rule.id).toBeTruthy();
+        expect(rule.lockedTabUuids).toEqual(['overview-uuid']);
+        expect(rule.parentTabUuid).toBe('overview-uuid');
+        expect(rule.tileTargets).toEqual({
+            'tile-uuid-1': { fieldId: 'orders_status' },
+        });
+    });
+
+    it('keeps every fork field on tab-level filters in both directions', () => {
+        const tabsWithFilters = [
+            {
+                uuid: 'overview-uuid',
+                name: 'Overview',
+                order: 0,
+                filters: {
+                    dimensions: [forkRule],
+                    metrics: [],
+                    tableCalculations: [],
+                },
+            },
+        ];
+        const tabDashboard = { ...dashboard, tabs: tabsWithFilters } as AnyType;
+
+        const exportedTabs = CoderService.getTabFiltersWithTileSlugs(
+            tabDashboard,
+            tabsWithFilters as AnyType,
+        );
+        const exportedRule = (exportedTabs[0] as AnyType).filters.dimensions[0];
+        expectForkFields(exportedRule);
+        expect(exportedRule.parentTabUuid).toBe('overview');
+        expect(exportedRule.lockedTabUuids).toEqual(['overview']);
+
+        const importedTabs = CoderService.getTabFiltersWithTileUuids(
+            {
+                tabs: exportedTabs,
+            } as AnyType,
+            [
+                {
+                    uuid: 'tile-uuid-1',
+                    tileSlug: 'chart-a',
+                    type: DashboardTileTypes.SAVED_CHART,
+                    properties: { chartSlug: 'chart-a' },
+                },
+            ] as AnyType,
+            tabsWithFilters as AnyType,
+        );
+        const importedRule = (importedTabs[0] as AnyType).filters.dimensions[0];
+        expectForkFields(importedRule);
+        expect(importedRule.parentTabUuid).toBe('overview-uuid');
+        expect(importedRule.lockedTabUuids).toEqual(['overview-uuid']);
+        expect(importedRule.tileTargets).toEqual({
+            'tile-uuid-1': { fieldId: 'orders_status' },
         });
     });
 });
