@@ -1,6 +1,6 @@
 {
     "name": "@lightdash/formula-tests",
-    "version": "2.7.8-test.3",
+    "version": "2.7.8",
     "private": true,
     "license": "MIT",
     "scripts": {
