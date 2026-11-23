@@ -88,8 +88,25 @@ const baseArgs = {
 const expectHeaderStyle = (worksheet: Excel.Worksheet, address: string) => {
     const cell = worksheet.getCell(address);
     expect(cell.font?.bold).toBe(true);
+    expect(cell.font?.italic).not.toBe(true);
     expect(cell.fill?.type).toBe('pattern');
     expect((cell.fill as Excel.FillPattern)?.fgColor?.argb).toBe('FFE0E0E0');
+};
+
+// Column-totals footer rows: same gray + bold as the header block, but italic
+const expectTotalsStyle = (worksheet: Excel.Worksheet, address: string) => {
+    const cell = worksheet.getCell(address);
+    expect(cell.font?.bold).toBe(true);
+    expect(cell.font?.italic).toBe(true);
+    expect(cell.fill?.type).toBe('pattern');
+    expect((cell.fill as Excel.FillPattern)?.fgColor?.argb).toBe('FFE0E0E0');
+};
+
+const expectNoStyle = (worksheet: Excel.Worksheet, address: string) => {
+    const cell = worksheet.getCell(address);
+    expect(cell.font?.bold).not.toBe(true);
+    expect(cell.font?.italic).not.toBe(true);
+    expect(cell.fill).toBeUndefined();
 };
 
 describe('ExcelService.downloadPivotTableXlsx (pivot header grid)', () => {
@@ -237,6 +254,119 @@ describe('ExcelService.downloadPivotTableXlsx (pivot header grid)', () => {
         ['A4', 'B4', 'C4', 'A5', 'B5', 'C5'].forEach((address) => {
             expect(worksheet!.getCell(address).font?.bold).not.toBe(true);
             expect(worksheet!.getCell(address).fill).toBeUndefined();
+        });
+    });
+
+    it('columnTotals: appends a styled footer row and leaves merges untouched', async () => {
+        const result = await ExcelService.downloadPivotTableXlsx({
+            ...baseArgs,
+            pivotConfig: { ...baseArgs.pivotConfig, columnTotals: true },
+        });
+        filePath = result.filePath;
+
+        const workbook = new Excel.Workbook();
+        await workbook.xlsx.readFile(filePath);
+        const worksheet = workbook.getWorksheet(1);
+        expect(worksheet).toBeDefined();
+
+        // 3 header rows + 2 data rows + 1 column-totals footer row
+        expect(worksheet!.rowCount).toBe(6);
+
+        // The footer row sits at the very end: 'Total' in the row-dimension
+        // column, formatted column sums after it (blog=6, docs=2)
+        expect(worksheet!.getCell('A6').value).toBe('Total');
+        expect(worksheet!.getCell('B6').value).toBe('6');
+        expect(worksheet!.getCell('C6').value).toBe('2');
+
+        // Merges are header-only: identical to the no-totals export, the
+        // footer row is not part of any merged range
+        const merges = worksheet!.model.merges ?? [];
+        expect(merges).toHaveLength(2);
+        expect([...merges].sort()).toEqual(['A1:A3', 'B1:C1']);
+
+        // Header block stays bold + gray (not italic); footer is bold +
+        // italic + gray; data rows stay unstyled
+        ['A1', 'B1', 'C1', 'B2', 'C2', 'B3', 'C3'].forEach((address) => {
+            expectHeaderStyle(worksheet!, address);
+        });
+        ['A6', 'B6', 'C6'].forEach((address) => {
+            expectTotalsStyle(worksheet!, address);
+        });
+        ['A4', 'B4', 'C4', 'A5', 'B5', 'C5'].forEach((address) => {
+            expectNoStyle(worksheet!, address);
+        });
+    });
+
+    it('columnTotals + metricsAsRows: footer row per data column block keeps the metric label column', async () => {
+        const result = await ExcelService.downloadPivotTableXlsx({
+            ...baseArgs,
+            pivotConfig: {
+                ...baseArgs.pivotConfig,
+                metricsAsRows: true,
+                columnTotals: true,
+            },
+        });
+        filePath = result.filePath;
+
+        const workbook = new Excel.Workbook();
+        await workbook.xlsx.readFile(filePath);
+        const worksheet = workbook.getWorksheet(1);
+        expect(worksheet).toBeDefined();
+
+        // 2 header rows + 2 data rows + 1 footer row; width = page + label
+        // + blog + docs
+        expect(worksheet!.rowCount).toBe(5);
+
+        // 'Total' in the row-dimension column, metric label kept in B
+        expect(worksheet!.getCell('A5').value).toBe('Total');
+        expect(worksheet!.getCell('B5').value).toBe('Revenue');
+        expect(worksheet!.getCell('C5').value).toBe('6');
+        expect(worksheet!.getCell('D5').value).toBe('2');
+
+        // Same merges as the no-totals metricsAsRows export
+        const merges = worksheet!.model.merges ?? [];
+        expect(merges).toHaveLength(2);
+        expect([...merges].sort()).toEqual(['A1:A2', 'C1:D1']);
+
+        // Footer styled, last data row not
+        ['A5', 'B5', 'C5', 'D5'].forEach((address) => {
+            expectTotalsStyle(worksheet!, address);
+        });
+        ['A4', 'B4', 'C4', 'D4'].forEach((address) => {
+            expectNoStyle(worksheet!, address);
+        });
+    });
+
+    it('columnTotals with leading filter columns: footer carries leading values and shifts with the grid', async () => {
+        const result = await ExcelService.downloadPivotTableXlsx({
+            ...baseArgs,
+            pivotConfig: { ...baseArgs.pivotConfig, columnTotals: true },
+            leadingColumns: [{ header: 'Group', value: 'Group A' }],
+        });
+        filePath = result.filePath;
+
+        const workbook = new Excel.Workbook();
+        await workbook.xlsx.readFile(filePath);
+        const worksheet = workbook.getWorksheet(1);
+        expect(worksheet).toBeDefined();
+
+        expect(worksheet!.rowCount).toBe(6);
+
+        // Footer row: leading column writes the constant value like every
+        // non-header row, 'Total' lands in the row-dimension column (B)
+        expect(worksheet!.getCell('A6').value).toBe('Group A');
+        expect(worksheet!.getCell('B6').value).toBe('Total');
+        expect(worksheet!.getCell('C6').value).toBe('6');
+        expect(worksheet!.getCell('D6').value).toBe('2');
+
+        // Leading column and footer row stay out of the merges
+        const merges = worksheet!.model.merges ?? [];
+        expect(merges).toHaveLength(2);
+        expect([...merges].sort()).toEqual(['B1:B3', 'C1:D1']);
+
+        // Whole footer row is styled, including the leading cell
+        ['A6', 'B6', 'C6', 'D6'].forEach((address) => {
+            expectTotalsStyle(worksheet!, address);
         });
     });
 

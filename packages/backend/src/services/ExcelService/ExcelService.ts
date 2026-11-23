@@ -301,6 +301,19 @@ export class ExcelService {
         });
     }
 
+    /**
+     * Count the trailing column-totals footer rows that common appends to the
+     * pivot grid after the data rows when `pivotConfig.columnTotals` is on
+     * (the same footer rows the CSV export carries). Every footer row starts
+     * with the `Total` marker common writes into the first row-dimension
+     * column, so scan backwards from the last row until the marker stops
+     * matching. Header rows are excluded via `headerRowCount`.
+     *
+     * Known limitation: a *last* data row whose first dimension value is
+     * literally "Total" would be counted too (mis-styled but still written at
+     * the right position); the metricsAsRows-with-no-row-dimensions footer
+     * carries the metric label instead of "Total" and would be missed.
+     */
     static async downloadPivotTableXlsx({
         rows,
         itemMap,
@@ -413,8 +426,37 @@ export class ExcelService {
             );
         });
 
-        grid.rows.slice(headerRowCount).forEach((row, index) => {
-            addRow(row, index + headerRowCount).commit();
+        // Column totals footer rows are the trailing grid rows when
+        // pivotConfig.columnTotals is on (common appends them to the grid,
+        // and they never appear in grid.merges). Data rows stay unstyled;
+        // footer rows get bold + italic + gray: same gray as the header block
+        // (bold + gray) with italic as the visual separator.
+        // The grid tells us exactly how many trailing rows are column totals
+        // (no more guessing from cell contents).
+        const { totalsRowCount } = grid;
+        const dataRowCount = grid.rows.length - headerRowCount - totalsRowCount;
+
+        grid.rows
+            .slice(headerRowCount, headerRowCount + dataRowCount)
+            .forEach((row, index) => {
+                addRow(row, index + headerRowCount).commit();
+            });
+
+        // Footer rows use their real grid row index so the leading filter
+        // columns keep writing constant values (only row 0 carries headers).
+        grid.rows.slice(headerRowCount + dataRowCount).forEach((row, index) => {
+            const addedRow = addRow(row, index + headerRowCount + dataRowCount);
+            addedRow.eachCell({ includeEmpty: true }, (cell) => {
+                // eslint-disable-next-line no-param-reassign
+                cell.font = { bold: true, italic: true };
+                // eslint-disable-next-line no-param-reassign
+                cell.fill = {
+                    type: 'pattern',
+                    pattern: 'solid',
+                    fgColor: { argb: 'FFE0E0E0' },
+                };
+            });
+            addedRow.commit();
         });
 
         // Column widths are sampled: scanning every row of a wide pivot is
