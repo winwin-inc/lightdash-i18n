@@ -753,7 +753,17 @@ export function pivotDataToVTable(
                 }
 
                 data.retrofitData.pivotColumnInfo.forEach((col, colIndex) => {
-                    const total = totalsRow[colIndex];
+                    // columnTotals 宽度只有数据列数（pivotQueryResults getColumnTotals），
+                    // 不能用 pivotColumnInfo 全下标取值，否则合计整体右移「行维度列数」列；
+                    // 仅数据列 [valueColumnStart, valueColumnEnd) 按数据列下标取值，
+                    // 行维度列与 rowTotal 列保持空单元格。
+                    const isDataColumn =
+                        valueColumnStart >= 0 &&
+                        colIndex >= valueColumnStart &&
+                        colIndex < valueColumnEnd;
+                    const total = isDataColumn
+                        ? totalsRow[colIndex - valueColumnStart]
+                        : undefined;
                     if (total == null) {
                         record[col.fieldId] = '';
                         return;
