@@ -1,6 +1,6 @@
 {
     "name": "@lightdash/frontend",
-    "version": "2.7.9-test.5",
+    "version": "2.7.9",
     "private": true,
     "scripts": {
         "typecheck": "NODE_OPTIONS=--max-old-space-size=8192 tsc --project tsconfig.json --noEmit --skipLibCheck",
