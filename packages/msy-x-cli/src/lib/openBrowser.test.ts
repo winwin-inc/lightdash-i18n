@@ -3,7 +3,12 @@ import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
-import { openBrowser, win32BrowserInvocation } from './openBrowser';
+import {
+    openBrowser,
+    parseBrowserExe,
+    parseRegQueryValue,
+    win32BrowserInvocation,
+} from './openBrowser';
 
 /**
  * openBrowser 拉起结果判定（退出码语义）的聚焦单测：用临时目录里的
@@ -94,6 +99,50 @@ test('win32：URL 里的单引号按 PowerShell 规则转义', () => {
         decodePowerShell(args),
         "Start-Process 'https://example.com/a?b=''c'''",
     );
+});
+
+/* ---------- win32 默认浏览器解析（纯函数，任意平台可测） ---------- */
+
+test('parseRegQueryValue：从 reg query /v 输出里取 ProgId', () => {
+    const stdout =
+        '\r\nHKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\Shell\\Associations\\UrlAssociations\\http\\UserChoice\r\n' +
+        '    Hash    REG_SZ    abc=\r\n' +
+        '    ProgId    REG_SZ    ChromeHTML\r\n\r\n';
+
+    assert.equal(parseRegQueryValue(stdout, 'ProgId'), 'ChromeHTML');
+    assert.equal(parseRegQueryValue(stdout, 'Hash'), 'abc=');
+    assert.equal(parseRegQueryValue(stdout, 'Missing'), null);
+});
+
+test('parseRegQueryValue：/ve 读默认值（含中文“（默认）”与英文 (Default)）', () => {
+    const zh =
+        '    （默认）    REG_SZ    "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" --single-argument %1\r\n';
+    const en =
+        '    (Default)    REG_SZ    "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" --single-argument %1\r\n';
+
+    assert.match(
+        parseRegQueryValue(zh) ?? '',
+        /chrome\.exe" --single-argument %1/,
+    );
+    assert.match(
+        parseRegQueryValue(en) ?? '',
+        /chrome\.exe" --single-argument %1/,
+    );
+});
+
+test('parseBrowserExe：带引号 / 裸路径 / 无 exe 的 command', () => {
+    assert.equal(
+        parseBrowserExe(
+            '"C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" --single-argument %1',
+        ),
+        'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+    );
+    assert.equal(
+        parseBrowserExe('C:\\msedge.exe %1'),
+        'C:\\msedge.exe',
+    );
+    assert.equal(parseBrowserExe('rundll32.exe url.dll,FileProtocolHandler'), 'rundll32.exe');
+    assert.equal(parseBrowserExe(''), null);
 });
 
 linuxOnly('openBrowser：命令不存在（spawn error）→ false', async () => {

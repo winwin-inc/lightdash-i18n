@@ -17,7 +17,7 @@ import type { FetchLike } from '@modelcontextprotocol/sdk/shared/transport.js';
 import { CliError } from '../cli/errors';
 import type { EnvVars } from '../config/paths';
 import { openBrowser } from '../lib/openBrowser';
-import { debugLog, logWarn } from '../lib/logger';
+import { debugLog, logInfo, logWarn } from '../lib/logger';
 import type { OAuthCredentials, SiteProfile } from '../types';
 import {
     DEFAULT_CALLBACK_TIMEOUT_MS,
@@ -188,6 +188,11 @@ export const loginWithOAuth = async ({
                 )}s 内）：`,
             );
             logWarn(authorizationUrl.toString());
+        } else if (process.platform === 'win32') {
+            // Windows 上“已拉起”不等于“窗口真的出现”（URL 关联坏掉时系统会静默无操作），
+            // 所以无论成败都把链接打出来，用户永远有一条兜底路径
+            logInfo('已调用系统浏览器；若没有弹出授权页，复制下面的链接手动打开：');
+            logInfo(authorizationUrl.toString());
         }
 
         // 6. 阻塞等授权码（state / error / 超时都在这里变成 CliError）
