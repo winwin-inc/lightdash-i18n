@@ -2,7 +2,11 @@ import isNumber from 'lodash/isNumber';
 import last from 'lodash/last';
 import { type Entries } from 'type-fest';
 import type { ReadyQueryResultsPage } from '../index';
-import { UnexpectedIndexError, UnexpectedServerError } from '../types/errors';
+import {
+    ParameterError,
+    UnexpectedIndexError,
+    UnexpectedServerError,
+} from '../types/errors';
 import {
     FieldType,
     isDimension,
@@ -564,6 +568,15 @@ export const pivotQueryResults = ({
     const visibleIndexDimensions = indexDimensions.filter(
         (d) => !hiddenDimensionFieldIds.includes(d),
     );
+    // Hiding every row dimension collapses the display index while the
+    // grouping keys keep every row, which crashes deep in the retrofit loop
+    // with an opaque `UnexpectedIndexError`. Fail early with a clear message
+    // instead. Pivots with no row dimensions at all stay legal.
+    if (indexDimensions.length > 0 && visibleIndexDimensions.length === 0) {
+        throw new ParameterError(
+            'Cannot hide every row dimension of a pivot table: keep at least one dimension visible or remove the pivot',
+        );
+    }
     const indexDimensionValueTypes = visibleIndexDimensions.map<{
         type: FieldType.DIMENSION;
         fieldId: string;
@@ -1506,6 +1519,181 @@ type PivotResultsAsTableArgs = {
     undefinedCharacter?: string;
 };
 
+/** Number of leading columns that identify a data row in an export (>= 1). */
+const getExportIndexColumnCount = (pivotedResults: PivotData): number =>
+    pivotedResults.indexValues.length > 0
+        ? pivotedResults.indexValueTypes.length
+        : 1;
+
+/**
+ * Single-row header for the CSV export: row-dimension labels on the left,
+ * one label per data column (pivot values at every level joined with
+ * `" - "`, then the metric label - pivot values only when metrics are
+ * rows), then `Total - <metric label>` row-total labels. Empty or missing
+ * values fall back to `undefinedCharacter` (never a `undefined` literal).
+ */
+const buildSingleHeaderRow = ({
+    pivotedResults,
+    getFieldLabel,
+    formatField,
+    undefinedCharacter,
+}: {
+    pivotedResults: PivotData;
+    getFieldLabel: FieldLabelFunction;
+    formatField: 'raw' | 'formatted';
+    undefinedCharacter: string;
+}): string[] => {
+    const { headerValues, titleFields } = pivotedResults;
+
+    // Row-dimension labels: the same labels the last multi-row header line
+    // (and the grid's anchor cells) use, one per leading index column.
+    const lastTitleFields = titleFields[headerValues.length - 1] ?? [];
+    const indexColumnCount = getExportIndexColumnCount(pivotedResults);
+    const indexLabels = Array.from({ length: indexColumnCount }, (_, col) => {
+        const field = lastTitleFields[col];
+        return field && field.direction === 'index'
+            ? getFieldLabel(field.fieldId) ?? undefinedCharacter
+            : undefinedCharacter;
+    });
+
+    // Data columns: pivot values at every level (header row order) joined
+    // with " - ", then the metric label. metricsAsRows has no metric label
+    // row, so data columns are the pivot values only.
+    const dataColumnCount = headerValues[0]?.length ?? 0;
+    const dataLabels = Array.from({ length: dataColumnCount }, (_, col) =>
+        headerValues
+            .map((headerRow) => {
+                const cell = headerRow[col];
+                if (!cell) return undefinedCharacter;
+                if (cell.type === 'label') return getFieldLabel(cell.fieldId);
+                const cellValue = cell.value?.[formatField];
+                return cellValue === null ||
+                    cellValue === undefined ||
+                    String(cellValue) === ''
+                    ? undefinedCharacter
+                    : String(cellValue);
+            })
+            .join(' - '),
+    );
+
+    // Row totals: `Total - <metric label>` (plain `Total` when unlabeled,
+    // e.g. the single generic total of a metricsAsRows pivot).
+    const rowTotalLabels = (
+        pivotedResults.rowTotalFields?.[
+            pivotedResults.rowTotalFields.length - 1
+        ] ?? []
+    ).map((totalField) =>
+        totalField?.fieldId
+            ? `Total - ${
+                  getFieldLabel(totalField.fieldId) ?? undefinedCharacter
+              }`
+            : 'Total',
+    );
+
+    return [...indexLabels, ...dataLabels, ...rowTotalLabels];
+};
+
+/**
+ * Footer row(s) for `columnTotals`: what the pivot table footer shows,
+ * appended after the data rows of every export (CSV and XLSX grid alike).
+ * `Total` goes into the first row-dimension column (or the empty prefix
+ * column when there are no row dimensions); with metricsAsRows there is one
+ * row per metric and the metric name goes into the label column. Row-total
+ * columns stay empty, matching the frontend footer.
+ */
+const buildColumnTotalRows = ({
+    pivotedResults,
+    formatField,
+    undefinedCharacter,
+    getField,
+    getFieldLabel,
+}: {
+    pivotedResults: PivotData;
+    formatField: 'raw' | 'formatted';
+    undefinedCharacter: string;
+    getField: FieldFunction;
+    getFieldLabel: FieldLabelFunction;
+}): string[][] => {
+    const {
+        pivotConfig,
+        columnTotals,
+        columnTotalFields,
+        indexValueTypes,
+        headerValues,
+        rowTotalFields,
+    } = pivotedResults;
+    if (
+        pivotConfig.columnTotals !== true ||
+        !columnTotals ||
+        columnTotals.length === 0
+    ) {
+        return [];
+    }
+
+    const metricsAsRows = pivotConfig.metricsAsRows === true;
+    const indexColumnCount = getExportIndexColumnCount(pivotedResults);
+    // columnTotals is exactly as wide as the data columns
+    const dataColumnCount = columnTotals[0]?.length ?? 0;
+    const totalColumnCount =
+        rowTotalFields?.[rowTotalFields.length - 1]?.length ?? 0;
+
+    // metricsAsRows: the metric label column is the last index column
+    const metricLabelColumnIndex = metricsAsRows
+        ? indexValueTypes.length - 1
+        : -1;
+    // metrics as columns: the metric of each data column is the label cell of
+    // the last header row
+    const lastHeaderRow = headerValues[headerValues.length - 1] ?? [];
+
+    return columnTotals.map((totalsRow, totalRowIndex) => {
+        const row = Array.from(
+            { length: indexColumnCount + dataColumnCount + totalColumnCount },
+            () => undefinedCharacter,
+        );
+
+        // The metric of this totals row: metricsAsRows stores it in
+        // columnTotalFields at the label column position
+        const metricFieldId = metricsAsRows
+            ? columnTotalFields?.[totalRowIndex]?.[indexValueTypes.length - 1]
+                  ?.fieldId
+            : undefined;
+
+        if (metricsAsRows) {
+            // 'Total' in the first row-dimension column when there is one
+            if (metricLabelColumnIndex > 0) {
+                row[0] = 'Total';
+            }
+            if (metricLabelColumnIndex >= 0) {
+                row[metricLabelColumnIndex] = metricFieldId
+                    ? getFieldLabel(metricFieldId) ?? undefinedCharacter
+                    : undefinedCharacter;
+            }
+        } else {
+            row[0] = 'Total';
+        }
+
+        // Data cells: indexed by data column, formatted like the data rows
+        totalsRow.forEach((total, colIndex) => {
+            if (total === null || total === undefined) return;
+            const headerCell = lastHeaderRow[colIndex];
+            let fieldId: string | undefined;
+            if (metricsAsRows) {
+                fieldId = metricFieldId;
+            } else if (headerCell?.type === 'label') {
+                fieldId = headerCell.fieldId;
+            }
+            const item = fieldId ? getField(fieldId) : undefined;
+            row[indexColumnCount + colIndex] =
+                formatField === 'raw'
+                    ? String(total)
+                    : formatItemValue(item, total);
+        });
+
+        // Trailing row-total columns stay empty, like the frontend footer
+        return row;
+    });
+};
+
 const pivotResultsAsTableData = ({
     pivotConfig,
     rows,
@@ -1586,14 +1774,44 @@ const pivotResultsAsTableData = ({
             return [...noIndexPrefix, ...formattedRows];
         });
 
-    return { getFieldLabel, formatField, pivotedResults, headers, pivotedRows };
+    // Column totals: the footer row(s) users see in the pivot table must also
+    // reach the exported matrix (CSV and XLSX grid alike).
+    const columnTotalRows = buildColumnTotalRows({
+        pivotedResults,
+        formatField,
+        undefinedCharacter,
+        getField: (fieldId: string) => itemMap && itemMap[fieldId],
+        getFieldLabel,
+    });
+
+    return {
+        getFieldLabel,
+        formatField,
+        pivotedResults,
+        headers,
+        pivotedRows: [...pivotedRows, ...columnTotalRows],
+        columnTotalRowCount: columnTotalRows.length,
+    };
 };
 
 export const pivotResultsAsCsv = (
     args: PivotResultsAsTableArgs,
 ): string[][] => {
-    const { headers, pivotedRows } = pivotResultsAsTableData(args);
-    return [...headers, ...pivotedRows];
+    const { undefinedCharacter = '' } = args;
+    const { getFieldLabel, formatField, pivotedResults, headers, pivotedRows } =
+        pivotResultsAsTableData(args);
+    if (pivotedResults.headerValues.length === 0) {
+        // Degenerate pivot with no header block at all (e.g. metricsAsRows
+        // and no pivot dimensions): keep the single empty leading row.
+        return [...headers, ...pivotedRows];
+    }
+    const singleHeader = buildSingleHeaderRow({
+        pivotedResults,
+        getFieldLabel,
+        formatField,
+        undefinedCharacter,
+    });
+    return [singleHeader, ...pivotedRows];
 };
 
 /** A merged cell range in a {@link PivotExportGrid}, 0-based coordinates. */
@@ -1614,6 +1832,8 @@ export type PivotExportGrid = {
     merges: PivotGridMerge[];
     /** Number of leading rows that belong to the header block. */
     headerRowCount: number;
+    /** Number of trailing rows that are column totals (0 = no totals row). */
+    totalsRowCount: number;
 };
 
 type PivotDimensionValueType = { type: FieldType.DIMENSION; fieldId: string };
@@ -1622,8 +1842,14 @@ export const pivotResultsAsGrid = (
     args: PivotResultsAsTableArgs,
 ): PivotExportGrid => {
     const { undefinedCharacter = '' } = args;
-    const { getFieldLabel, formatField, pivotedResults, headers, pivotedRows } =
-        pivotResultsAsTableData(args);
+    const {
+        getFieldLabel,
+        formatField,
+        pivotedResults,
+        headers,
+        pivotedRows,
+        columnTotalRowCount,
+    } = pivotResultsAsTableData(args);
 
     const pivotDimensionTypes = pivotedResults.headerValueTypes.filter(
         (valueType): valueType is PivotDimensionValueType =>
@@ -1641,6 +1867,7 @@ export const pivotResultsAsGrid = (
             rows: [...headers, ...pivotedRows],
             merges: [],
             headerRowCount: headers.length,
+            totalsRowCount: columnTotalRowCount,
         };
     }
 
@@ -1787,5 +2014,10 @@ export const pivotResultsAsGrid = (
         }
     });
 
-    return { rows: [...headerRows, ...pivotedRows], merges, headerRowCount };
+    return {
+        rows: [...headerRows, ...pivotedRows],
+        merges,
+        headerRowCount,
+        totalsRowCount: columnTotalRowCount,
+    };
 };

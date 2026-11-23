@@ -1,4 +1,5 @@
 import { type ItemsMap, type MetricQuery } from '../index';
+import { ParameterError } from '../types/errors';
 import { DimensionType, FieldType, MetricType } from '../types/field';
 import { type PivotData } from '../types/pivot';
 import { VizAggregationOptions, VizIndexType } from '../visualizations/types';
@@ -1751,6 +1752,52 @@ const SHUFFLED_SQL_EXPORT_ARGS = {
     maxColumnLimit: 60,
 };
 
+// Fixtures with PIVOT_ITEM_MAP: views/devices are summable metrics, so
+// rowTotals and columnTotals produce real columns/rows in the exports.
+const ROW_TOTALS_EXPORT_ARGS = {
+    pivotConfig: {
+        pivotDimensions: ['site'],
+        metricsAsRows: false,
+        rowTotals: true,
+    },
+    pivotDetails: null,
+    rows: RESULT_ROWS_2DIM_2METRIC,
+    itemMap: PIVOT_ITEM_MAP,
+    metricQuery: PIVOT_METRIC_QUERY,
+    customLabels: undefined,
+    onlyRaw: false,
+    maxColumnLimit: 60,
+};
+
+const TWO_LEVEL_PIVOT_EXPORT_ARGS = {
+    ...ROW_TOTALS_EXPORT_ARGS,
+    pivotConfig: {
+        pivotDimensions: ['site', 'page'],
+        metricsAsRows: false,
+        rowTotals: true,
+    },
+};
+
+const COLUMN_TOTALS_EXPORT_ARGS = {
+    ...ROW_TOTALS_EXPORT_ARGS,
+    pivotConfig: {
+        pivotDimensions: ['site'],
+        metricsAsRows: false,
+        rowTotals: true,
+        columnTotals: true,
+    },
+};
+
+const METRICS_AS_ROWS_TOTALS_EXPORT_ARGS = {
+    ...ROW_TOTALS_EXPORT_ARGS,
+    pivotConfig: {
+        pivotDimensions: ['site'],
+        metricsAsRows: true,
+        rowTotals: false,
+        columnTotals: true,
+    },
+};
+
 // 'region' is hidden from display but still part of the grouping keys: the
 // first two rows share all *visible* dimension values (page=/home, site=East)
 // and differ only in region, so they must stay separate data rows.
@@ -1805,35 +1852,163 @@ const makeHiddenDimGridArgs = (hiddenDimensionFieldIds: string[]) => ({
 });
 
 describe('pivotResultsAsCsv / pivotResultsAsGrid', () => {
-    it('csv output is unchanged (pinned against the pre-grid implementation)', () => {
+    it('csv output is a single header row (pinned)', () => {
         expect(pivotResultsAsCsv(IN_MEMORY_EXPORT_ARGS)).toEqual([
-            ['site', 'Blog', 'Blog', 'Docs', 'Docs'],
-            ['page', 'views', 'devices', 'views', 'devices'],
+            [
+                'page',
+                'Blog - views',
+                'Blog - devices',
+                'Docs - views',
+                'Docs - devices',
+            ],
             ['/home', '6.0', '7.0', '2.0', '10.0'],
             ['/about', '12.0', '0.0', '2.0', '13.0'],
             ['/first-post', '11.0', '1.0', '', ''],
         ]);
         expect(pivotResultsAsCsv(SQL_EXPORT_ARGS)).toEqual([
             [
-                'Payment Method',
-                'bank_transfer',
-                'coupon',
-                'credit_card',
-                'gift_card',
-                'Total',
-            ],
-            [
                 'Order Date Year',
-                'Total Revenue',
-                'Total Revenue',
-                'Total Revenue',
-                'Total Revenue',
-                'Total Total Revenue',
+                'bank_transfer - Total Revenue',
+                'coupon - Total Revenue',
+                'credit_card - Total Revenue',
+                'gift_card - Total Revenue',
+                'Total - Total Revenue',
             ],
             ['2025', '493.78', '125.64', '780.06', '347.29', '1,746.77'],
             ['2024', '301.9', '82', '630.1', '175.6', '1,189.6'],
             ['2023', '10.5', '51', '42', '14', '117.5'],
         ]);
+    });
+
+    it('csv single header: 1 pivot level + row totals, customLabels win over field labels', () => {
+        expect(
+            pivotResultsAsCsv({
+                ...ROW_TOTALS_EXPORT_ARGS,
+                customLabels: { views: 'Page Views' },
+            }),
+        ).toEqual([
+            [
+                'Page',
+                'Blog - Page Views',
+                'Blog - Devices',
+                'Docs - Page Views',
+                'Docs - Devices',
+                'Total - Page Views',
+                'Total - Devices',
+            ],
+            ['/home', '6.0', '7.0', '2.0', '10.0', '8', '17'],
+            ['/about', '12.0', '0.0', '2.0', '13.0', '14', '13'],
+            ['/first-post', '11.0', '1.0', '', '', '11', '1'],
+        ]);
+    });
+
+    it('csv single header: 2 pivot levels join every level with " - " before the metric label', () => {
+        expect(pivotResultsAsCsv(TWO_LEVEL_PIVOT_EXPORT_ARGS)).toEqual([
+            [
+                '',
+                'Blog - /home - Views',
+                'Blog - /home - Devices',
+                'Blog - /about - Views',
+                'Blog - /about - Devices',
+                'Blog - /first-post - Views',
+                'Blog - /first-post - Devices',
+                'Docs - /home - Views',
+                'Docs - /home - Devices',
+                'Docs - /about - Views',
+                'Docs - /about - Devices',
+                'Total - Views',
+                'Total - Devices',
+            ],
+            [
+                '',
+                '6.0',
+                '7.0',
+                '12.0',
+                '0.0',
+                '11.0',
+                '1.0',
+                '2.0',
+                '10.0',
+                '2.0',
+                '13.0',
+                '33',
+                '31',
+            ],
+        ]);
+    });
+
+    it('csv single header: metricsAsRows data columns are pivot values only', () => {
+        expect(pivotResultsAsCsv(METRICS_AS_ROWS_EXPORT_ARGS)).toEqual([
+            ['Page', '', 'Blog', 'Docs'],
+            ['/home', 'Views', '6.0', '2.0'],
+            ['/home', 'Devices', '7.0', '10.0'],
+            ['/about', 'Views', '12.0', '2.0'],
+            ['/about', 'Devices', '0.0', '13.0'],
+            ['/first-post', 'Views', '11.0', ''],
+            ['/first-post', 'Devices', '1.0', ''],
+        ]);
+    });
+
+    it('csv appends the column totals row after the data rows (metrics as columns)', () => {
+        expect(pivotResultsAsCsv(COLUMN_TOTALS_EXPORT_ARGS)).toEqual([
+            [
+                'Page',
+                'Blog - Views',
+                'Blog - Devices',
+                'Docs - Views',
+                'Docs - Devices',
+                'Total - Views',
+                'Total - Devices',
+            ],
+            ['/home', '6.0', '7.0', '2.0', '10.0', '8', '17'],
+            ['/about', '12.0', '0.0', '2.0', '13.0', '14', '13'],
+            ['/first-post', '11.0', '1.0', '', '', '11', '1'],
+            ['Total', '29', '8', '4', '23', '', ''],
+        ]);
+    });
+
+    it('csv appends one column totals row per metric with the metric name in the label column (metricsAsRows)', () => {
+        expect(pivotResultsAsCsv(METRICS_AS_ROWS_TOTALS_EXPORT_ARGS)).toEqual([
+            ['Page', '', 'Blog', 'Docs'],
+            ['/home', 'Views', '6.0', '2.0'],
+            ['/home', 'Devices', '7.0', '10.0'],
+            ['/about', 'Views', '12.0', '2.0'],
+            ['/about', 'Devices', '0.0', '13.0'],
+            ['/first-post', 'Views', '11.0', ''],
+            ['/first-post', 'Devices', '1.0', ''],
+            ['Total', 'Views', '29', '4'],
+            ['Total', 'Devices', '8', '23'],
+        ]);
+    });
+
+    it('grid keeps the multi-row header layout but also appends the column totals row', () => {
+        const grid = pivotResultsAsGrid(COLUMN_TOTALS_EXPORT_ARGS);
+
+        expect(grid.headerRowCount).toBe(3);
+        expect(grid.totalsRowCount).toBe(1);
+        expect(grid.rows).toEqual([
+            ['Page', 'Site', '', '', '', '', ''],
+            ['', 'Blog', '', 'Docs', '', 'Total', 'Total'],
+            [
+                '',
+                'Views',
+                'Devices',
+                'Views',
+                'Devices',
+                'Total Views',
+                'Total Devices',
+            ],
+            ['/home', '6.0', '7.0', '2.0', '10.0', '8', '17'],
+            ['/about', '12.0', '0.0', '2.0', '13.0', '14', '13'],
+            ['/first-post', '11.0', '1.0', '', '', '11', '1'],
+            ['Total', '29', '8', '4', '23', '', ''],
+        ]);
+        // The totals row matches the CSV footer row cell by cell
+        expect(grid.rows[grid.rows.length - 1]).toEqual(
+            pivotResultsAsCsv(COLUMN_TOTALS_EXPORT_ARGS)[
+                pivotResultsAsCsv(COLUMN_TOTALS_EXPORT_ARGS).length - 1
+            ],
+        );
     });
 
     it('in-memory: adds the dimension-name row, colSpan merges and the vertical index merge', () => {
@@ -1855,7 +2030,7 @@ describe('pivotResultsAsCsv / pivotResultsAsGrid', () => {
         ]);
         // Data rows are identical to the CSV export
         expect(grid.rows.slice(3)).toEqual(
-            pivotResultsAsCsv(IN_MEMORY_EXPORT_ARGS).slice(2),
+            pivotResultsAsCsv(IN_MEMORY_EXPORT_ARGS).slice(1),
         );
     });
 
@@ -1894,7 +2069,7 @@ describe('pivotResultsAsCsv / pivotResultsAsGrid', () => {
         ]);
         // Data rows are identical to the CSV export
         expect(grid.rows.slice(3)).toEqual(
-            pivotResultsAsCsv(SQL_EXPORT_ARGS).slice(2),
+            pivotResultsAsCsv(SQL_EXPORT_ARGS).slice(1),
         );
     });
 
@@ -1940,6 +2115,7 @@ describe('pivotResultsAsCsv / pivotResultsAsGrid', () => {
         expect(grid.rows).toEqual(pivotResultsAsCsv(args));
         expect(grid.merges).toEqual([]);
         expect(grid.headerRowCount).toBe(1);
+        expect(grid.totalsRowCount).toBe(0);
     });
 
     // Shared invariant helpers: rectangular rows, merges inside the grid,
@@ -2181,8 +2357,9 @@ describe('pivotResultsAsCsv / pivotResultsAsGrid', () => {
         expectMergesAreValidRanges(grid);
         expectNoOneByOneMerges(grid);
 
-        // Data row stays identical to the CSV export (same shuffled order)
-        expect(grid.rows[4]).toEqual(csv[3]);
+        // Data row stays identical to the CSV export (same shuffled order;
+        // the CSV now has a single header row, so the data row is at index 1)
+        expect(grid.rows[4]).toEqual(csv[1]);
     });
 
     it('hiddenDimensionFieldIds: the grid only shows visible index dims and vertical merges only cover visible row-dimension columns', () => {
@@ -2231,5 +2408,78 @@ describe('pivotResultsAsCsv / pivotResultsAsGrid', () => {
             { row: 0, col: 0, rowSpan: 3, colSpan: 1 },
             { row: 0, col: 1, rowSpan: 3, colSpan: 1 },
         ]);
+    });
+});
+
+describe('pivotQueryResults row-dimension validation', () => {
+    it('throws a readable ParameterError when every row dimension is hidden', () => {
+        const args = {
+            pivotConfig: {
+                pivotDimensions: ['site'],
+                metricsAsRows: false,
+                hiddenDimensionFieldIds: ['page'],
+            },
+            metricQuery: METRIC_QUERY_2DIM_2METRIC,
+            rows: RESULT_ROWS_2DIM_2METRIC,
+            options: { maxColumns: 60 },
+            getFieldLabel: (fieldId: string) => fieldId,
+            getField: (_fieldId: string) => undefined,
+        };
+
+        expect(() => pivotQueryResults(args)).toThrow(ParameterError);
+        expect(() => pivotQueryResults(args)).toThrow(
+            'Cannot hide every row dimension of a pivot table: keep at least one dimension visible or remove the pivot',
+        );
+    });
+
+    it('applies the same validation with metricsAsRows', () => {
+        expect(() =>
+            pivotQueryResults({
+                pivotConfig: {
+                    pivotDimensions: ['site'],
+                    metricsAsRows: true,
+                    hiddenDimensionFieldIds: ['page'],
+                },
+                metricQuery: METRIC_QUERY_2DIM_2METRIC,
+                rows: RESULT_ROWS_2DIM_2METRIC,
+                options: { maxColumns: 60 },
+                getFieldLabel: (fieldId: string) => fieldId,
+                getField: (_fieldId: string) => undefined,
+            }),
+        ).toThrow(ParameterError);
+    });
+
+    it('still allows pivots with no row dimensions at all', () => {
+        // Everything pivoted and nothing hidden: legal, no error
+        expect(() =>
+            pivotQueryResults({
+                pivotConfig: {
+                    pivotDimensions: ['site', 'page'],
+                    metricsAsRows: false,
+                },
+                metricQuery: METRIC_QUERY_2DIM_2METRIC,
+                rows: RESULT_ROWS_2DIM_2METRIC,
+                options: { maxColumns: 60 },
+                getFieldLabel: (fieldId: string) => fieldId,
+                getField: (_fieldId: string) => undefined,
+            }),
+        ).not.toThrow();
+    });
+
+    it('still allows hiding some (but not all) row dimensions', () => {
+        expect(() =>
+            pivotQueryResults({
+                pivotConfig: {
+                    pivotDimensions: ['page'],
+                    metricsAsRows: false,
+                    hiddenDimensionFieldIds: ['region'],
+                },
+                metricQuery: HIDDEN_DIM_METRIC_QUERY,
+                rows: HIDDEN_DIM_ROWS,
+                options: { maxColumns: 60 },
+                getFieldLabel: (fieldId: string) => fieldId,
+                getField: (_fieldId: string) => undefined,
+            }),
+        ).not.toThrow();
     });
 });
