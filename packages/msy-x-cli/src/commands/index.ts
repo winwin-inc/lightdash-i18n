@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import type { Command } from 'commander';
 import { CliError } from '../cli/errors';
+import { readNoBrowser } from '../cli/flags';
 import {
     GLOBAL_FLAG_SPECS,
     parseGlobalOptions,
@@ -367,7 +368,7 @@ const dispatch = async (
                     str(opts.timeout) !== null
                         ? Number(str(opts.timeout))
                         : undefined,
-                noBrowser: opts.noBrowser === true,
+                noBrowser: readNoBrowser(opts),
                 qr: opts.qr === true,
             },
             ctx,
