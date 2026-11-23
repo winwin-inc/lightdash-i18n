@@ -165,6 +165,7 @@ pnpm -F backend rollback-last
 -   环境性失败同类最多重试 2 次，之后必须上报，禁止蛮试
 -   多 agent 派发/验收/生成物同步流程见 `.agents/rules/multi-agent.md`；给既有组件新增 context 依赖时必须同步检查其既有测试的 Provider mock
 -   提交信息：标题 `type(scope): 摘要` ≤ 50 字符（硬上限 72），细节、原因、影响写正文（每行 ≤ 72 字符）；详见 `.agents/rules/commits.md`
+-   **Tag / 发布（强制）**：任何 `git tag`、tag 推送与删除、推 `main` 分支，都**必须先得到用户明确许可**；tag push 会触发 `build-docker-with-i18n` 镜像构建，删 tag 不会撤销已触发的 run 或已推镜像；详见 `.agents/rules/release-tags.md` 与 `.agents/skills/release-tagging/SKILL.md`
 
 ## 本地数据库调试
 
