@@ -936,6 +936,17 @@ export const convertSqlPivotedRowsToPivotData = ({
         ({ referenceField }) => !hiddenMetricFieldIds.includes(referenceField),
     );
 
+    // Sort an immutable copy once: the header rows and the data columns below
+    // must be derived from the exact same column sequence (order and length).
+    const sortedValuesColumns = [...filteredValuesColumns].sort((a, b) => {
+        const columnIndexSort = Number(a.columnIndex) - Number(b.columnIndex);
+        const columnOrderSort =
+            columnOrder.indexOf(a.referenceField) -
+            columnOrder.indexOf(b.referenceField);
+
+        return columnIndexSort || columnOrderSort;
+    });
+
     // Get unique base metrics from valuesColumns
     const baseMetricsArray = Array.from(
         new Set(filteredValuesColumns.map((col) => col.referenceField)),
@@ -966,7 +977,7 @@ export const convertSqlPivotedRowsToPivotData = ({
     const headerValues: PivotData['headerValues'] = [];
     pivotDetails.groupByColumns?.forEach(({ reference }, index) => {
         headerValues.push([]);
-        let columns = filteredValuesColumns;
+        let columns = sortedValuesColumns;
         if (pivotConfig.metricsAsRows) {
             // For metrics as rows, we only need unique combinations of pivot values, excluding per metric duplicates
             columns = Array.from(
@@ -1029,6 +1040,16 @@ export const convertSqlPivotedRowsToPivotData = ({
                         ? allColumnsWithSamePivotValues.length
                         : 0,
                 });
+            } else {
+                // Missing pivot value: push a placeholder cell so this header
+                // row keeps the exact same length and column positions as the
+                // data columns (the value lives in the data, not the header).
+                headerValues[index].push({
+                    type: 'value' as const,
+                    fieldId: reference,
+                    value: { raw: '', formatted: '' },
+                    colSpan: 0,
+                });
             }
         });
     });
@@ -1036,24 +1057,26 @@ export const convertSqlPivotedRowsToPivotData = ({
     // Add metric labels for columns if not metrics as rows
     if (!pivotConfig.metricsAsRows && baseMetricsArray.length > 0) {
         headerValues.push(
-            filteredValuesColumns
-                .sort((a, b) => {
-                    const columnIndexSort =
-                        Number(a.columnIndex) - Number(b.columnIndex);
-                    const columnOrderSort =
-                        columnOrder.indexOf(a.referenceField) -
-                        columnOrder.indexOf(b.referenceField);
-
-                    return columnIndexSort || columnOrderSort;
-                })
-                .map(({ referenceField }) => ({
-                    type: 'label' as const,
-                    fieldId: referenceField,
-                })),
+            sortedValuesColumns.map(({ referenceField }) => ({
+                type: 'label' as const,
+                fieldId: referenceField,
+            })),
         );
     }
 
-    const filteredHeaderValues = headerValues.filter((row) => row.length > 0);
+    // Keep exactly one header row per header value type (each pivot level plus
+    // the metric label row): rows are never dropped for being empty, so the
+    // header block height is fixed and stays aligned with the data columns.
+    // Exception: when *no* header cell was produced at all (e.g. every metric
+    // is hidden), keep the old degenerate shape so downstream code still fails
+    // loudly instead of exporting an empty-looking table.
+    const hasAnyHeaderCell = headerValues.some((row) => row.length > 0);
+    const filteredHeaderValues = hasAnyHeaderCell
+        ? Array.from(
+              { length: headerValueTypes.length },
+              (_, index) => headerValues[index] ?? [],
+          )
+        : [];
 
     // Build index values (row identifiers)
     let indexValues: PivotData['indexValues'];
@@ -1097,7 +1120,7 @@ export const convertSqlPivotedRowsToPivotData = ({
     const uniqueColumns = pivotConfig.metricsAsRows
         ? Array.from(
               new Map(
-                  filteredValuesColumns.map((col) => [
+                  sortedValuesColumns.map((col) => [
                       col.pivotValues
                           .map(
                               ({ referenceField, value }) =>
@@ -1108,7 +1131,7 @@ export const convertSqlPivotedRowsToPivotData = ({
                   ]),
               ).values(),
           )
-        : filteredValuesColumns;
+        : sortedValuesColumns;
 
     if (pivotConfig.metricsAsRows) {
         // multiply rows per metric
@@ -1156,7 +1179,7 @@ export const convertSqlPivotedRowsToPivotData = ({
             );
             setIndexByKey(rowIndices, indexRowValues, rowIndex);
 
-            return filteredValuesColumns.map((valueCol) =>
+            return sortedValuesColumns.map((valueCol) =>
                 row[valueCol.pivotColumnName]
                     ? row[valueCol.pivotColumnName].value
                     : null,
@@ -1341,7 +1364,7 @@ export const convertSqlPivotedRowsToPivotData = ({
             }
 
             // Add data columns with generated field IDs using metadata
-            filteredValuesColumns.forEach((valueCol, colIndex) => {
+            sortedValuesColumns.forEach((valueCol, colIndex) => {
                 const pivotDimensions = (pivotDetails.groupByColumns || []).map(
                     (col) => col.reference,
                 );
@@ -1399,7 +1422,7 @@ export const convertSqlPivotedRowsToPivotData = ({
                   },
               ]
             : []),
-        ...filteredValuesColumns.map((valueCol, colIndex) => {
+        ...sortedValuesColumns.map((valueCol, colIndex) => {
             const pivotDimensions = (pivotDetails.groupByColumns || []).map(
                 (col) => col.reference,
             );
@@ -1471,17 +1494,7 @@ export const convertSqlPivotedRowsToPivotData = ({
     return combinedRetrofit(pivotData, getField, getFieldLabel);
 };
 
-export const pivotResultsAsCsv = ({
-    pivotConfig,
-    rows,
-    itemMap,
-    metricQuery,
-    customLabels,
-    onlyRaw,
-    maxColumnLimit,
-    undefinedCharacter = '',
-    pivotDetails,
-}: {
+type PivotResultsAsTableArgs = {
     pivotConfig: PivotConfig;
     pivotDetails: ReadyQueryResultsPage['pivotDetails'];
     rows: ResultRow[];
@@ -1491,7 +1504,19 @@ export const pivotResultsAsCsv = ({
     onlyRaw: boolean;
     maxColumnLimit: number;
     undefinedCharacter?: string;
-}) => {
+};
+
+const pivotResultsAsTableData = ({
+    pivotConfig,
+    rows,
+    itemMap,
+    metricQuery,
+    customLabels,
+    onlyRaw,
+    maxColumnLimit,
+    undefinedCharacter = '',
+    pivotDetails,
+}: PivotResultsAsTableArgs) => {
     const getFieldLabel = (fieldId: string) => {
         const customLabel = customLabels?.[fieldId];
         if (customLabel !== undefined) return customLabel;
@@ -1517,7 +1542,7 @@ export const pivotResultsAsCsv = ({
               getField: (fieldId: string) => itemMap && itemMap[fieldId], // itemsMap && itemsMap[fieldId],
               getFieldLabel,
           });
-    const formatField = onlyRaw ? 'raw' : 'formatted';
+    const formatField: 'raw' | 'formatted' = onlyRaw ? 'raw' : 'formatted';
     const headers = pivotedResults.headerValues.reduce<string[][]>(
         (acc, row, i) => {
             const values = row.map((header) =>
@@ -1561,5 +1586,206 @@ export const pivotResultsAsCsv = ({
             return [...noIndexPrefix, ...formattedRows];
         });
 
+    return { getFieldLabel, formatField, pivotedResults, headers, pivotedRows };
+};
+
+export const pivotResultsAsCsv = (
+    args: PivotResultsAsTableArgs,
+): string[][] => {
+    const { headers, pivotedRows } = pivotResultsAsTableData(args);
     return [...headers, ...pivotedRows];
+};
+
+/** A merged cell range in a {@link PivotExportGrid}, 0-based coordinates. */
+export type PivotGridMerge = {
+    row: number;
+    col: number;
+    rowSpan: number;
+    colSpan: number;
+};
+
+/**
+ * Pivot results laid out for spreadsheet exports (XLSX): plain rows plus
+ * merged ranges for the header block. Row widths are consistent; data rows
+ * are identical to the CSV export.
+ */
+export type PivotExportGrid = {
+    rows: string[][];
+    merges: PivotGridMerge[];
+    /** Number of leading rows that belong to the header block. */
+    headerRowCount: number;
+};
+
+type PivotDimensionValueType = { type: FieldType.DIMENSION; fieldId: string };
+
+export const pivotResultsAsGrid = (
+    args: PivotResultsAsTableArgs,
+): PivotExportGrid => {
+    const { undefinedCharacter = '' } = args;
+    const { getFieldLabel, formatField, pivotedResults, headers, pivotedRows } =
+        pivotResultsAsTableData(args);
+
+    const pivotDimensionTypes = pivotedResults.headerValueTypes.filter(
+        (valueType): valueType is PivotDimensionValueType =>
+            valueType.type === FieldType.DIMENSION,
+    );
+
+    // No pivot dimensions (or nothing to lay out): no dimension-name row and
+    // no merges - identical rows to the CSV export.
+    if (
+        pivotDimensionTypes.length === 0 ||
+        pivotedResults.headerValues.length === 0 ||
+        (pivotedResults.headerValues[0]?.length ?? 0) === 0
+    ) {
+        return {
+            rows: [...headers, ...pivotedRows],
+            merges: [],
+            headerRowCount: headers.length,
+        };
+    }
+
+    const { headerValues } = pivotedResults;
+    const headerRowCount = headerValues.length + 1; // + pivot dimension-name row
+    // Leading columns of the data rows: the index columns, or the single
+    // empty prefix column when there are no index values (same as CSV)
+    const indexColumnCount =
+        pivotedResults.indexValues.length > 0
+            ? pivotedResults.indexValueTypes.length
+            : 1;
+    const dataColumnCount = headerValues[0]?.length ?? 0;
+    const totalColumnCount = pivotedResults.rowTotalFields?.[0]?.length ?? 0;
+    const lastHeaderRowIndex = headerValues.length - 1;
+    const lastTitleFields =
+        pivotedResults.titleFields[lastHeaderRowIndex] ?? [];
+
+    const merges: PivotGridMerge[] = [];
+    const headerRows: string[][] = [];
+
+    // Row dimension names are written into the *anchor* cell (row 0) of the
+    // vertically merged range: spreadsheet renderers only show the anchor
+    // cell of a merged range, and the label is placed there so the header
+    // reads correctly without any manual copy.
+    const indexLabels = Array.from({ length: indexColumnCount }, (_, col) => {
+        const field = lastTitleFields[col];
+        return field && field.direction === 'index'
+            ? getFieldLabel(field.fieldId)
+            : undefinedCharacter;
+    });
+
+    // Row 0: row dimension names on the left, pivot dimension names merged
+    // across all data columns.
+    headerRows.push([
+        ...indexLabels,
+        pivotDimensionTypes
+            .map(({ fieldId }) => getFieldLabel(fieldId))
+            .join(' / '),
+        ...Array.from({ length: dataColumnCount - 1 }, () => ''),
+        ...Array.from({ length: totalColumnCount }, () => ''),
+    ]);
+    // A 1x1 "merge" is not a merge: it would be written as <mergeCell
+    // ref="B1:B1"/> and is pointless, so only span when there is something to
+    // span.
+    if (dataColumnCount > 1) {
+        merges.push({
+            row: 0,
+            col: indexColumnCount,
+            rowSpan: 1,
+            colSpan: dataColumnCount,
+        });
+    }
+    // Horizontal merges are derived from *contiguous runs of equal header
+    // prefixes*, not from the incoming `colSpan`: the SQL-pivot path stores the
+    // total size of a pivot-value group in `colSpan`, which overlaps as soon as
+    // the columns of one group are not adjacent (and can be 1, producing
+    // useless 1x1 merges). Runs are computed per level so a leaf label row
+    // (repeating the same metric under different pivot values) never merges
+    // across its parents.
+    const headerColumnKeys = headerValues.map((headerRow) =>
+        headerRow.map((header) =>
+            'value' in header
+                ? `value:${String(header.value?.[formatField] ?? '')}`
+                : `label:${header.fieldId}`,
+        ),
+    );
+    const getRunLength = (rowIndex: number, colIndex: number): number => {
+        const prefixAt = (row: number, col: number) =>
+            headerColumnKeys
+                .slice(0, row + 1)
+                .map((keys) => keys[col])
+                .join('\u0000');
+        const prefix = prefixAt(rowIndex, colIndex);
+        let runLength = 1;
+        while (
+            colIndex + runLength < dataColumnCount &&
+            prefixAt(rowIndex, colIndex + runLength) === prefix
+        ) {
+            runLength += 1;
+        }
+        return runLength;
+    };
+
+    // Rows 1..n: the existing header rows (pivot values / metric labels), with
+    // horizontal merges for repeated values. The index (row dimension) area
+    // stays empty here: those names live in the row-0 anchor cells of their
+    // vertical merges.
+    headerValues.forEach((headerRow, rowIndex) => {
+        const gridRow = rowIndex + 1;
+
+        const indexCells = Array.from(
+            { length: indexColumnCount },
+            () => undefinedCharacter,
+        );
+
+        const dataCells = headerRow.map((header) =>
+            'value' in header
+                ? (header.value[formatField] as string)
+                : getFieldLabel(header.fieldId),
+        );
+        let colIndex = 0;
+        while (colIndex < dataColumnCount) {
+            const runLength = getRunLength(rowIndex, colIndex);
+            if (runLength > 1) {
+                merges.push({
+                    row: gridRow,
+                    col: indexColumnCount + colIndex,
+                    rowSpan: 1,
+                    colSpan: runLength,
+                });
+                for (let spanIndex = 1; spanIndex < runLength; spanIndex += 1) {
+                    dataCells[colIndex + spanIndex] = undefinedCharacter;
+                }
+            }
+            colIndex += runLength;
+        }
+
+        // Row-total labels, identical to the CSV header rows
+        const rowTotalLabels =
+            pivotedResults.rowTotalFields?.[rowIndex]?.map((totalField) =>
+                totalField?.fieldId
+                    ? `Total ${getFieldLabel(totalField.fieldId)}`
+                    : 'Total',
+            ) || [];
+
+        headerRows.push([...indexCells, ...dataCells, ...rowTotalLabels]);
+    });
+
+    // Vertical merges: every row-dimension column spans the whole header
+    // block, with its label in the top-left (anchor) cell.
+    lastTitleFields.forEach((field, colIndex) => {
+        if (
+            field &&
+            field.direction === 'index' &&
+            colIndex < indexColumnCount &&
+            headerRowCount > 1
+        ) {
+            merges.push({
+                row: 0,
+                col: colIndex,
+                rowSpan: headerRowCount,
+                colSpan: 1,
+            });
+        }
+    });
+
+    return { rows: [...headerRows, ...pivotedRows], merges, headerRowCount };
 };

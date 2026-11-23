@@ -14,7 +14,7 @@ import {
     ItemsMap,
     MetricQuery,
     PivotConfig,
-    pivotResultsAsCsv,
+    pivotResultsAsGrid,
     TimeFrames,
     type ExportFilterColumn,
     type ReadyQueryResultsPage,
@@ -330,7 +330,11 @@ export class ExcelService {
             displayTimezone,
         });
 
-        const csvResults = pivotResultsAsCsv({
+        // XLSX uses the grid layout: data rows identical to the CSV export,
+        // plus a header block with merged ranges (pivot dimension names over
+        // the data columns, value group spans, row-dimension labels spanning
+        // the whole header).
+        const grid = pivotResultsAsGrid({
             pivotConfig,
             rows: formattedRows,
             itemMap,
@@ -355,38 +359,69 @@ export class ExcelService {
         // 其余行（含次级表头行）写取值，不做合并单元格
         const leadingHeaders = leadingColumns.map((column) => column.header);
         const leadingValues = leadingColumns.map((column) => column.value);
+        const leadingWidth = leadingColumns.length;
 
-        csvResults.forEach((row, index) => {
+        // Header block height comes from the grid itself: merge spans only
+        // cover it when the pivot has row dimensions.
+        const { headerRowCount } = grid;
+
+        const addRow = (row: string[], index: number) => {
             const excelRow = row.map((value) =>
                 ExcelService.convertToExcelDate(value),
             );
-            const addedRow = worksheet.addRow(
-                leadingColumns.length > 0
+            return worksheet.addRow(
+                leadingWidth > 0
                     ? [
                           ...(index === 0 ? leadingHeaders : leadingValues),
                           ...excelRow,
                       ]
                     : excelRow,
             );
-            addedRow.commit();
+        };
 
-            // Style headers (first row)
-            if (index === 0) {
-                addedRow.font = { bold: true };
-                addedRow.fill = {
+        // Header rows are added WITHOUT committing yet: the streaming writer
+        // refuses to touch committed rows, so the merged ranges below can only
+        // be applied while every covered row is still writable. They are
+        // flushed by the first data-row commit (or by worksheet.commit).
+        grid.rows.slice(0, headerRowCount).forEach((row, index) => {
+            const addedRow = addRow(row, index);
+
+            // Style headers (the whole grid header block), bold + gray. Styles
+            // must be on the cells before the row is serialized.
+            addedRow.eachCell({ includeEmpty: true }, (cell) => {
+                // eslint-disable-next-line no-param-reassign
+                cell.font = { bold: true };
+                // eslint-disable-next-line no-param-reassign
+                cell.fill = {
                     type: 'pattern',
                     pattern: 'solid',
                     fgColor: { argb: 'FFE0E0E0' },
                 };
-                addedRow.commit();
-            }
+            });
+        });
+
+        // Apply the merged header ranges once, while header rows are still
+        // uncommitted. Grid merges are 0-based with spans; Excel ranges are
+        // 1-based and inclusive, and the leading filter columns shift grid
+        // columns to the right (they never participate in merges).
+        grid.merges.forEach((merge) => {
+            worksheet.mergeCells(
+                merge.row + 1,
+                merge.col + 1 + leadingWidth,
+                merge.row + merge.rowSpan,
+                merge.col + merge.colSpan + leadingWidth,
+            );
+        });
+
+        grid.rows.slice(headerRowCount).forEach((row, index) => {
+            addRow(row, index + headerRowCount).commit();
         });
 
         // Column widths are sampled: scanning every row of a wide pivot is
         // O(rows x columns) over `toString()` and was a measurable chunk of the export.
         const SAMPLE_ROWS = 200;
-        const widthOffset = leadingColumns.length;
-        csvResults.slice(0, SAMPLE_ROWS).forEach((row) => {
+        const widthOffset = leadingWidth;
+        grid.rows.slice(0, SAMPLE_ROWS).forEach((row) => {
             row.forEach((value, index) => {
                 const column = worksheet.getColumn(index + 1 + widthOffset);
                 if (!column) return;
