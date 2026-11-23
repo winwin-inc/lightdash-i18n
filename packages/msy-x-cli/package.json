@@ -1,6 +1,6 @@
 {
     "name": "msy-x-cli",
-    "version": "0.2.1",
+    "version": "0.2.2",
     "license": "MIT",
     "description": "马上赢 X 平台 MCP 命令行客户端（Streamable HTTP；OAuth DCR + PAT）",
     "bin": {
