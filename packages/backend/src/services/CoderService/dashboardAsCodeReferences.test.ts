@@ -82,6 +82,92 @@ describe('dashboardAsCodeReferences', () => {
             expect(resolved[2].slug).toBe('new-tab');
             expect(resolved[2].uuid).not.toBe('overview-uuid');
         });
+
+        it('never resolves two incoming tabs to the same uuid when slugs drifted between environments', () => {
+            // Real-world scenario: a new tab was inserted in the source
+            // environment, shifting every following slug. The target still
+            // has 类目范围 on slug tab-10 while the incoming yaml has it on
+            // tab-11 (keeping its original uuid tab-10-uuid).
+            const drifted: Pick<DashboardDAO, 'tabs'> = {
+                tabs: [
+                    { uuid: 'overview-uuid', name: 'Overview', order: 0 },
+                    { uuid: 'scope-uuid', name: '类目范围', order: 9 },
+                ],
+            };
+            // 类目范围 (order 9) derives slug tab-10
+            expect(getDashboardTabSlug(drifted, 'scope-uuid')).toBe('tab-10');
+
+            const warnings: string[] = [];
+            const resolved = resolveDashboardTabs(
+                [
+                    // new tab took over slug tab-10, unknown uuid
+                    { slug: 'tab-10', name: '指标说明', order: 9 },
+                    // 类目范围 moved to tab-11 but keeps its uuid
+                    {
+                        slug: 'tab-11',
+                        uuid: 'scope-uuid',
+                        name: '类目范围',
+                        order: 10,
+                    },
+                ],
+                drifted.tabs,
+                warnings,
+            );
+
+            const uuids = resolved.map((tab) => tab.uuid);
+            expect(new Set(uuids).size).toBe(uuids.length);
+            // the strong uuid match keeps the existing tab identity
+            expect(resolved[1].uuid).toBe('scope-uuid');
+            // the slug fallback must not steal the same uuid
+            expect(resolved[0].uuid).not.toBe('scope-uuid');
+            expect(resolved[0].slug).toBe('tab-10');
+            expect(resolved[1].slug).toBe('tab-11');
+            expect(warnings.some((warning) => warning.includes('指标说明'))).toBe(
+                true,
+            );
+        });
+
+        it('keeps plain slug fallback working without warnings', () => {
+            const warnings: string[] = [];
+            const resolved = resolveDashboardTabs(
+                [{ slug: 'overview', name: 'Overview renamed', order: 0 }],
+                dashboard.tabs,
+                warnings,
+            );
+
+            expect(resolved[0].uuid).toBe('overview-uuid');
+            expect(warnings).toEqual([]);
+        });
+
+        it('degrades duplicate incoming uuids to a new tab', () => {
+            const warnings: string[] = [];
+            const resolved = resolveDashboardTabs(
+                [
+                    {
+                        slug: 'overview',
+                        uuid: 'overview-uuid',
+                        name: 'Overview',
+                        order: 0,
+                    },
+                    {
+                        slug: 'elsewhere',
+                        uuid: 'overview-uuid',
+                        name: 'Duplicate',
+                        order: 1,
+                    },
+                ],
+                dashboard.tabs,
+                warnings,
+            );
+
+            const uuids = resolved.map((tab) => tab.uuid);
+            expect(new Set(uuids).size).toBe(uuids.length);
+            expect(resolved[0].uuid).toBe('overview-uuid');
+            expect(resolved[1].uuid).not.toBe('overview-uuid');
+            expect(warnings.some((warning) => warning.includes('Duplicate'))).toBe(
+                true,
+            );
+        });
     });
 
     describe('config and locked tab refs', () => {

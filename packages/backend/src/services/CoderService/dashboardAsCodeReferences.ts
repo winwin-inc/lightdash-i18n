@@ -51,6 +51,7 @@ export const getDashboardTabSlug = (
 export const resolveDashboardTabs = (
     incoming: DashboardAsCode['tabs'],
     existingTabs: DashboardDAO['tabs'] | undefined = [],
+    warnings: string[] = [],
 ): ResolvedDashboardTab[] => {
     const existingBySlug = new Map(
         existingTabs.map((tab) => [
@@ -60,6 +61,23 @@ export const resolveDashboardTabs = (
     );
     const existingByUuid = new Map(existingTabs.map((tab) => [tab.uuid, tab]));
     const usedSlugs = new Set<string>();
+
+    // Strong uuid matches claim existing tab identities first so that slug
+    // fallbacks cannot steal them: when tab slugs have drifted between
+    // environments (e.g. a tab inserted in the middle shifted all the
+    // following slugs), an incoming tab's slug fallback can resolve to the
+    // uuid of an existing tab that another incoming tab matches by uuid.
+    // Resolving two incoming tabs to the same uuid breaks the downstream
+    // promote/update logic (dashboard upserts error out), so any conflict
+    // degrades the weaker match to a brand-new tab instead.
+    const strongUuids = incoming.map((tab) =>
+        tab.uuid ? existingByUuid.get(tab.uuid)?.uuid : undefined,
+    );
+    const claimedUuids = new Set<string>();
+    strongUuids.forEach((uuid) => {
+        if (uuid !== undefined) claimedUuids.add(uuid);
+    });
+    const usedUuids = new Set<string>();
 
     return incoming.map((tab, index) => {
         const incomingSlug = getIncomingTabSlug(tab);
@@ -78,11 +96,43 @@ export const resolveDashboardTabs = (
         }
         usedSlugs.add(slug);
 
-        const existing =
-            (tab.uuid ? existingByUuid.get(tab.uuid) : undefined) ??
-            existingBySlug.get(slug);
+        const strongUuid = strongUuids[index];
+        let uuid: string;
+        if (
+            strongUuid !== undefined &&
+            // duplicate strong uuids in the incoming tabs: first one wins
+            !usedUuids.has(strongUuid)
+        ) {
+            uuid = strongUuid;
+        } else {
+            const slugMatchUuid = existingBySlug.get(slug)?.uuid;
+            if (
+                slugMatchUuid !== undefined &&
+                !usedUuids.has(slugMatchUuid) &&
+                !claimedUuids.has(slugMatchUuid)
+            ) {
+                uuid = slugMatchUuid;
+            } else {
+                if (slugMatchUuid !== undefined || strongUuid !== undefined) {
+                    warnings.push(
+                        `Tab "${tab.name}" (slug "${slug}") will be created as a new tab: ` +
+                            `the existing tab matched by its ${
+                                strongUuid !== undefined ? 'uuid' : 'slug'
+                            } is already claimed by another incoming tab.`,
+                    );
+                }
+                uuid =
+                    tab.uuid !== undefined &&
+                    !usedUuids.has(tab.uuid) &&
+                    !claimedUuids.has(tab.uuid)
+                        ? tab.uuid
+                        : uuidv4();
+            }
+        }
+        usedUuids.add(uuid);
+
         return {
-            uuid: existing?.uuid || tab.uuid || uuidv4(),
+            uuid,
             name: tab.name,
             order: tab.order ?? index,
             hidden: tab.hidden,

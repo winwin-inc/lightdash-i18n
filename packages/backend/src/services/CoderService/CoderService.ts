@@ -1401,6 +1401,7 @@ export class CoderService extends BaseService {
         const resolvedTabs = resolveDashboardTabs(
             dashboardAsCode.tabs || [],
             existingDashboard?.tabs,
+            warnings,
         );
         const tilesWithUuids = applyResolvedTabUuidsToTiles(
             resolvedTiles,
