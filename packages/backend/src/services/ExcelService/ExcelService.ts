@@ -401,7 +401,12 @@ export class ExcelService {
 
             // Style headers (the whole grid header block), bold + gray. Styles
             // must be on the cells before the row is serialized.
-            addedRow.eachCell({ includeEmpty: true }, (cell) => {
+            // Leading filter columns only carry a header on the first row; the
+            // values repeated on the following header rows are filter constants,
+            // not headers, so they stay unstyled.
+            const styleFromColumn = index === 0 ? 1 : leadingWidth + 1;
+            addedRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+                if (colNumber < styleFromColumn) return;
                 // eslint-disable-next-line no-param-reassign
                 cell.font = { bold: true };
                 // eslint-disable-next-line no-param-reassign
@@ -418,12 +423,23 @@ export class ExcelService {
         // 1-based and inclusive, and the leading filter columns shift grid
         // columns to the right (they never participate in merges).
         grid.merges.forEach((merge) => {
-            worksheet.mergeCells(
-                merge.row + 1,
-                merge.col + 1 + leadingWidth,
-                merge.row + merge.rowSpan,
-                merge.col + merge.colSpan + leadingWidth,
-            );
+            const top = merge.row + 1;
+            const left = merge.col + 1 + leadingWidth;
+            const bottom = merge.row + merge.rowSpan;
+            const right = merge.col + merge.colSpan + leadingWidth;
+            worksheet.mergeCells(top, left, bottom, right);
+
+            // A vertical merge that spans the whole header block (row
+            // dimensions) reads as "one header cell": centre it instead of
+            // letting the default bottom alignment park the label on the last
+            // header row. Wide merges (pivot dimension names) get centred too.
+            const anchor = worksheet.getCell(top, left);
+            // eslint-disable-next-line no-param-reassign
+            anchor.alignment = {
+                ...anchor.alignment,
+                ...(merge.rowSpan > 1 ? { vertical: 'middle' as const } : {}),
+                ...(merge.colSpan > 1 ? { horizontal: 'center' as const } : {}),
+            };
         });
 
         // Column totals footer rows are the trailing grid rows when

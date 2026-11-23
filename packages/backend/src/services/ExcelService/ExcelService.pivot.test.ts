@@ -405,6 +405,19 @@ describe('ExcelService.downloadPivotTableXlsx (pivot header grid)', () => {
             expectHeaderStyle(worksheet!, address);
         });
 
+        // ...but the leading filter *values* repeated on the following header
+        // rows are not headers, so they stay unstyled
+        ['A2', 'A3'].forEach((address) => {
+            expect(worksheet!.getCell(address).font?.bold).not.toBe(true);
+            expect(worksheet!.getCell(address).fill).toBeUndefined();
+        });
+
+        // Merged header anchors are centred: row dimensions vertically (so
+        // the label does not sit on the last header row) and the pivot
+        // dimension banner horizontally
+        expect(worksheet!.getCell('B1').alignment?.vertical).toBe('middle');
+        expect(worksheet!.getCell('C1').alignment?.horizontal).toBe('center');
+
         // Data rows are not styled
         expect(worksheet!.getCell('B4').font?.bold).not.toBe(true);
         expect(worksheet!.getCell('B4').fill).toBeUndefined();
