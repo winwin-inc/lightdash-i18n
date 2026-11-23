@@ -14,6 +14,11 @@
 
 导入按 `slug` 匹配。目标环境要有兼容的 dbt explore / 字段 / 指标。对不上的 slug 会丢掉并 warning，不阻断 upload。不要用会剥未知字段的工具改 YAML。
 
+两个容易踩的语义差异：
+
+- **`spaceSlug` 用 space 的 path 派生值，不是 REST API 里的 `slug`。** 两者可能不一致：改过名的 space，API 返回 `slug: lafa-0`，而库里的 ltree path（以及 as-code 的 `spaceSlug`）是 `lafa0`，即 `lafa0/msy150` 这种写法。按 API 返回的 slug 手写 `spaceSlug` 会全部报“space 不存在”并被跳过（加 `--skip-space-create` 时表现为静默跳过）。要拿正确的值，直接看 `download` 产出的 `spaceSlug`，不要从页面 URL 或 API 反推。
+- **指定原 slug 上传 = 覆盖，不是新建副本。** 图表同样按 slug 原地更新，所以 `upload -d <原 slug>` 会改写目标环境同 slug 的看板及其图表。要做「独立副本、保留目标原内容」，必须在本地把看板与它引用的全部图表 slug 都改掉（并同步改 `tiles[].properties.chartSlug`、筛选器里以图表 slug 为 key 的 `tileTargets`），否则 `dashboardSlug` 还会把图表挂回原看板。
+
 旧版 download 会写出 `config: null`（看板配置列为可空，老看板库里为 NULL）以及 `description: null`。已修复：新 download 不再写出这些字段；lint 与 upload 都容忍存量的 null，旧文件不改可直接过。图表的 `dashboardSlug: null` 同理（lint 允许，upload 现已接受）。不要为了过官方 lint 去剥 `tab.filters`。
 
 ## 筛选器能力（全部随 YAML 往返）
