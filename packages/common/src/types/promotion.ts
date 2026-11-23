@@ -1,7 +1,7 @@
+import { type AllVizChartConfig } from '../visualizations/types';
 import { type DashboardDAO } from './dashboard';
 import { type SavedChartDAO } from './savedCharts';
 import { type SpaceSummary } from './space';
-import { type AllVizChartConfig } from '../visualizations/types';
 
 export enum PromotionAction {
     NO_CHANGES = 'no changes',
@@ -117,6 +117,13 @@ export type PromotionChanges = {
      * promoting, otherwise they would be silently overwritten.
      */
     conflicts: PromotionConflict[];
+    /**
+     * Non-fatal issues detected while computing these changes, e.g. a
+     * dashboard tile whose chart is missing in the target project, or an
+     * ignored ownerEmail. Consumers (like the CLI upload) should surface
+     * these to the user instead of silently dropping them.
+     */
+    warnings?: string[];
 };
 
 export type ApiPromoteChartResponse = {

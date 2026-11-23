@@ -197,7 +197,7 @@ export const downloadContent = async (
         | ApiChartAsCodeListResponse['results']
         | ApiDashboardAsCodeListResponse['results'];
     let offset = 0;
-    let chartSlugs: string[] = [];
+    const chartSlugs: string[] = [];
     do {
         GlobalState.debug(
             `Downloading ${type} with offset "${offset}" and filters "${contentFilters}"`,
@@ -242,22 +242,27 @@ export const downloadContent = async (
                 );
             }
 
-            // Extract chart slugs from dashboards
-            chartSlugs = contentAsCode.dashboards.reduce<string[]>(
-                (acc, dashboard) => {
-                    const slugs = dashboard.tiles.map((chart) =>
-                        'chartSlug' in chart.properties
-                            ? (chart.properties.chartSlug as string)
-                            : undefined,
-                    );
-                    return [
-                        ...acc,
-                        ...slugs.filter(
-                            (slug): slug is string => slug !== undefined,
-                        ),
-                    ];
-                },
-                [],
+            // Extract chart slugs from dashboards. NOTE: dashboards are
+            // paginated, so we must accumulate slugs from every page —
+            // overwriting the list on each page would silently drop the
+            // charts linked to dashboards from earlier pages.
+            chartSlugs.push(
+                ...contentAsCode.dashboards.reduce<string[]>(
+                    (acc, dashboard) => {
+                        const slugs = dashboard.tiles.map((chart) =>
+                            'chartSlug' in chart.properties
+                                ? (chart.properties.chartSlug as string)
+                                : undefined,
+                        );
+                        return [
+                            ...acc,
+                            ...slugs.filter(
+                                (slug): slug is string => slug !== undefined,
+                            ),
+                        ];
+                    },
+                    [],
+                ),
             );
         } else {
             const outputDir = await createDirForContent(
@@ -521,40 +526,49 @@ const getPromoteAction = (action: PromotionAction) => {
     return 'skipped';
 };
 
-const storeUploadChanges = (
+export const storeUploadChanges = (
     changes: Record<string, number>,
     promoteChanges: PromotionChanges,
+    resource: 'charts' | 'dashboards' | 'sqlCharts',
 ): Record<string, number> => {
-    const getPromoteChanges = (
-        resource: 'spaces' | 'charts' | 'dashboards',
-    ) => {
-        const promotions: { action: PromotionAction }[] =
-            promoteChanges[resource];
-        return promotions.reduce<Record<string, number>>(
-            (acc, promoteChange) => {
-                const action = getPromoteAction(promoteChange.action);
-                const key = `${resource} ${action}`;
-                acc[key] = (acc[key] ?? 0) + 1;
-                return acc;
-            },
-            {},
-        );
-    };
-
     const updatedChanges: Record<string, number> = {
         ...changes,
     };
 
-    ['spaces', 'charts', 'dashboards'].forEach((resource) => {
-        const resourceChanges = getPromoteChanges(
-            resource as 'spaces' | 'charts' | 'dashboards',
-        );
-        Object.entries(resourceChanges).forEach(([key, value]) => {
-            updatedChanges[key] = (updatedChanges[key] ?? 0) + value;
-        });
+    const count = (key: string) => {
+        updatedChanges[key] = (updatedChanges[key] ?? 0) + 1;
+    };
+
+    // Only count the resource kind that this upload phase is upserting.
+    // A dashboard upsert response also reports every chart/space of the
+    // dashboard (usually as NO_CHANGES); counting those here would
+    // double-report resources already handled by the charts phase.
+    // SQL charts are reported under the `charts` keys to match the
+    // skip/error counters of the SQL chart phase.
+    const label = resource === 'sqlCharts' ? 'charts' : resource;
+    promoteChanges[resource].forEach((promoteChange) => {
+        count(`${label} ${getPromoteAction(promoteChange.action)}`);
     });
 
+    // Spaces auto-created as a side effect of this upsert are still
+    // reported so users can see when a new space was created.
+    promoteChanges.spaces
+        .filter((spaceChange) => spaceChange.action === PromotionAction.CREATE)
+        .forEach(() => count('spaces created'));
+
     return updatedChanges;
+};
+
+export const logUpsertWarnings = (
+    type: 'charts' | 'dashboards' | 'sqlCharts',
+    slug: string,
+    warnings: string[] | undefined,
+): void => {
+    warnings?.forEach((warning) => {
+        console.warn(
+            styles.warning(`Warning upserting ${type} "${slug}": ${warning}`),
+        );
+    });
 };
 
 const logUploadChanges = (changes: Record<string, number>) => {
@@ -637,7 +651,9 @@ const upsertResources = async <T extends ChartAsCode | DashboardAsCode>(
                 `${type} "${item.name}": ${upsertData[type]?.[0].action}`,
             );
 
-            changes = storeUploadChanges(changes, upsertData);
+            logUpsertWarnings(type, item.slug, upsertData.warnings);
+
+            changes = storeUploadChanges(changes, upsertData, type);
         } catch (error: unknown) {
             if (
                 error instanceof LightdashError &&
@@ -745,7 +761,8 @@ const upsertSqlResources = async (
                     publicSpaceCreate: false,
                 }),
             });
-            changes = storeUploadChanges(changes, upsertData);
+            logUpsertWarnings('sqlCharts', item.slug, upsertData.warnings);
+            changes = storeUploadChanges(changes, upsertData, 'sqlCharts');
         } catch (error: unknown) {
             changes['charts with errors'] =
                 (changes['charts with errors'] ?? 0) + 1;
