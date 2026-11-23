@@ -3,7 +3,7 @@ import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
-import { openBrowser } from './openBrowser';
+import { openBrowser, win32BrowserInvocation } from './openBrowser';
 
 /**
  * openBrowser 拉起结果判定（退出码语义）的聚焦单测：用临时目录里的
@@ -46,6 +46,54 @@ linuxOnly('openBrowser：命令非 0 退出 → false（无桌面 stock xdg-open
     } finally {
         rmSync(dir, { recursive: true, force: true });
     }
+});
+
+/* ---------- win32 命令构造：授权 URL 的 `&` 不能被 cmd 拆分 ---------- */
+
+/** 与 MCP SDK startAuthorization 一致的授权 URL（response_type 是第一个参数） */
+const AUTHORIZE_URL =
+    'https://x.brandct.com/api/v1/oauth/authorize?response_type=code' +
+    '&client_id=abc123' +
+    '&code_challenge=xyz' +
+    '&code_challenge_method=S256' +
+    '&redirect_uri=http%3A%2F%2F127.0.0.1%3A5555%2Fcallback' +
+    '&state=st1';
+
+const decodePowerShell = (args: string[]): string =>
+    Buffer.from(args[args.indexOf('-EncodedCommand') + 1], 'base64').toString(
+        'utf16le',
+    );
+
+test('win32：走 PowerShell -EncodedCommand，不经 cmd start', () => {
+    const { command, args } = win32BrowserInvocation(AUTHORIZE_URL);
+    assert.equal(command, 'powershell');
+    assert.ok(args.includes('-EncodedCommand'));
+    // 不能再把 URL 作为裸参数交给 cmd（那会按 & 截断成 ?response_type=code）
+    assert.ok(!args.includes('start'));
+    assert.ok(!args.includes('/c'));
+    assert.ok(args.every((arg) => !arg.includes('&')));
+});
+
+test('win32：解码后的脚本包含完整授权 URL（& 与后续参数都在）', () => {
+    const { args } = win32BrowserInvocation(AUTHORIZE_URL);
+    const script = decodePowerShell(args);
+    assert.equal(script, `Start-Process '${AUTHORIZE_URL}'`);
+    for (const fragment of [
+        'response_type=code',
+        'client_id=abc123',
+        'redirect_uri=http%3A%2F%2F127.0.0.1%3A5555%2Fcallback',
+        'state=st1',
+    ]) {
+        assert.ok(script.includes(fragment), `脚本应包含 ${fragment}`);
+    }
+});
+
+test('win32：URL 里的单引号按 PowerShell 规则转义', () => {
+    const { args } = win32BrowserInvocation("https://example.com/a?b='c'");
+    assert.equal(
+        decodePowerShell(args),
+        "Start-Process 'https://example.com/a?b=''c'''",
+    );
 });
 
 linuxOnly('openBrowser：命令不存在（spawn error）→ false', async () => {

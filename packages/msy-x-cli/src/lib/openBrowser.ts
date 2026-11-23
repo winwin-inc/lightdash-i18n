@@ -8,7 +8,11 @@ import { pickLinuxOpenerCommand, type BrowserEnv } from './browserEnv';
  * - `MSY_X_NO_BROWSER=1` 时不拉浏览器，直接返回 false（headless / CI）；
  * - linux 上优先用 `$BROWSER`（如 WSL 配 `BROWSER=wslview` 弹 Windows
  *   浏览器）；缺省时按 PATH 实测选 xdg-open / wslview；
- * - win32：`cmd /c start "" <url>`（空标题占位，防 URL 被当窗口标题）；
+ * - win32：PowerShell `Start-Process <url>`，URL 经 `-EncodedCommand`（UTF-16LE
+ *   + base64）传递；**不能用 `cmd /c start "" <url>`**——授权 URL 必带 `&`，
+ *   而 Node 在 Windows 上只给含空格/Tab 的参数加引号，`cmd` 会把 `&` 当命令
+ *   分隔符，浏览器只拿到第一个参数（正好是 `response_type=code`），后端回
+ *   400「缺少必要参数」，CLI 一直等不到回调；
  *   darwin：`open <url>`；
  * - 结果按子进程退出码判定：非 0 退出（如无桌面环境下的 stock
  *   xdg-open）视为失败；5s 仍在运行（前台长驻浏览器命令）视为成功；
@@ -18,11 +22,41 @@ import { pickLinuxOpenerCommand, type BrowserEnv } from './browserEnv';
 
 export const NO_BROWSER_ENV_VAR = 'MSY_X_NO_BROWSER';
 
+const WIN32_POWERSHELL_FLAGS = [
+    '-NoProfile',
+    '-NonInteractive',
+    '-ExecutionPolicy',
+    'Bypass',
+    '-EncodedCommand',
+] as const;
+
+/**
+ * win32 拉起命令（纯构造，便于在任意平台单测）。
+ *
+ * 走 PowerShell `-EncodedCommand`：URL 只作为脚本里的字符串字面量出现，
+ * 完全不过 `cmd` 的元字符解析（`&`、`^`、`|`、`%name%`）。
+ */
+export const win32BrowserInvocation = (
+    url: string,
+): { command: string; args: string[] } => {
+    const script = `Start-Process '${url.replace(/'/g, "''")}'`;
+    return {
+        command: 'powershell',
+        args: [
+            ...WIN32_POWERSHELL_FLAGS,
+            Buffer.from(script, 'utf16le').toString('base64'),
+        ],
+    };
+};
+
 const browserCommand = (
     env: BrowserEnv = process.env,
 ): { command: string; args: (url: string) => string[] } => {
     if (process.platform === 'win32') {
-        return { command: 'cmd', args: (url) => ['/c', 'start', '', url] };
+        return {
+            command: 'powershell',
+            args: (url) => win32BrowserInvocation(url).args,
+        };
     }
     if (process.platform === 'darwin') {
         return { command: 'open', args: (url) => [url] };
