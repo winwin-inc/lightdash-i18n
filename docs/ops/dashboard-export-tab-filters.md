@@ -110,13 +110,20 @@ DownloadAsyncQueryResultsPayload.leadingColumns?: ExportFilterColumn[];
 |---|---|
 | `AsyncQueryService.downloadAsyncQueryResults` / `downloadSyncQueryResults` | 透传 `leadingColumns` |
 | `ExcelService.downloadAsyncExcelDirectly` | `options.leadingColumns`：`worksheet.columns` 头部插入这些列，`worksheet.addRow([...values, ...rowData])` |
-| `ExcelService.downloadAsyncPivotTableXlsx` | 对 `pivotResultsAsCsv` 的每一行前置（与 CSV 同一口径）：第 1 行写 header，其余行写值；列宽采样按前置列数偏移 |
+| `ExcelService.downloadAsyncPivotTableXlsx` | 透视 XLSX 走 `pivotResultsAsGrid`（多行表头 + 合并单元格）：对每一行前置（与 CSV 同一口径）：第 1 行写 header，其余行写值；列宽采样按前置列数偏移 |
 | `CsvService.writeRowsToFile` → `streamObjectRowsToFile` | 新增 leading 头 + 每行前置值 |
 | `AsyncQueryService.downloadAsyncQueryResultsAsFormattedFile` | 透传 `leadingColumns` |
 | `PivotTableService.downloadPivotTableCsv` / `downloadAsyncPivotTableCsv` | 同上，前置到透视矩阵左侧 |
 
-透视表的表头是多行，**统一做法：每个前置列在第 1 行写列名，其余所有行（含次级表头行）写取值**，
-不做合并单元格。CSV/XLSX 保持同一份值。
+透视导出的表头分两种（2026-11 起）：
+
+- **CSV（含定时推送、Google Sheets 追加）：单行表头**，与非透视 CSV 一致。数据列 = 各级透视值用 ` - `
+  连接后接指标 label（如 `今麦郎 - 市场份额`，两级为 `今麦郎 - 包装水 - 市场份额`；`metricsAsRows` 时
+  只有透视值），行合计列 = `Total - <指标>`，行维度列沿用字段 label。
+- **XLSX：多行表头 + 合并单元格**（透视维度名单独一行横跨数据列、行维度名纵向合并），打开即标准透视表头。
+
+前置的筛选器常量列两种格式都在最左侧：第 1 行写列名，其余行（含次级表头行）写取值，且不参与合并。
+开启了「列合计」的图表，两种格式都会在数据行之后追加合计行（`Total` + 各数据列合计，行合计列留空）。
 
 ### 3.3 产物形态收口（只留一种布局，单份产物不再套 zip）
 
@@ -224,8 +231,9 @@ CSV 一键导出也补了并发限流（3）与同样的额度/进度，避免�
 
 ## 6. 已知取舍（实现口径）
 
-- 透视表的前置列不参与合并单元格，多行表头里列值会重复出现（可读性优先于版式）；
-  透视 XLSX 与透视 CSV 的列位一致（第 1 行是筛选器列名）。
+- 透视 XLSX 用多行表头 + 合并单元格（透视维度名一行、各级透视值、指标标签），行维度名纵向合并；
+  透视 CSV 用单行表头（透视值 ` - ` 指标 label）。前置筛选器列在两种格式里都在最左侧、第 1 行写列名，
+  因此数据列顺序一致（列位对齐）。
 - 「所有结果」在整看板导出里受两道约束：单图各自的硬上限（CSV `csvCellsLimit` / XLSX `EXCEL_ROW_LIMIT`）+
   整次导出的累计行数额度（默认 50 万行，跨所有图表累加）；超额度是整体失败，不会产出半截文件。
   注意粒度差异：单图单独「导出数据」XLSX 仍可到 100 万行，但看板级总和仍受 50 万行约束。
