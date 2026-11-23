@@ -280,6 +280,40 @@ const useTableConfig = (
         [columnProperties],
     );
 
+    /**
+     * 行维度 = 查询维度里、未被透视到「列」的维度（含自定义维度）。
+     * 透视表必须保留至少一个可见行维度，否则 pivot 无法渲染
+     * （后端抛 ParameterError: Cannot hide every row dimension），
+     * 因此当某行维度是最后一个可见行维度时，UI 要禁用其隐藏操作。
+     * 非透视表没有此限制（隐藏维度只影响前端展示列）。
+     */
+    const isLastVisibleRowDimension = useCallback(
+        (fieldId: string) => {
+            if (!pivotDimensions || pivotDimensions.length === 0) return false;
+            // 透视「列」维度的禁用逻辑与这里无关（它们不能被隐藏，另有一套禁用）
+            if (pivotDimensions.includes(fieldId)) return false;
+            // 已隐藏的列走的是「显示」操作，不受此限制
+            if (!isColumnVisible(fieldId)) return false;
+
+            const field = getField(fieldId);
+            if (!field || !(isDimension(field) || isCustomDimension(field))) {
+                return false;
+            }
+
+            // 没有其他可见行维度时，自己就是最后一个
+            return !(selectedItemIds ?? []).some((otherId) => {
+                if (otherId === fieldId) return false;
+                if (pivotDimensions.includes(otherId)) return false;
+                if (!isColumnVisible(otherId)) return false;
+                const other = getField(otherId);
+                return (
+                    !!other && (isDimension(other) || isCustomDimension(other))
+                );
+            });
+        },
+        [pivotDimensions, isColumnVisible, getField, selectedItemIds],
+    );
+
     /** 列宽优先级：本地覆盖（仅非编辑模式）> 图表配置 > undefined（自动） */
     const getColumnWidth = useCallback(
         (fieldId: string) =>
@@ -787,6 +821,7 @@ const useTableConfig = (
             getField,
             isColumnVisible,
             isColumnFrozen,
+            isLastVisibleRowDimension,
             getColumnWidth,
             localColumnWidths,
             setLocalColumnWidth,
@@ -846,6 +881,7 @@ const useTableConfig = (
             getField,
             isColumnVisible,
             isColumnFrozen,
+            isLastVisibleRowDimension,
             getColumnWidth,
             localColumnWidths,
             setLocalColumnWidth,

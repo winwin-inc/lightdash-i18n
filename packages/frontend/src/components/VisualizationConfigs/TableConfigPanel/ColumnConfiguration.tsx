@@ -96,7 +96,7 @@ type ColumnConfigurationProps = {
 };
 
 const ColumnConfiguration: FC<ColumnConfigurationProps> = ({ fieldId }) => {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
 
     const { pivotDimensions, visualizationConfig } = useVisualizationContext();
 
@@ -109,6 +109,7 @@ const ColumnConfiguration: FC<ColumnConfigurationProps> = ({ fieldId }) => {
         updateColumnProperty,
         isColumnVisible,
         isColumnFrozen,
+        isLastVisibleRowDimension,
         columnProperties,
         setLocalColumnWidth,
     } = visualizationConfig.chartConfig;
@@ -116,8 +117,12 @@ const ColumnConfiguration: FC<ColumnConfigurationProps> = ({ fieldId }) => {
 
     const isPivotingDimension = !!pivotDimensions?.includes(fieldId);
     // Only the dimensions placed in Columns (pivoted) cannot be hidden.
-    // Row/index dimensions (e.g. sort helpers) can be hidden from display.
-    const disableHidingDimensions = isPivotingDimension;
+    // Row/index dimensions (e.g. sort helpers) can be hidden from display,
+    // but a pivot table needs at least one visible row dimension to render,
+    // so the last one is protected too.
+    const isLastVisibleRowDim =
+        !isPivotingDimension && (isLastVisibleRowDimension?.(fieldId) ?? false);
+    const disableHidingDimensions = isPivotingDimension || isLastVisibleRowDim;
 
     return (
         <Group spacing="xs" noWrap style={{ flexGrow: 1 }}>
@@ -142,9 +147,16 @@ const ColumnConfiguration: FC<ColumnConfigurationProps> = ({ fieldId }) => {
                         ? t(
                               'components_visualization_configs_table.column_configuration.tooltip_columns.part_1',
                           )
-                        : disableHidingDimensions
-                        ? t(
-                              'components_visualization_configs_table.column_configuration.tooltip_columns.part_2',
+                        : isLastVisibleRowDim
+                        ? // locale 文案在 public/locales/{en,zh}/translation.json 就绪前，
+                          // 先用 defaultValue 兜底，避免用户看到原始 key
+                          t(
+                              'components_visualization_configs_table.column_configuration.tooltip_columns.last_visible_row_dimension',
+                              {
+                                  defaultValue: i18n.language?.startsWith('zh')
+                                      ? '至少要保留一个行维度可见，否则透视表无法渲染'
+                                      : 'Keep at least one row dimension visible, otherwise the pivot table cannot render',
+                              },
                           )
                         : isColumnVisible(fieldId)
                         ? t(

@@ -5607,7 +5607,8 @@
         "part_1": "Cannot hide a dimension used as a pivot column",
         "part_2": "Cannot hide a dimension used as a pivot column",
         "part_3": "Hide column",
-        "part_4": "Show column"
+        "part_4": "Show column",
+        "last_visible_row_dimension": "Keep at least one row dimension visible, otherwise the pivot table cannot render"
       },
       "unfreeze": "Unfreeze column",
       "freeze": "Freeze column",
