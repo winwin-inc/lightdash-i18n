@@ -139,13 +139,16 @@ export class UmamiAnalytics {
         if (!isUuid(event.distinctId)) {
             return event;
         }
-        const profile = this.userProfileCache.get(event.distinctId);
-        if (profile === null) {
-            return event;
-        }
+        // user_uuid 与 distinct_id 同值，但落成属性才能在 umamiq 里按人聚合
+        // （实体维度缺失时只能回落 distinct_id，避免两者混用造成重复计数）
         const properties: Record<string, UmamiPropertyValue> = {
             ...event.properties,
+            user_uuid: event.distinctId,
         };
+        const profile = this.userProfileCache.get(event.distinctId);
+        if (profile === null) {
+            return { ...event, properties };
+        }
         if (profile.email !== null && profile.email !== '') {
             properties.user_email = profile.email;
         }

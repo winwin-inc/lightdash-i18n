@@ -133,6 +133,7 @@ const UmamiProviderMain: FC<PropsWithChildren> = ({ children }) => {
         };
 
         const commonProperties = compact({
+            user_uuid: userData?.userUuid ?? null,
             user_email: userData?.email ?? null,
             user_name: userData === undefined ? null : displayName(userData),
             org_id: userData?.organizationUuid ?? null,
