@@ -1,6 +1,6 @@
 # msy-x-cli 设计文档
 
-> 版本对应：0.2.0（扫码登录为 0.2.0 新增，服务端需 ≥ 2.7.5）　｜　文档状态：已实现
+> 版本对应：0.2.4（扫码登录为 0.2.0 新增、服务端需 ≥ 2.7.5；0.2.4 下线 `verified`）　｜　文档状态：已实现
 >
 > 本文是自包含的对外契约文档，不依赖任何内部文档或代码路径。使用步骤见同目录《msy-x-cli 使用手册》。
 
@@ -398,7 +398,7 @@ CLI                                 服务端
   "connectors": {
     "msy-x": {
       "install": {
-        "default": ["npm install -g https://img0.banmahui.cn/msy-x/cli/msy-x-cli/0.2.0/msy-x-cli-0.2.0.tgz"]
+        "default": ["npm install -g https://img0.banmahui.cn/msy-x/cli/msy-x-cli/0.2.4/msy-x-cli-0.2.4.tgz"]
       },
       "versionCheck": { "default": ["msy-x --version"] },
       "statusMatchRegex": "\"logged_in\"\\s*:\\s*true",

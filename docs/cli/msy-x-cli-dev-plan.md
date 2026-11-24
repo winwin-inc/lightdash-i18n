@@ -228,8 +228,12 @@ packages/msy-x-cli/
 | 0.1.0 | `https://img0.banmahui.cn/msy-x/cli/msy-x-cli/0.1.0/msy-x-cli-0.1.0.tgz` | `43decbb864aca48ac40eccf22abf5c81361c89dec4d4726b3fd4efc509fead26` | 2026-11-17 | 首个发布：35 命令、OAuth/PAT、doctor、verified |
 | 0.1.1 | `https://img0.banmahui.cn/msy-x/cli/msy-x-cli/0.1.1/msy-x-cli-0.1.1.tgz` | `2287f542120768c96b437a562493c7342c2399f43cba57008c19dba0afc05b33` | 2026-11-17 | 顶层 `login`/`logout` 别名；本地凭证命令拒绝 `--dry-run` |
 | 0.2.0 | `https://img0.banmahui.cn/msy-x/cli/msy-x-cli/0.2.0/msy-x-cli-0.2.0.tgz` | `6352ea0b9d269f07f771637c24cc6c950d4c7e1cc9db9b4660f02e5deed5420f` | 2026-11-18 | 扫码登录（RFC 8628 设备码）；WSL 无浏览器自动降级；扫码引导与兜底提示文案优化 |
+| 0.2.1 | `https://img0.banmahui.cn/msy-x/cli/msy-x-cli/0.2.1/msy-x-cli-0.2.1.tgz` | `701b7bc0f103b909c344c22e1a8345971417548974bec656460c8cc5fcd01c52` | 2026-11-23 | 修复 Windows 拉起浏览器时丢掉授权 URL 参数 |
+| 0.2.2 | `https://img0.banmahui.cn/msy-x/cli/msy-x-cli/0.2.2/msy-x-cli-0.2.2.tgz` | `a8513ecb07615ad975e38cd78f0f6d9f188810687066410a825f067bedb86fbf` | 2026-11-23 | 修复 `--no-browser` 被 commander 否定选项静默忽略 |
+| 0.2.3 | `https://img0.banmahui.cn/msy-x/cli/msy-x-cli/0.2.3/msy-x-cli-0.2.3.tgz` | `55cf45dbcfb65d7e692ef73c047e2154a44343ec48efd260aff6648dcf9a5b8d` | 2026-11-23 | Windows 直接拉起浏览器可执行文件，并始终打印授权链接 |
+| 0.2.4 | `https://img0.banmahui.cn/msy-x/cli/msy-x-cli/0.2.4/msy-x-cli-0.2.4.tgz` | `366eaf8427c872ea8e9650412b8c5cb58f647df45d5b67e757842ced259e3a9a` | 2026-11-24 | 下线 `verified` 命令（服务端 `list_verified_content` 同步下线）；`doctor` 期望工具数 26 → 25 |
 
-两条均已在公网验证：`curl -sSI` 返回 `200` + `content-type: application/gzip`，且 `npm i -g <url>` 后 `msy-x --version` 正确、`--help` 含 `login`/`logout`。
+已发布的版本均已在公网验证：`curl -sSI` 返回 `200` + `content-type: application/gzip`，且 `npm i -g <url>` 后 `msy-x --version` 正确、`--help` 含 `login`/`logout`。
 
 #### 发版流程（0.1.x 通用）
 
