@@ -9,17 +9,17 @@
 
 ## v2.8.0 (2026-11-24)
 
--   **MCP 工具下线：`list_verified_content`（对外有变化）**
-    -   背景：豆包侧工具评测反馈该工具「调用失败」。根因不是部署缺工具——本仓库从未移植 content-verification（`packages/common/src/types/content.ts` 的 `verification` 仍是 STUB，后端无 `/projects/:uuid/content-verification` 路由），`list_verified_content` 只能恒定返回 `{error, supported:false, hint}`；该 payload 以 `error` 开头，自动评测直接记为失败，对客户端是纯噪声
-    -   主站 MCP 注册数 26 → 25：删除 `McpToolName.LIST_VERIFIED_CONTENT`、`tools/scopes.ts` 授权项、`contentListTools.ts` 的注册块与相关 helper（`isContentVerificationSupported` / `getVerifiedAt` / 参数 schema）、`get_mcp_docs` 工具清单里的该条目
-    -   独立包 `packages/lightdash-mcp`（v1，走 REST `/content-verification`）保留不动，历史文档按原文标注为当时记录
-    -   需更新 CLI 到 `0.2.4`（`verified` 命令同源下线，见下）
+-   **内置 MCP 工具下线：`list_verified_content`（对外有变化）**
+    -   背景：豆包侧工具评测反馈该工具「调用失败」。该工具依赖「内容认证」功能，而本站点从未提供这个功能，它只能恒定返回 `{error, supported:false, hint}` 这种没有数据的响应；以 `error` 开头的响应体还会让客户端与 AI 直接判成故障，属于纯噪声
+    -   主站 MCP 工具数 26 → 25：移除该工具及其 scope 授权项，`get_mcp_docs` 的工具清单同步。`tools/list` 会少这一个工具，其余工具的名称、入参与返回结构不变
+    -   需要「已认证内容清单」的调用方请改用 `list_charts` / `list_dashboards`（分页与 `full` 语义一致），或按关键词用 `find_charts` / `find_dashboards`
+    -   独立包 `packages/lightdash-mcp`（v1，走 REST 接口）不受影响；历史文档中的该工具按当时记录保留并加注下线说明
 
--   **命令行工具（msy-x-cli 0.2.4，未发布）**
-    -   下线 `verified` 子命令：其唯一映射就是 `list_verified_content`，服务端删工具后该命令必然失败。命令总数 37 → 36，`doctor --remote` 的 `tools-catalog` 期望工具数 26 → 25（镜像仍是旧清单时会 warn 提示差异）
-    -   删除 `cli/run.ts` 的 `beforeRender` 钩子（唯一使用者是 `verified` 的 `supported:false` 旁路；通用管道只剩 `transformResult`），`cli/run.ts` 的 dry-run / 401 刷新重试 / verbose / client 生命周期语义不变
-    -   文档同步：CLI README、使用手册、设计稿（命令映射表 + 已下线说明）、豆包技能 `references/cli.md` 的 `verified` 行与退出码脚注
-    -   发版顺序（需人工放行）：`pnpm set-msyx-url`（指向 0.2.4 tgz）→ `pnpm bump-msyx -- 0.2.4`（tag `msyx-v0.2.4`）→ 重打豆包 Plugin ZIP
+-   **命令行工具（msy-x-cli 0.2.4，已发布）**
+    -   下线 `msy-x verified` 子命令：它唯一的映射就是被删掉的那个工具，服务端不再提供后命令必然失败。命令数 37 → 36
+    -   `msy-x doctor --remote` 的 `tools-catalog` 期望工具数 26 → 25：镜像清单不一致时仍会 `warn` 并列出新增/缺失的工具名
+    -   安装/升级：`npm i -g https://img0.banmahui.cn/msy-x/cli/msy-x-cli/0.2.4/msy-x-cli-0.2.4.tgz`。未升级的 0.2.3 及更早客户端执行 `verified` 会报工具不存在（该命令本就取不到数据，影响有限）
+    -   配套文档同步：CLI README / 使用手册 / 设计稿、豆包技能 `references/cli.md`
 
 ## v2.7.9 (2026-11-23)
 
