@@ -14,4 +14,10 @@ export type McpToolContext = {
     organizationUuid: string;
     authType: McpAuthType;
     scopes: string[];
+    /**
+     * Raw headers of the underlying MCP request (best effort; transports that
+     * do not populate `requestInfo` leave it undefined). Used for analytics
+     * attributes such as `X-Lightdash-Client`.
+     */
+    requestHeaders?: Record<string, string | string[] | undefined>;
 };

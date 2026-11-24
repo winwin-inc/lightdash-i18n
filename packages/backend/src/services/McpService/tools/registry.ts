@@ -229,6 +229,16 @@ export class McpToolRegistry {
             organizationUuid: user.organizationUuid,
             authType,
             scopes,
+            // Best effort: absent on transports that do not populate requestInfo
+            ...(sdkContext?.requestInfo?.headers !== undefined
+                ? {
+                      requestHeaders: sdkContext.requestInfo
+                          .headers as Record<
+                          string,
+                          string | string[] | undefined
+                      >,
+                  }
+                : {}),
         };
     }
 }

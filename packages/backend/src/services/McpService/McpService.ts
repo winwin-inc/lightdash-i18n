@@ -134,6 +134,29 @@ export type ExtraContext = McpAuthContext;
  */
 type McpToolArgs<TArgs> = TArgs & { projectUuid?: string };
 
+/**
+ * Case-insensitive single-header lookup on the MCP request headers.
+ * Returns undefined when absent or empty; first value wins for arrays.
+ */
+export const pickRequestHeader = (
+    headers: Record<string, string | string[] | undefined> | undefined,
+    name: string,
+): string | undefined => {
+    if (headers === undefined) {
+        return undefined;
+    }
+    const lowered = name.toLowerCase();
+    const match = Object.entries(headers).find(
+        ([key]) => key.toLowerCase() === lowered,
+    );
+    if (match === undefined) {
+        return undefined;
+    }
+    const [, value] = match;
+    const first = Array.isArray(value) ? value[0] : value;
+    return typeof first === 'string' && first.length > 0 ? first : undefined;
+};
+
 export class McpService extends BaseService {
     private lightdashConfig: LightdashConfig;
 
@@ -1363,6 +1386,15 @@ export class McpService extends BaseService {
                 info.args,
             );
 
+            // Umami mcp_client：请求头优先，回落 MCP initialize 的 clientInfo.name
+            const mcpClient =
+                pickRequestHeader(
+                    context.requestHeaders,
+                    'x-lightdash-client',
+                ) ??
+                this.mcpServer.server.getClientVersion()?.name ??
+                'unknown';
+
             this.analytics.track<McpToolCallEvent>({
                 event: 'mcp_tool_call',
                 userId: user.userUuid,
@@ -1374,6 +1406,7 @@ export class McpService extends BaseService {
                         context.authType === McpAuthType.Pat ? 'pat' : 'oauth',
                     durationMs,
                     success,
+                    mcpClient,
                 },
             });
 

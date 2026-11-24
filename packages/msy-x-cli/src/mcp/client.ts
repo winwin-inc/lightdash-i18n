@@ -75,8 +75,13 @@ export const createMcpClient = async (input: {
         authHeader: site.authHeader,
         credentials,
     });
+    // 服务端埋点用：区分 msy-x-cli / claude / cursor 等 MCP 客户端
+    const requestHeaders = {
+        ...headers,
+        'X-Lightdash-Client': `msy-x-cli/${CLI_VERSION}`,
+    };
     const transport = new StreamableHTTPClientTransport(new URL(site.mcpUrl), {
-        requestInit: { headers },
+        requestInit: { headers: requestHeaders },
     });
     const client = new Client({ name: 'msy-x-cli', version: CLI_VERSION });
     try {

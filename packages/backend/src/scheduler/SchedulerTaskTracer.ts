@@ -8,6 +8,7 @@ import * as Sentry from '@sentry/node';
 import { JobHelpers, Task, TaskList } from 'graphile-worker';
 import moment from 'moment';
 import ExecutionContext from 'node-execution-context';
+import { runWithUmamiContext } from '../analytics/umami/requestContext';
 import { ExecutionContextInfo } from '../logging/winston';
 import { TypedTask, type TypedTaskList } from './types';
 
@@ -254,7 +255,12 @@ export const traceTask = <T extends SchedulerTaskName>(
                                 },
                             };
                             await ExecutionContext.run(
-                                () => task(payload, helpers),
+                                () =>
+                                    // Umami：定时任务的事件记 client=scheduler（见 docs/ops/umami-analytics.md §5.1）
+                                    runWithUmamiContext(
+                                        { client: 'scheduler', path: '' },
+                                        () => task(payload, helpers),
+                                    ),
                                 executionContext,
                             );
                         } catch (e) {

@@ -259,6 +259,10 @@ export class SavedSqlService
                 chartId: savedChart.savedSqlUuid,
                 projectId: savedChart.project.projectUuid,
                 organizationId: savedChart.organization.organizationUuid,
+                // Umami：按图表名/slug 筛选与对号（见 docs/ops/umami-analytics.md §4.5）
+                chartSlug: savedChart.slug,
+                chartName: savedChart.name,
+                chartKind: savedChart.chartKind,
             },
         });
         return {
