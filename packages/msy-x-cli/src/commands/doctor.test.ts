@@ -147,9 +147,8 @@ test('doctor spec：单命令、--remote flag、build 抛 NOT_IMPLEMENTED', () =
     );
 });
 
-test('EXPECTED_MCP_TOOL_NAMES 共 26 个且与探测工具一致', () => {
-    assert.equal(EXPECTED_MCP_TOOL_NAMES.length, 26);
-    assert.ok(EXPECTED_MCP_TOOL_NAMES.includes('list_verified_content'));
+test('EXPECTED_MCP_TOOL_NAMES 共 25 个且与探测工具一致', () => {
+    assert.equal(EXPECTED_MCP_TOOL_NAMES.length, 25);
     assert.ok(EXPECTED_MCP_TOOL_NAMES.includes('run_metric_query'));
     assert.equal(DOCTOR_PROBE_CALL.tool, 'run_metric_query');
     assert.deepEqual(DOCTOR_PROBE_CALL.args, {
@@ -443,7 +442,7 @@ test('doctor --remote 未登录 → remote-auth fail + auth login hint、退 3�
     }
 });
 
-test('doctor --remote：26 个工具 + 探测业务错误 → tools-catalog ok、capability-probe ok、退 0', async () => {
+test('doctor --remote：25 个工具 + 探测业务错误 → tools-catalog ok、capability-probe ok、退 0', async () => {
     const env = await makeConfigEnv();
     const fake = fakeCatalogClient({
         probeResult: businessErrorResult(
@@ -520,7 +519,7 @@ test('doctor --remote：tools 数量/名单不符 → warn 并列出新增/缺�
         ]);
         const catalog = byName(lines, 'tools-catalog');
         assert.equal(catalog.status, 'warn');
-        assert.ok(catalog.detail.includes('26 个'), `应报告实际数量：${catalog.detail}`);
+        assert.ok(catalog.detail.includes('25 个'), `应报告实际数量：${catalog.detail}`);
         assert.ok(catalog.detail.includes('extra_new_tool'), `应列新增：${catalog.detail}`);
         assert.ok(catalog.detail.includes('find_content'), `应列缺失：${catalog.detail}`);
         assert.equal(byName(lines, 'device-flow').status, 'ok');

@@ -60,12 +60,10 @@ const buildContent = (overrides: AnyType = {}): SummaryContent =>
 const buildDeps = ({
     contextProjectUuid,
     contents = [buildContent()],
-    supportsContentVerification = false,
     visibleProjectUuids = ['project-uuid'],
 }: {
     contextProjectUuid?: string;
     contents?: SummaryContent[];
-    supportsContentVerification?: boolean;
     visibleProjectUuids?: string[];
 } = {}) => {
     const getContext = jest.fn().mockResolvedValue(
@@ -82,18 +80,20 @@ const buildDeps = ({
             : undefined,
     );
 
-    const getProject = jest.fn().mockImplementation(async (projectUuid: string) => {
-        // Mirrors ProjectService.getProject: it enforces the CASL view
-        // check of the account.
-        if (!visibleProjectUuids.includes(projectUuid)) {
-            throw new ForbiddenError();
-        }
-        return {
-            projectUuid,
-            organizationUuid: 'org-uuid',
-            name: 'Demo project',
-        };
-    });
+    const getProject = jest
+        .fn()
+        .mockImplementation(async (projectUuid: string) => {
+            // Mirrors ProjectService.getProject: it enforces the CASL view
+            // check of the account.
+            if (!visibleProjectUuids.includes(projectUuid)) {
+                throw new ForbiddenError();
+            }
+            return {
+                projectUuid,
+                organizationUuid: 'org-uuid',
+                name: 'Demo project',
+            };
+        });
 
     const find = jest.fn().mockResolvedValue({
         data: contents,
@@ -141,9 +141,6 @@ const buildDeps = ({
     });
 
     const contentService: AnyType = { find };
-    if (supportsContentVerification) {
-        contentService.listVerifiedContent = jest.fn();
-    }
 
     const deps = {
         lightdashConfig: {
@@ -199,7 +196,7 @@ const parseResult = (result: AnyType) =>
     JSON.parse(result.content[0].text as string);
 
 describe('registerContentListTools', () => {
-    it('registers the four content list tools', () => {
+    it('registers the three content list tools', () => {
         const { registry, registered } = buildRegistry();
         registerContentListTools(registry, buildDeps().deps);
 
@@ -207,13 +204,11 @@ describe('registerContentListTools', () => {
             McpToolName.LIST_SPACES,
             McpToolName.LIST_DASHBOARDS,
             McpToolName.LIST_CHARTS,
-            McpToolName.LIST_VERIFIED_CONTENT,
         ]);
         expect(registered.map((tool) => tool.name)).toEqual([
             'list_spaces',
             'list_dashboards',
             'list_charts',
-            'list_verified_content',
         ]);
         registered.forEach((tool) => {
             expect(tool.config.description).toBeDefined();
@@ -232,7 +227,9 @@ describe('registerContentListTools', () => {
 
             await registered[0].handler(
                 { projectUuid: 'explicit-project-uuid' },
-                buildContext({ visibleProjectUuids: ['explicit-project-uuid'] }),
+                buildContext({
+                    visibleProjectUuids: ['explicit-project-uuid'],
+                }),
             );
 
             expect(getContext).not.toHaveBeenCalled();
@@ -331,44 +328,6 @@ describe('registerContentListTools', () => {
                 }),
             );
             expect(find.mock.calls[0][3]).toEqual({ page: 2, pageSize: 10 });
-        });
-
-        it('reports that the content verification feature is not supported', async () => {
-            const { registry, registered } = buildRegistry();
-            const { deps, find } = buildDeps({
-                contextProjectUuid: 'project-uuid',
-            });
-            registerContentListTools(registry, deps);
-
-            const result = parseResult(
-                await registered[3].handler({}, buildContext()),
-            );
-
-            expect(result).toEqual(
-                expect.objectContaining({
-                    error: expect.any(String),
-                    supported: false,
-                }),
-            );
-            expect(find).not.toHaveBeenCalled();
-        });
-
-        it('queries charts and dashboards for the verified content', async () => {
-            const { registry, registered } = buildRegistry();
-            const { deps, find } = buildDeps({
-                contextProjectUuid: 'project-uuid',
-                supportsContentVerification: true,
-            });
-            registerContentListTools(registry, deps);
-
-            await registered[3].handler({}, buildContext());
-
-            expect(find.mock.calls[0][1]).toEqual(
-                expect.objectContaining({
-                    projectUuids: ['project-uuid'],
-                    contentTypes: [ContentType.CHART, ContentType.DASHBOARD],
-                }),
-            );
         });
     });
 

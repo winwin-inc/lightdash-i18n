@@ -11,6 +11,8 @@
 
 主站 MCP 已完成 P1–P7 全部阶段：核心能力从 `src/ee/` 下沉到非 EE 后端、鉴权统一为「OAuth + PAT」并落实 scope 校验、26 个工具全部模块化迁移并带单测、埋点收口、健康检查与文档齐备。
 
+> **2026-11-19 变更**：`list_verified_content` 已下线。本仓库未移植 content-verification（`packages/common/src/types/content.ts` 仍是 STUB），该工具只能恒定返回 `supported:false`，对客户端是纯噪声、且会被自动评测记为「失败」。主站当前注册 **25 个工具**；下文 P4/P6 与决策表里的 26 是历史记录，不再代表现状。
+
 **最后一步已于 2026-11-10 落地：MCP 的项目上下文语义从「当前项目」收敛为「默认项目」**，建立「显式参数 → 用户级默认 → 组织级默认 → 部署级默认」四级兜底链。**保留**服务端持久记忆与 26 个工具（不删除 `set_project` / `get_current_project`）。实施记录见 §4。
 
 ---
@@ -48,7 +50,7 @@
 ```
 packages/backend/src/services/McpService/
 ├── McpService.ts              # 传统 10 工具 + 服务主体
-├── McpToolName.ts             # 工具名枚举（26 个）
+├── McpToolName.ts             # 工具名枚举（25 个）
 ├── McpAuthContext.ts          # 鉴权上下文（OAuth / PAT）
 ├── mcpAuthInfo.ts             # 从 request 构造 authInfo
 ├── McpSchemaCompatLayer.ts    # zod → MCP JSON Schema 兼容层
@@ -63,7 +65,7 @@ packages/backend/src/services/McpService/
     ├── docsTools.ts           # get_mcp_docs
     ├── queryTools.ts          # list_explores / run_semantic_metric_query
     ├── contentSearchTools.ts  # find_content / find_charts / find_dashboards / find_spaces
-    ├── contentListTools.ts    # list_spaces / list_dashboards / list_charts / list_verified_content
+    ├── contentListTools.ts    # list_spaces / list_dashboards / list_charts
     ├── savedChartTools.ts     # get_saved_chart
     ├── dashboardTools.ts      # get_dashboard_code / get_dashboard_tiles
     ├── chartRunTools.ts       # run_saved_chart / run_dashboard_tiles
@@ -71,7 +73,7 @@ packages/backend/src/services/McpService/
     └── analystPromptTools.ts
 ```
 
-**当前注册 26 个工具**
+**当前注册 25 个工具**
 
 ```
 find_charts              find_content            find_dashboards
@@ -80,7 +82,7 @@ get_current_project      get_dashboard_code      get_dashboard_tiles
 get_lightdash_version    get_mcp_docs            get_my_access
 get_saved_chart          get_site_info           list_charts
 list_dashboards          list_explores           list_projects
-list_spaces              list_verified_content   run_dashboard_tiles
+list_spaces              run_dashboard_tiles
 run_metric_query         run_saved_chart         run_semantic_metric_query
 search_field_values      set_project
 ```
@@ -94,7 +96,7 @@ search_field_values      set_project
 | 工具 scope | 按 `MCP_TOOL_SCOPES` 校验 `mcp:read` / `mcp:write` | 不受限 |
 | 会话 | 无 `Mcp-Session-Id` | 无 `Mcp-Session-Id` |
 
-> 当前 26 个工具**全部**标记为 `mcp:read`（含 `set_project`，因为它只更新上下文、不修改 Lightdash 内容）。
+> 当前 25 个工具**全部**标记为 `mcp:read`（含 `set_project`，因为它只更新上下文、不修改 Lightdash 内容）。
 
 **HTTP 约束**：POST 必须带 `Accept: application/json, text/event-stream`，否则 406。
 
@@ -127,13 +129,13 @@ search_field_values      set_project
 | 7 | 每个新工具必须同时登记 `McpToolName` 与 `tools/scopes.ts` |
 | 8 | 观测失败不得影响工具调用；scope 拒绝不算工具调用 |
 | 9 | 优先调用自带 CASL / space 过滤的 service；需显式项目鉴权时用 `context.ability.can('view', subject('Project', { organizationUuid, projectUuid }))` |
-| 10 | `list_verified_content` 在无 content-verification 的部署上返回结构化"不支持"，**不**新增 DB 列 / service / model |
+| 10 | ~~`list_verified_content` 在无 content-verification 的部署上返回结构化"不支持"，**不**新增 DB 列 / service / model~~（已于 v2.8.0 直接下线该工具） |
 | 11 | 工具收敛**无损优先**：先新增合并工具并把旧工具标 deprecated（输出结构不变），再删别名 |
 | 12 | 不提交 `pnpm generate-api` 产生的大规模无关 swagger diff |
 | 13 | MCP schema 不暴露 AI agent 的 `type` discriminator |
 | 14 | 独立包暂时保留（避免打断存量客户端），后续转退役 |
-| 15 | 26 个工具是"主站原有 + 独立包"迁移对齐的产物，**不是**设计目标；收敛方向 26 → 18（激进 17） |
-| 16 | **【2026-10-27 修订】保留服务端持久项目记忆**，不删除 `set_project` / `get_current_project` / `mcp_context`；工具数保持 26 |
+| 15 | 原 26 个工具是"主站原有 + 独立包"迁移对齐的产物，**不是**设计目标；现已 25（下线 `list_verified_content`），收敛方向 25 → 18（激进 17） |
+| 16 | **【2026-10-27 修订】保留服务端持久项目记忆**，不删除 `set_project` / `get_current_project` / `mcp_context`；工具数当时保持 26（现为 25，见文首 2026-11-19 注） |
 | 17 | **【2026-10-27 修订】语义从「当前项目」改为「默认项目」** —— 解决「LLM 静默用错过期项目」隐患 |
 | 18 | **【2026-10-27 修订】四级兜底链**：显式 `args.projectUuid` → 用户级默认（`mcp_context`）→ 组织级默认（`organizations.default_project_uuid`）→ 部署级 `LIGHTDASH_PROJECT_UUID` |
 | 19 | **【2026-10-27 修订】逐级回落规则**：显式参数校验失败直接报错；隐式兜底校验失败自动降级到下一级 |

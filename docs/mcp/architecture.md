@@ -91,7 +91,6 @@ flowchart TB
 | `find_charts` | 搜图表（固定 `contentTypes=chart`） | 同名（上游为独立 Tool） |
 | `find_dashboards` | 搜看板（固定 `contentTypes=dashboard`） | 同名 |
 | `find_spaces` | 搜空间（固定 `contentTypes=space`） | **上游无同名**（自建） |
-| `list_verified_content` | 已验证图表/看板 | **上游无同名** |
 | `search_field_values` | 枚举维度取值 | 同名 |
 | `run_sql` | 原始 SQL（异步） | **上游无同名** |
 | `run_metric_query` | 指标查询 v2 | 同名 |

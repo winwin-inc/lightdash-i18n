@@ -21,7 +21,7 @@
 |---|---|---|
 | 1 | 干净机器 `npm i -g <tgz>` 后 `msy-x --version` / `--help` 可用 | 临时 prefix 装一次 |
 | 2 | 真实站点 OAuth 登录成功，配置 `0600`，`auth status` 首键 `logged_in` | `msy-x auth login` → `auth status` |
-| 3 | 26 个 MCP 工具全部可达（命令 + `call`） | 映射完整性单测 26/26 |
+| 3 | 26 个 MCP 工具全部可达（命令 + `call`） | 映射完整性单测 26/26（2026-11-19 起服务端降到 25 个，`verified` 命令随之下线） |
 | 4 | 非 TTY 下默认 JSON、stdout 纯净、退出码符合表 | `msy-x info </dev/null`、`--json` 断言 |
 | 5 | 豆包包：`verify.mjs` 全绿，ZIP 含 `com.doubao/cli.json` 且无二进制/凭据 | `node scripts/verify.mjs` |
 | 6 | 真实查数链路跑通：`explores find` → `values` → `query` → `dashboards tiles` | 冒烟脚本（见 §5.3） |

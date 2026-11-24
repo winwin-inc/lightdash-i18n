@@ -31,7 +31,7 @@ import { docsCommands } from './docs';
  * globalOptions 互斥/上限/--csv 门控、query 两路径组装、metricQuery 本地翻译、
  * flat vizConfig 形状与 --filter 拒绝、savedChartUuid 键名、dashboards list 缺
  * --space、dry-run 不发请求（假 client 断言未调用）、
- * verified/doctor 新命令的注册与端到端路由。
+ * doctor 新命令与 tools/call 的注册与端到端路由。
  */
 
 const UUID = '3f5d1b0e-1111-4222-8333-444455556666';
@@ -703,12 +703,12 @@ test('writeResult：--out 写文件 0600 且 stdout 只回摘要', async () => {
 /* 挂载：全部 CommandSpec 注册、code 别名、--csv 门控与缺 --space 退出   */
 /* ------------------------------------------------------------------ */
 
-test('挂载：全部命令注册且名字唯一（含 auth/site/verified/doctor/tools/call/别名，共 37 个）', () => {
+test('挂载：全部命令注册且名字唯一（含 auth/site/doctor/tools/call/别名，共 36 个）', () => {
     const specs = registeredSpecs();
     const names = specs.map((spec) => spec.name);
     assert.equal(new Set(names).size, names.length, '命令名不应重复');
     // 旧断言清单缺 project use/project show/spaces find，这里补全为完整清单
-    assert.equal(names.length, 37, `应注册 37 个命令，实际 ${names.length}`);
+    assert.equal(names.length, 36, `应注册 36 个命令，实际 ${names.length}`);
     for (const expected of [
         'info',
         'access',
@@ -741,7 +741,6 @@ test('挂载：全部命令注册且名字唯一（含 auth/site/verified/doctor
         'charts find <query>',
         'charts get <chartUuid>',
         'charts run <chartUuid>',
-        'verified',
         'docs [topic]',
         'tools list',
         'tools describe <name>',
@@ -862,54 +861,6 @@ test('挂载端到端：非数据命令 --csv 退 USAGE', async () => {
             return true;
         },
     );
-});
-
-test('挂载端到端：verified --dry-run 输出 list_verified_content', async () => {
-    const previous = process.env.MSY_X_CONFIG;
-    process.env.MSY_X_CONFIG = '/tmp/msy-x-cli-integration-none.yaml';
-    try {
-        const out = await runProgram(['verified', '--dry-run']);
-        const parsed = dryRunLineOf(out) as {
-            tool: string;
-            args: Record<string, unknown>;
-        };
-        assert.equal(parsed.tool, 'list_verified_content');
-        assert.deepEqual(parsed.args, {});
-    } finally {
-        if (previous === undefined) {
-            delete process.env.MSY_X_CONFIG;
-        } else {
-            process.env.MSY_X_CONFIG = previous;
-        }
-    }
-});
-
-test('挂载端到端：verified --page-size 300 截断到 100 后再进 dry-run', async () => {
-    const previous = process.env.MSY_X_CONFIG;
-    process.env.MSY_X_CONFIG = '/tmp/msy-x-cli-integration-none.yaml';
-    try {
-        const out = await runProgram([
-            'verified',
-            '--page-size',
-            '300',
-            '--page',
-            '2',
-            '--dry-run',
-        ]);
-        const parsed = dryRunLineOf(out) as {
-            tool: string;
-            args: { pageSize?: number; page?: number };
-        };
-        assert.equal(parsed.tool, 'list_verified_content');
-        assert.equal(parsed.args.pageSize, 100);
-        assert.equal(parsed.args.page, 2);
-    } finally {
-        if (previous === undefined) {
-            delete process.env.MSY_X_CONFIG;
-        } else {
-            process.env.MSY_X_CONFIG = previous;
-        }
-    }
 });
 
 test('挂载端到端：doctor 本地检查输出逐行 [status] name — detail 且不联网', async () => {
@@ -1314,30 +1265,6 @@ test('D9/T11：--quiet 关闭截断告警', async () => {
         }
     }
 });
-
-test('D9/T11：verified --page-size 300 同样告警（runVerifiedCommand 路径）', async () => {
-    const previous = process.env.MSY_X_CONFIG;
-    process.env.MSY_X_CONFIG = '/tmp/msy-x-cli-integration-none.yaml';
-    try {
-        const stderrText = await captureStderr(async () => {
-            await runProgram(['verified', '--page-size', '300', '--dry-run']);
-        });
-        assert.ok(
-            stderrText.includes('--page-size 300') && stderrText.includes('截断'),
-            `verified 也应告警：${stderrText}`,
-        );
-    } finally {
-        if (previous === undefined) {
-            delete process.env.MSY_X_CONFIG;
-        } else {
-            process.env.MSY_X_CONFIG = previous;
-        }
-    }
-});
-
-/* ------------------------------------------------------------------ */
-/* D18/T12：call --args 与全局 --json 的解析                             */
-/* ------------------------------------------------------------------ */
 
 test('D18/T12：call --args 传工具入参，全局 --json 恢复输出格式语义', async () => {
     const previous = process.env.MSY_X_CONFIG;

@@ -43,7 +43,6 @@
 | `find_explores` | 查看者 |
 | `find_fields` | 查看者 |
 | `search_field_values` | 查看者 |
-| `list_verified_content` | 查看者 |
 | `run_metric_query` | 交互式查看者 |
 | `run_semantic_metric_query` | 交互式查看者 |
 | `get_dashboard_code` | 编辑者 |
@@ -89,7 +88,7 @@
 | `find_fields` | 在指定 explore 内找字段 | `view Project` |
 | `search_field_values` | 搜索维度取值 | 字段搜索接口按 `view Project`；回退到临时指标查询时改为下面的交互式查看者 |
 
-`list_verified_content` 调用已验证内容接口。这个站点版本不一定提供该接口，失败原因是版本，不是角色。
+`list_verified_content` 已于 v2.8.0 下线（站点没有 content-verification 功能，工具只能返回「不支持」），不再按角色授权。
 
 ## 交互式查看者
 
