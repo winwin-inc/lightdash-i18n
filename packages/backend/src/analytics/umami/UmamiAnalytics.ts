@@ -8,7 +8,12 @@ const FLUSH_INTERVAL_MS = 2000;
 const FLUSH_BATCH_SIZE = 20;
 const MAX_QUEUE_SIZE = 200;
 const REQUEST_TIMEOUT_MS = 3000;
-const USER_AGENT = 'LightdashTelemetry/1.0 (+server)';
+// 实测（2026-11-24，dev 适配层）：UA 必须像浏览器。
+// 含 "server" 的 UA（如 `... (+server)`、`LightdashServer/1.0`）会被 Umami/isbot
+// 当机器人直接丢弃——适配层仍回 success，但库里没有数据，极难排查。
+const USER_AGENT =
+    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) ' +
+    'LightdashTelemetry/1.0';
 
 /** 服务端响应 body 只有 success|ok|空 视为成功，其余（如 project_token_error）只 debug */
 const isSuccessResponseBody = (body: string): boolean => {

@@ -37,8 +37,11 @@ Node    node-fetch(data_list)         ├→ collect.banmahui.cn/api/gp?project&
   `lib{$lib,$lib_version}` / `identities{user_key,$identity_cookie_id}` / `properties`。
 - 成功判定：HTTP 2xx 且响应体 `success|ok|空`；`project_not_exist` / `project_token_error` /
   `parse_data_failed` 记 debug 后丢弃，**永不抛错、不阻塞业务请求**。
-- **UA 必须显式设置**（后端）：Umami 会丢弃含 `node` 的 UA → 固定
-  `User-Agent: LightdashTelemetry/1.0 (+server)`。
+- **UA 必须像浏览器**（后端）：Umami 用 isbot 过滤机器人，**含 `server` 的 UA 一律丢弃**
+  （实测：`LightdashTelemetry/1.0 (+server)`、`LightdashServer/1.0`、`node-fetch/1.0` 都被丢，
+  但适配层照样回 `success`，库里没数据 → 极难排查）。固定用
+  `Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) LightdashTelemetry/1.0`。
+  副作用：Umami 里后端事件的 OS/浏览器维度会显示 Linux/Chrome，属正常。
 - base64 必须 UTF-8 安全（组织名/页面名是中文）：前端 `TextEncoder → btoa`，
   后端 `Buffer.from(json, 'utf8')`。直接 `btoa(JSON.stringify(...))` 遇中文会抛
   `InvalidCharacterError`。
@@ -251,6 +254,18 @@ cd packages/frontend && timeout 240 npx vitest run src/providers/Tracking/umami 
 
 覆盖：报文/utf8 base64/urlencode、白名单命中与属性裁剪、未知事件返回 null、攒批与 flush 时机、
 失败不抛、队列上限、LRU 用户信息降级、`pageKey` 表驱动、`profile` 指纹判重。
+
+**联调结论（2026-11-24，dev 适配层已实测）**
+
+| 验证项 | 结果 |
+|---|---|
+| `project=msy-x-platform` + token 成对 | ✅ 返回 `success` |
+| `event: 'page_view'` 落点 | ✅ **命名事件**（`event_data` 里的 `page`/`client` 可筛） |
+| `event: '$AppViewScreen'` 落点 | ✅ **pageview 行**（Pages/PV 报表来源） |
+| 双发是否重复计 PV | ❌ 不重复：一次导航 = 1 条命名事件 + 1 条 pageview 行 |
+| `data_list` 批量 | ✅ 可用（`gzip=0`） |
+| 中文属性（`$title`/看板名） | ✅ 不乱码 |
+| 非浏览器 UA | ❌ 被 isbot 丢弃（见 §2） |
 
 **联调**（先用内部站 `lightdash-internal`，流量小好洗）
 
