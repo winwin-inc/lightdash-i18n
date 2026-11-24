@@ -71,7 +71,7 @@ Node    node-fetch(data_list)         ├→ collect.banmahui.cn/api/gp?project&
 | 8 | `query_error` | 查询失败 | 后端 | 失败量与失败率（除 7）、哪个项目/客户端容易出问题 |
 | 9 | `download_started` | 导出开始 | 后端 | 导出意图、文件类型分布 |
 | 10 | `download_completed` | 导出完成 | 后端 | 导出多少份/多少行（`num_rows`）、谁导得最多 |
-| 11 | `mcp_tool_call` | MCP 工具调用 | 后端 | 哪些 AI 客户端在用（`mcp_client`）、用了哪些工具、成功率、耗时 |
+| 11 | `mcp_tool_call` | MCP 工具调用 | 后端 | 哪些 AI 客户端在用（`mcp_client`，**只认 `X-Lightdash-Client` 头**，见 §5.1）、用了哪些工具、成功率、耗时 |
 | 12 | `user_logged_in` | 用户登录 | 后端 | 登录活跃与登录方式分布（与 PV 对账） |
 | 13 | `permission_updated` | 权限变更 | 后端 | 敏感操作：谁改了谁的权限/角色、新增成员/邀请量 |
 | 14 | `project_deleted` | 项目删除 | 后端 | 高危操作追溯 |
@@ -110,12 +110,16 @@ Node    node-fetch(data_list)         ├→ collect.banmahui.cn/api/gp?project&
 
 | 事件 | 属性 |
 |---|---|
-| `page_view` | 公共属性 + `page`、`route`、`project_id`、`dashboard_id`、`chart_id`、`space_id`、`settings_section`、`is_embed`、`is_authenticated`、`$url`(=模板路径)、`$title`(中文页名)、`$url_path`、`$event_session_id` |
+| `page_view` | 公共属性 + `page`、`route`、`project_id`、`dashboard_id`、`chart_id`、`space_id`、`settings_section`、`is_embed`、`is_authenticated`、`$url`(=模板路径)、`$title`(中文页名)、`$url_path`(**同样是模板路径，绝不含真实 id/凭据**)、`$event_session_id` |
 | `$AppViewScreen` | 仅 `$url` / `$title`（落成 pageview 行） |
 | `profile_set` | 见 §4.3 |
 
 前端只发 URL 里能拿到的 id（uuid）；`*_slug` / `*_name` 由**后端事件**携带（调用点已有实体对象，
 零额外请求）。所以：页面排行/人数看 `page_view`，按看板名/图表名筛选看 `dashboard_view` / `chart_view`。
+
+**凭据类路由一律模板化**：`/reset-password/<code>`、`/invite/<inviteCode>`、`/share/<nanoid>` 里的
+`code`/`inviteCode` 是 `nanoid(30)`（不是 uuid，能直接改密码/入组），**绝不能进埋点**。实现上
+`pageKey.ts` 对这三条路由显式给模板，且兜底把「非静态段且长度 ≥ 20」的段替换成 `:id`。
 
 ### 4.3 `profile_set` 载荷（13 键）
 
@@ -183,6 +187,13 @@ Umami 没有 i18n 层，看板里只展示 `data_key` / `string_value` 原文。
 | `HealthService` + `packages/common` `HealthState` | 下发 `umami: { enabled, endpoint, project, token }` 给前端 |
 | `McpService` | `mcp_tool_call` 加 `mcpClient`（`X-Lightdash-Client` 头优先，回落 `mcpServer.getClientVersion()?.name`） |
 
+**布尔属性一律转字符串** `'true'`/`'false'`（Umami 的 `event_data` 只列 string/number，
+直接发 boolean 会让该键筛不出来）——前后端一致，在 `pickProperties` 里统一处理。
+
+**`mcp_tool_call.mcp_client` 只认请求头** `X-Lightdash-Client`：`McpServer` 是服务单例，
+无状态 transport 下 `getClientVersion()` 可能是别的会话 initialize 留下的，会把 A 的调用记成 B 的客户端；
+拿不到头就记 `unknown`。非 msy-x 的客户端（claude/cursor）暂时都是 `unknown`。
+
 **`distinct_id` 解析链**（决定 UV 准不准）：
 
 ```
@@ -206,6 +217,8 @@ orgId（靠 ALS）；`pat_created` 的 userId 在 `properties` 里；`user.logge
 
 1. **首屏必须等 `user` resolve 后再发 `page_view`**，否则第一条带 `anon:<installId>`，
    同一人一天算成两个实体（dapeng 踩过：匿名 `distinct_id` 先发 → Sessions 出现 2–3 条）。
+   注意 `isAuthenticated=true` 但 `account` 不是注册用户时，`useUser` 的 query 会被禁用而永远
+   loading → 用一次 1.5s 超时把它当作 settled，否则整段会话发不出 PV。
 2. 幂等：以 `location.key` 为键，同一 key 不重发。
 3. 布尔属性转字符串 `'true'`/`'false'`。
 4. 挂载在 `App.tsx` 中 `TrackingProvider` 外层/同级（不依赖 Rudder 是否启用）。
@@ -267,6 +280,7 @@ curl -sS -X POST "https://collect.banmahui.cn/api/gp?project=lightdash-internal&
 | `session_data` 后写覆盖 | Sessions 只看「最新归属」，历史归属用事件属性 |
 | 原生看板无中文 | 中文要靠 `umamiq` / 导出 CSV |
 | 无历史回溯 | 埋点上线前的行为拿不到，只能往后累积 |
+| `profile_set.project_name` 暂缺 | 前端路由只有 project uuid，取名字要多一次请求 → 只发 `project_id`，名字靠后端事件 |
 | 外发合规 | 这是**新增**外发，目标为公司内网 `collect.banmahui.cn`，与官方遥测无关；kill switch 见 k8s 文档 |
 
 ## 8. 配套（跨仓库，各自独立分支）
