@@ -7,7 +7,7 @@
 > -   自 **v2.0** 起产品主版本独立编号
 
 
-## v2.7.10 (未发布)
+## v2.8.0 (2026-11-24)
 
 -   **MCP 工具下线：`list_verified_content`（对外有变化）**
     -   背景：豆包侧工具评测反馈该工具「调用失败」。根因不是部署缺工具——本仓库从未移植 content-verification（`packages/common/src/types/content.ts` 的 `verification` 仍是 STUB，后端无 `/projects/:uuid/content-verification` 路由），`list_verified_content` 只能恒定返回 `{error, supported:false, hint}`；该 payload 以 `error` 开头，自动评测直接记为失败，对客户端是纯噪声

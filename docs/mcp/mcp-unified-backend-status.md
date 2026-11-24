@@ -129,7 +129,7 @@ search_field_values      set_project
 | 7 | 每个新工具必须同时登记 `McpToolName` 与 `tools/scopes.ts` |
 | 8 | 观测失败不得影响工具调用；scope 拒绝不算工具调用 |
 | 9 | 优先调用自带 CASL / space 过滤的 service；需显式项目鉴权时用 `context.ability.can('view', subject('Project', { organizationUuid, projectUuid }))` |
-| 10 | ~~`list_verified_content` 在无 content-verification 的部署上返回结构化"不支持"，**不**新增 DB 列 / service / model~~（已于 v2.7.10 直接下线该工具） |
+| 10 | ~~`list_verified_content` 在无 content-verification 的部署上返回结构化"不支持"，**不**新增 DB 列 / service / model~~（已于 v2.8.0 直接下线该工具） |
 | 11 | 工具收敛**无损优先**：先新增合并工具并把旧工具标 deprecated（输出结构不变），再删别名 |
 | 12 | 不提交 `pnpm generate-api` 产生的大规模无关 swagger diff |
 | 13 | MCP schema 不暴露 AI agent 的 `type` discriminator |

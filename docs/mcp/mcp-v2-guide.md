@@ -219,7 +219,7 @@ hint:  Resolution order: explicit projectUuid > user default (set_project) > org
 
 `get_mcp_docs` 可以在会话内直接问「怎么连、怎么查」，返回内置静态文档。
 
-> `list_verified_content` 已于 v2.7.10 下线：本仓库未移植 content-verification 功能，该工具只能恒定返回「不支持」，对客户端是噪声。需要已认证内容请改看 `list_charts` / `list_dashboards`。
+> `list_verified_content` 已于 v2.8.0 下线：本仓库未移植 content-verification 功能，该工具只能恒定返回「不支持」，对客户端是噪声。需要已认证内容请改看 `list_charts` / `list_dashboards`。
 
 ---
 
