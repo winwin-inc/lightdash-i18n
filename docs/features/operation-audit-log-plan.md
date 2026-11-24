@@ -1,10 +1,29 @@
 ﻿# 操作日志 + 使用分析 Export CSV i18n 方案
 
-> 状态：已定稿待开发（本文档先于代码）。  
+> 状态：已实施（并已缩减范围，见「现状」）。本文保留设计与接口原貌。
 > 分支建议：与 `fix/bugs` 上的 **筛选器 tileTargets 回填** 分开发版；回填已完成，单独上线。  
 > 范围：  
 > - **B. 项目操作日志**（主需求，含 DB migration、表格展示、清除接口）  
 > - **A. 使用分析 Export CSV 按钮 i18n**（小修复，细节见文末）
+
+---
+
+## 现状（2026-11，`feat/umami-analytics`）
+
+上线后发现逐项明细（过滤器默认值/布局/tab/tile 的每次变更）噪声大、无使用方，已缩减为
+**13 个追责类动作**：
+
+- 保留：`dashboard.created/updated/deleted/duplicated/moved/promoted`、
+  `project_member.added/role_updated/removed`、`project_group_access.added/role_updated/removed`、
+  `operation_log.purged`
+- 删除：所有 `dashboard.filters.*`（18）、`dashboard.tabs.*`（4）、`dashboard.tiles.*`（5）
+- 看板更新只记 **一条** `dashboard.updated`，`summary` 只含类别与数量
+  （`changedCategories` / `filtersCount` / `tilesCount` / `tabsCount`）
+- 前端不再上报 `clientEvents`；服务端不再做 versioned diff
+  （`dashboardOperationLogDiff.ts` 已删除）
+- 不迁移、不清洗历史行；查看日志页、筛选、按保留天数清除均不变
+
+访问量与功能使用度不看这张表，改看 Umami：见 [`../ops/umami-analytics.md`](../ops/umami-analytics.md)。
 
 ---
 
