@@ -59,9 +59,9 @@ describe('UmamiAnalytics', () => {
         );
         expect(options.method).toBe('POST');
         expect(options.timeout).toBe(3000);
-        expect(options.headers['User-Agent']).toBe(
-            'LightdashTelemetry/1.0 (+server)',
-        );
+        // 必须是浏览器形态：含 "server" 的 UA 会被 Umami/isbot 丢弃
+        expect(options.headers['User-Agent']).toContain('Mozilla/5.0');
+        expect(options.headers['User-Agent']).not.toMatch(/server/i);
         expect(options.headers['Content-Type']).toBe(
             'application/x-www-form-urlencoded',
         );
