@@ -1,7 +1,7 @@
 import { AnyType } from '@lightdash/common';
 import { LightdashConfig } from '../../config/parseConfig';
-import { McpToolName } from './McpToolName';
 import { McpService } from './McpService';
+import { McpToolName } from './McpToolName';
 
 // The warehouses package pulls in native warehouse drivers, which are not
 // needed to test the MCP tool inventory.
@@ -12,9 +12,11 @@ jest.mock('@lightdash/warehouses', () => ({
 /**
  * The full set of tools exposed by the unified MCP server.
  *
- * It matches the tool list of the standalone `packages/lightdash-mcp` package
- * (26 tools). When a tool is added or removed, this list must be updated in
- * the same change.
+ * It used to match the tool list of the standalone `packages/lightdash-mcp`
+ * package (26 tools), minus `list_verified_content`, which was removed from the
+ * unified server because content verification is not ported in this repository
+ * and the tool could only ever answer "not supported" (25 tools). When a tool
+ * is added or removed, this list must be updated in the same change.
  */
 const EXPECTED_TOOL_NAMES: string[] = [
     'find_charts',
@@ -36,7 +38,6 @@ const EXPECTED_TOOL_NAMES: string[] = [
     'list_explores',
     'list_projects',
     'list_spaces',
-    'list_verified_content',
     'run_dashboard_tiles',
     'run_metric_query',
     'run_saved_chart',
@@ -77,9 +78,7 @@ describe('McpService tool inventory', () => {
     it('registers every tool of the unified MCP server exactly once', () => {
         const mcpService = buildService();
 
-        expect(mcpService.registeredToolNames).toEqual(
-            EXPECTED_TOOL_NAMES,
-        );
+        expect(mcpService.registeredToolNames).toEqual(EXPECTED_TOOL_NAMES);
     });
 
     it('registers every name of the tool name enum', () => {

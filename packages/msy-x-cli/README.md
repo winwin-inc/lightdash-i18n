@@ -137,7 +137,6 @@ msy-x auth logout [--site inner]     # 清除本机凭证（幂等）
 | `query` | 临时查询：`-e` 指定表，逗号分隔维度/指标，`--filter 字段=值` 可重复 | `msy-x query -e pinleibaohsm_cls_top --dimensions pinleibaohsm_cls_top_cls_4 --metrics pinleibaohsm_cls_top_total_cls4_amount --filter pinleibaohsm_cls_top_period=2026Q2 --filter pinleibaohsm_cls_top_region_name=华南地区 --limit 10` |
 | `query --file q.json` | 用 JSON 文件描述查询（`-` 从 stdin 读） | `msy-x query --file q.json --out result.csv` |
 | `query flat` | 简单查询的直通模式（对应 vizConfig，排序用 `--sort 字段:desc`） | `msy-x query flat -e cls_insight_list --dimensions pinleibaohsm_cls_top_cls_4 --metrics pinleibaohsm_cls_top_total_cls4_amount --sort pinleibaohsm_cls_top_total_cls4_amount:desc --limit 10` |
-| `verified` | 列出已认证内容（站点未启用该功能时原样输出服务端提示并退 0） | `msy-x verified` |
 | `docs [topic]` | 平台 MCP 使用文档（如 overview / query_workflow） | `msy-x docs query_workflow` |
 | `tools list` / `tools describe <n>` | 列出服务端当前全部工具（新工具自动可见） | `msy-x tools list` |
 | `call <tool> --args '<obj>'` | 直通任意 MCP 工具（`--args` 传工具入参 JSON，`--file` 从文件读；兜底通道，新工具无需等 CLI 升级） | `msy-x call search_field_values --args '{"table":"pinleibaohsm_cls_top","fieldId":"pinleibaohsm_cls_top_period"}'` |
@@ -159,7 +158,7 @@ msy-x auth logout [--site inner]     # 清除本机凭证（幂等）
 
 | 码 | 含义 | 典型场景 |
 |---|---|---|
-| `0` | 成功（含 0 行结果；`auth status` 未登录也是 0，`verified` 在未启用内容验证的站点也是 0，`doctor` 仅 warn 也是 0） | — |
+| `0` | 成功（含 0 行结果；`auth status` 未登录也是 0，`doctor` 仅 warn 也是 0） | — |
 | `2` | 用法 / 参数 / 本地配置错误 | 非法 flag、坏配置文件、`dashboards list` 缺 `--space` |
 | `3` | 未登录 / 凭证失效（401） | 未 `auth login`；**登的是其它站点**；token 过期且刷新失败 |
 | `4` | 无权限 / 被门控（403） | 越权访问；看板门控（见下） |

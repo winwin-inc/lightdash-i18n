@@ -38,13 +38,6 @@ type ListChartsArgs = {
     full?: boolean;
 };
 
-type ListVerifiedContentArgs = {
-    projectUuid?: string;
-    page?: number;
-    pageSize?: number;
-    full?: boolean;
-};
-
 type SlimContentItem = {
     uuid: string;
     name: string;
@@ -74,17 +67,6 @@ type ChartTileItem = {
     chartKind: string | null;
 };
 
-/**
- * The content verification metadata is only present on instances with the
- * content verification feature enabled, so it is an optional extension of the
- * content summary. Deployments without the feature (the default) never expose
- * it, and the tool then returns an empty list.
- */
-type ContentVerificationExtension = {
-    verifiedAt?: Date | null;
-    verification?: { verifiedAt?: Date | null } | null;
-};
-
 const paginationSchema = {
     page: z.coerce
         .number()
@@ -111,10 +93,7 @@ const fullSchema = z
     );
 
 const listSpacesArgsSchema = {
-    projectUuid: z
-        .string()
-        .optional()
-        .describe(PROJECT_UUID_PARAM_DESCRIPTION),
+    projectUuid: z.string().optional().describe(PROJECT_UUID_PARAM_DESCRIPTION),
     ...paginationSchema,
     full: fullSchema,
 };
@@ -123,10 +102,7 @@ const listDashboardsArgsSchema = {
     spaceUuid: z
         .string()
         .describe('UUID of the space to list the dashboards of.'),
-    projectUuid: z
-        .string()
-        .optional()
-        .describe(PROJECT_UUID_PARAM_DESCRIPTION),
+    projectUuid: z.string().optional().describe(PROJECT_UUID_PARAM_DESCRIPTION),
     ...paginationSchema,
     full: fullSchema,
 };
@@ -137,19 +113,7 @@ const listChartsArgsSchema = {
         .describe(
             'UUID (or slug) of the dashboard to list the saved chart tiles of.',
         ),
-    projectUuid: z
-        .string()
-        .optional()
-        .describe(PROJECT_UUID_PARAM_DESCRIPTION),
-    full: fullSchema,
-};
-
-const listVerifiedContentArgsSchema = {
-    projectUuid: z
-        .string()
-        .optional()
-        .describe(PROJECT_UUID_PARAM_DESCRIPTION),
-    ...paginationSchema,
+    projectUuid: z.string().optional().describe(PROJECT_UUID_PARAM_DESCRIPTION),
     full: fullSchema,
 };
 
@@ -201,7 +165,12 @@ const toSlimItem = (
         updatedAt: content.lastUpdatedAt
             ? new Date(content.lastUpdatedAt).toISOString()
             : null,
-        webUrl: buildWebUrl(siteUrl, projectUuid, content.contentType, content.uuid),
+        webUrl: buildWebUrl(
+            siteUrl,
+            projectUuid,
+            content.contentType,
+            content.uuid,
+        ),
     };
 };
 
@@ -217,30 +186,6 @@ const toFullItem = (siteUrl: string, content: SummaryContent): AnyType => ({
         content.uuid,
     ),
 });
-
-/**
- * Reads the verification timestamp of a content item, when the instance
- * exposes the content verification feature.
- */
-const getVerifiedAt = (content: SummaryContent): Date | null => {
-    const extended = content as SummaryContent & ContentVerificationExtension;
-    return (
-        extended.verifiedAt ??
-        extended.verification?.verifiedAt ??
-        null
-    );
-};
-
-/**
- * Checks whether the deployment supports the content verification feature.
- *
- * The feature is exposed by the content service. Deployments without it (the
- * default) do not return any verification metadata, so the tool reports the
- * feature as unsupported instead of returning an empty list that looks like
- * "nothing is verified".
- */
-const isContentVerificationSupported = (deps: McpToolDeps): boolean =>
-    typeof (deps.contentService as AnyType).listVerifiedContent === 'function';
 
 /**
  * Lists the content of a project through the content service, which applies
@@ -378,8 +323,11 @@ export const registerContentListTools = (
             inputSchema: listChartsArgsSchema,
         },
         async (args, context) => {
-            const { dashboardUuid, projectUuid: explicitProjectUuid, full = false } =
-                args as ListChartsArgs;
+            const {
+                dashboardUuid,
+                projectUuid: explicitProjectUuid,
+                full = false,
+            } = args as ListChartsArgs;
 
             const { projectUuid } = await resolveProjectContext(
                 deps,
@@ -449,67 +397,6 @@ export const registerContentListTools = (
                               : null,
                       }))
                     : items,
-            );
-        },
-    );
-
-    registry.register(
-        McpToolName.LIST_VERIFIED_CONTENT,
-        {
-            description:
-                'List the verified charts and dashboards of a Lightdash project, i.e. the content items that have been verified. Content verification is a site feature: on deployments without it the tool reports that the feature is not supported.',
-            inputSchema: listVerifiedContentArgsSchema,
-        },
-        async (args, context) => {
-            const {
-                projectUuid: explicitProjectUuid,
-                page = DEFAULT_PAGE,
-                pageSize = DEFAULT_PAGE_SIZE,
-                full = false,
-            } = args as ListVerifiedContentArgs;
-
-            const { projectUuid } = await resolveProjectContext(
-                deps,
-                context,
-                explicitProjectUuid,
-            );
-
-            if (!isContentVerificationSupported(deps)) {
-                return jsonToolResult({
-                    error: 'Content verification is not available on this Lightdash deployment',
-                    supported: false,
-                    hint: 'The content-verification feature is not deployed on this site. Use list_charts or list_dashboards instead.',
-                });
-            }
-
-            const contents = await listContent(
-                deps,
-                context,
-                {
-                    projectUuids: [projectUuid],
-                    contentTypes: [ContentType.CHART, ContentType.DASHBOARD],
-                },
-                page,
-                pageSize,
-            );
-
-            const verified = contents
-                .map((content) => ({
-                    content,
-                    verifiedAt: getVerifiedAt(content),
-                }))
-                .filter(
-                    (entry): entry is { content: SummaryContent; verifiedAt: Date } =>
-                        entry.verifiedAt !== null,
-                );
-
-            return jsonToolResult(
-                verified.map(({ content, verifiedAt }) => ({
-                    ...(full
-                        ? toFullItem(deps.lightdashConfig.siteUrl, content)
-                        : toSlimItem(deps.lightdashConfig.siteUrl, content)),
-                    verifiedAt: verifiedAt.toISOString(),
-                })),
             );
         },
     );

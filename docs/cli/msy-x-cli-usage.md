@@ -209,7 +209,6 @@ msy-x charts run <chartUuid> --value-format formatted
 
 - `dashboards list` 的 `--space` 是**必填**的空间 UUID（先 `spaces list`）；不知道空间时用 `search --type dashboard`。
 - `dashboards run --tile <slug>` 只是**本地过滤展示**，服务端仍然会跑整块看板。
-- `verified` 在站点未启用「内容验证」时原样输出服务端提示并退 `0`。
 
 ### 5.3 元信息与透传
 
@@ -250,7 +249,7 @@ msy-x call run_semantic_metric_query --file query.json
 
 | 码 | 含义 |
 |---|---|
-| `0` | 成功（含 0 行；`verified` 站点未启用也算成功） |
+| `0` | 成功（含 0 行结果） |
 | `2` | 用法 / 参数 / 本地配置错误 |
 | `3` | 未登录或 401（已自动刷新一次仍失败） |
 | `4` | 无权限，或被看板门控 |

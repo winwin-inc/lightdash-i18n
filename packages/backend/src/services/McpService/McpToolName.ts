@@ -13,7 +13,6 @@ export enum McpToolName {
     LIST_SPACES = 'list_spaces',
     LIST_CHARTS = 'list_charts',
     LIST_DASHBOARDS = 'list_dashboards',
-    LIST_VERIFIED_CONTENT = 'list_verified_content',
     SET_PROJECT = 'set_project',
     GET_CURRENT_PROJECT = 'get_current_project',
     GET_SAVED_CHART = 'get_saved_chart',
@@ -26,3 +25,6 @@ export enum McpToolName {
     SEARCH_FIELD_VALUES = 'search_field_values',
     GET_MCP_DOCS = 'get_mcp_docs',
 }
+
+// 已下线：`list_verified_content`（曾用名常量 LIST_VERIFIED_CONTENT）。
+// 本仓库未移植 content-verification，工具只能恒定返回「不支持」，对调用方是纯噪声。

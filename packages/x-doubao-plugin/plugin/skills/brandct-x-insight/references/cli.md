@@ -38,7 +38,6 @@
 | `msy-x query -e <explore> --dimensions a,b --metrics x,y [--filter f=v] [--limit N] [--dashboard <uuid>]` | 语义取数（CLI 组装 v2 参数；`--filters-json` 传复杂条件） | `run_semantic_metric_query` |
 | `msy-x query --file <path\|->` | 从 Explorer metricQuery JSON **本地翻译**成 v2 参数再发（不是原样透传；v2 不支持的 `sorts` / `tableCalculations` / `customDimensions` 会**丢弃并在 stderr 告警**） | `run_semantic_metric_query` |
 | `msy-x query flat --dimensions a --metrics x [--sort f:desc] [--limit N]` | （实验）`run_metric_query` 原始表查询：vizConfig 入参、CSV 返回；依赖服务端判别键修复，未修复的镜像会退 5 并给替代路径 hint | `run_metric_query` |
-| `msy-x verified [--page <n>] [--page-size <n>] [--full]` | 列出项目里已认证（内容验证）的图表与看板 | `list_verified_content` |
 | `msy-x doctor [--remote] [--json]` | 自检本地配置与凭证；`--remote` 加做真实连通与服务端能力验证 | `initialize` + `tools/list` + 探测 |
 | `msy-x tools list [--verbose]` / `describe <name>` | 列出 / 描述可用工具（本地目录；`--verbose` 附输入 schema） | `tools/list` |
 | `msy-x call <tool> [--args '<obj>' | --file <path>]` | 逃生口：任意工具透传（新工具无需等 CLI 发版；`--args` 是**工具入参** JSON，全局 `--json` / `--table` 才是输出格式） | 任意 `tools/call` |
@@ -114,7 +113,7 @@ msy-x query -e cls_insight_list --metrics cls_insight_list_total_cls4_amount --d
 
 | 码 | 含义 | 典型触发 |
 |---|---|---|
-| `0` | 成功（含 0 行结果；`auth status` 未登录也 `0`；`verified` 服务端不支持时也 `0`） | — |
+| `0` | 成功（含 0 行结果；`auth status` 未登录也 `0`） | — |
 | `2` | 用法 / 参数 / 本地配置错误 | 非法 flag、缺必填参数、坏配置文件、`--csv` 用在数据类命令之外 |
 | `3` | 未登录 / 401 | 无凭证、access+refresh 均失效（CLI 会先静默刷新一次再重试，仍 401 才退 3） |
 | `4` | 无权限 / 被门控 | 403、工具内权限文案、看板门控五类 `dashboard_*` |

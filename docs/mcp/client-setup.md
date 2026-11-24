@@ -66,7 +66,6 @@ claude mcp add lightdash-mcp https://your-mcp-host/mcp \
 **内容**
 - `find_content`：v2 混合关键词搜索；图表项默认含 `chartKind`（认图；UI「自定义」=`custom`）
 - `find_charts` / `find_dashboards` / `find_spaces`：分别只搜图表 / 看板 / 空间；`find_charts` 默认含 `chartKind`
-- `list_verified_content`：已验证的图表和看板
 - `get_mcp_docs`：内置说明；字段约定见 `topic=content_fields`
 
 **查询**

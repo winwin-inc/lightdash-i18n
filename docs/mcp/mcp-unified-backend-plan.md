@@ -88,7 +88,9 @@ SpaceService / AsyncQueryService / ProjectModel / McpContextModel
 
 ---
 
-## 4. 工具矩阵（实际落地 26 个）
+## 4. 工具矩阵（落地时 26 个，现为 25 个）
+
+> **2026-11-19 更新**：`list_verified_content` 已下线（content-verification 未移植，工具只能返回「不支持」）。下表与 P4 记录是当时的实施历史。
 
 > 原始方案按 27 个估算，实际注册 **26 个**（迁移对齐产物，非最终设计目标）。收敛方向 26 → 18 见归档文档 §5。
 

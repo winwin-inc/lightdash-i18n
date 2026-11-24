@@ -39,7 +39,6 @@ import { chartsCommands } from './charts';
 import { docsCommands } from './docs';
 import { runToolsCommand, toolsCommands } from './tools';
 import { runCallCommand, callCommands } from './call';
-import { runVerifiedCommand, verifiedCommands } from './verified';
 import { runDoctor, doctorCommands } from './doctor';
 
 /**
@@ -51,8 +50,6 @@ import { runDoctor, doctorCommands } from './doctor';
  *   spec.build → runToolCommand（--dry-run / 401 刷新重试 / 渲染统一在该管道）；
  * - `dashboards get` 的 `code` 别名、`dashboards run --tile` 的本地磁贴过滤
  *   也在本文件特判（types.ts 契约层不含这些字段）；
- * - `verified` 走 runVerifiedCommand：部署未启用内容验证时
- *   supported:false 按成功退 0（设计稿 §6.2）；
  * - `doctor` 不走 buildContext 的失败即中止语义：配置损坏时降级占位上下文，
  *   由 runDoctor 的 site-resolution 检查逐条报告（这正是 doctor 的职责）。
  */
@@ -68,7 +65,6 @@ const GROUP_DESCRIPTIONS: Record<string, string> = {
     query: '查数（语义化 / 实验性 flat）',
     dashboards: '看板（列表 / 搜索 / 磁贴 / 执行 / 定义）',
     charts: '图表（列表 / 搜索 / 详情 / 执行）',
-    verified: '已认证内容清单（站点可选功能）',
     doctor: '本地自检与远程连通验证',
     tools: 'MCP 工具目录（tools/list）',
 };
@@ -173,7 +169,7 @@ const buildContext = async (
         env: process.env,
     });
     setQuiet(options.quiet);
-    // doctor / verified 等不走 runToolCommand 的路径也要点亮 --verbose（D10）
+    // doctor 等不走 runToolCommand 的路径也要点亮 --verbose（D10）
     setVerbose(options.verbose);
     // --config 覆盖：config/* 全部通过 env.MSY_X_CONFIG 定位文件（paths.ts）
     if (options.configPath !== null) {
@@ -423,16 +419,8 @@ const dispatch = async (
     const calls = spec.build(input);
 
     // D9：--page-size 超过服务端上限 100 → build 已本地截断，stderr 告警
-    // （--quiet 关闭）；覆盖 search/explores/spaces/dashboards/charts/verified
+    // （--quiet 关闭）；覆盖 search/explores/spaces/dashboards/charts
     warnPageSizeTruncation(opts, ctx);
-
-    // verified：部署未启用内容验证时 supported:false 按成功退 0，stdout 原样
-    // 输出服务端 JSON —— 经 runVerifiedCommand 的 beforeRender 钩子接入
-    // runToolCommand 统一管道（D11），dry-run / 401 刷新重试与其他命令一致
-    if (spec.name === 'verified') {
-        await runVerifiedCommand(calls, ctx);
-        return;
-    }
 
     // dashboards run --tile：服务端仍跑整板，CLI 只在渲染前过滤磁贴
     if (spec.name === 'dashboards run <dashboardUuid>') {
@@ -490,7 +478,6 @@ const ALL_SPECS: CommandSpec[] = [
     ...dashboardsCommands,
     ...chartsCommands,
     ...docsCommands,
-    ...verifiedCommands,
     ...doctorCommands,
     ...toolsCommands,
     ...callCommands,

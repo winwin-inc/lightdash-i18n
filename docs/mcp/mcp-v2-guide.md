@@ -19,7 +19,7 @@
 | 会话 | `Mcp-Session-Id`（内存 TTL/LRU/容量） | **无状态**，不返回也不需要 session 头 |
 | 项目上下文 | 进程内存（按 PAT 隔离，重启丢） | **PG `mcp_context`**（按 user+org 隔离，重启不丢、跨副本一致） |
 | 错误 | HTTP 往返后压平成文本 | 原生错误直接传播（`ForbiddenError` / `ParameterError` …） |
-| 工具 | 26 个 | **26 个（同名同义，参数与返回结构已对齐）** |
+| 工具 | 26 个 | **25 个（同名同义，参数与返回结构已对齐；`list_verified_content` 已在主站下线）** |
 | 观测 | stdout 日志 | `mcp_tool_call` 埋点（user/org/project/authType/duration/success）+ 结构化日志 + `/health` |
 
 **换到 v2 需要改的只有两件事：URL 和鉴权头。**
@@ -106,7 +106,7 @@ curl -X POST "$SITE_URL/api/v1/oauth/register" \
 
 | scope | 含义 | 当前状态 |
 |---|---|---|
-| `mcp:read` | 探索/查询类工具 | **全部 26 个工具都是 read** |
+| `mcp:read` | 探索/查询类工具 | **全部 25 个工具都是 read** |
 | `mcp:write` | 修改内容类工具 | 预留，暂无工具需要 |
 
 - OAuth token 缺 `mcp:read` → **403**（`ForbiddenError`），不是 401。
@@ -204,7 +204,7 @@ hint:  Resolution order: explicit projectUuid > user default (set_project) > org
 
 ---
 
-## 4. 工具清单（26 个，全部 `mcp:read`）
+## 4. 工具清单（25 个，全部 `mcp:read`）
 
 | 分组 | 工具 |
 |---|---|
@@ -212,14 +212,14 @@ hint:  Resolution order: explicit projectUuid > user default (set_project) > org
 | 项目上下文 | `list_projects`、`set_project`、`get_current_project` |
 | 目录 / 元数据 | `find_explores`、`list_explores`、`find_fields`、`search_field_values` |
 | 内容检索 | `find_content`、`find_spaces`、`find_charts`、`find_dashboards` |
-| 内容列表 | `list_spaces`、`list_dashboards`、`list_charts`、`list_verified_content` |
+| 内容列表 | `list_spaces`、`list_dashboards`、`list_charts` |
 | 已保存内容 | `get_saved_chart`、`run_saved_chart`、`get_dashboard_tiles`、`run_dashboard_tiles`、`get_dashboard_code` |
 | 指标查询 | `run_metric_query`、`run_semantic_metric_query` |
 | 文档 | `get_mcp_docs` |
 
 `get_mcp_docs` 可以在会话内直接问「怎么连、怎么查」，返回内置静态文档。
 
-> `list_verified_content`：若当前部署**没有** content-verification 能力，会返回结构化「不支持」响应（`supported: false` + 提示改用 `list_charts` / `list_dashboards`），不会伪造数据。
+> `list_verified_content` 已于 v2.7.10 下线：本仓库未移植 content-verification 功能，该工具只能恒定返回「不支持」，对客户端是噪声。需要已认证内容请改看 `list_charts` / `list_dashboards`。
 
 ---
 
@@ -324,7 +324,6 @@ curl -s "$SITE_URL/api/v1/mcp/health"
 | `No default project available. Call set_project to set one, or pass projectUuid explicitly.` | 四级兜底链都没有命中（没传参，且用户级 / 组织级 / 部署级默认都不可用） | 先 `list_projects` → `set_project`，或直接传 `projectUuid`；错误自带 `hint` 说明解析顺序 |
 | `404 Session not found` | 客户端还在用 v1 的 session 逻辑 | 去掉 `Mcp-Session-Id` |
 | 工具报权限不足 | 真实用户权限不足（v2 按调用者本人算） | 用 `get_my_access` 看能力；或换 PAT |
-| `list_verified_content` 返回 `supported: false` | 部署未启用 content-verification | 改用 `list_charts` / `list_dashboards` |
 | `prompts/get` 返回 `-32602 Invalid arguments`（未传 `arguments`） | MCP SDK 1.17.5 对带参 prompt 要求 `arguments` 为对象 | 空参时传 `arguments: {}` |
 | `prompts/list` 返回 `-32603 field.isOptional is not a function` | v2.6.8-test.2 及之前版本的 prompt 注册方式 bug | 升级到 ≥ v2.6.8-test.3，详见[统一改造归档 §6](./mcp-unified-backend-status.md) |
 

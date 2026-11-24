@@ -291,7 +291,6 @@ CLI                                 服务端
 | `charts find <q>` | `find_charts` | `{ searchQueries: [{ label }], … }` |
 | `charts get <uuid> [--full]` | `get_saved_chart` | `{ savedChartUuid（必填）, full? }` |
 | `charts run <uuid> [--limit n] [--value-format …] [--dashboard <uuid>]` | `run_saved_chart` | `{ savedChartUuid, limit?, valueFormat?, dashboardUuid? }`（无 `full`） |
-| `verified [--page n] [--page-size n] [--full]` | `list_verified_content` | `{ page?, pageSize?, full? }`；站点未启用该能力时返回 `supported:false`，CLI 原样输出并退 `0` |
 | `query -e <explore> --dimensions … --metrics … [--filter f=v]… [--filters-json <json>] [--limit n] [--value-format …] [--dashboard <uuid>]` | `run_semantic_metric_query` | `{ exploreName, metrics（必填，缺省补 []）, dimensions?, filters?: { dimensions: [{ fieldId, operator, values }], metrics: [] }, limit?, valueFormat?, dashboardUuid? }` |
 | `query --file <path\|->` | `run_semantic_metric_query` | 本地把 Explorer `metricQuery` 翻译为上述扁平入参（见 §7.3） |
 | `query flat -e <explore> --dimensions … --metrics … [--sort f:asc\|desc]… [--filters-json <json>] [--limit n]` | `run_metric_query` | `{ vizConfig: { exploreName, metrics, dimensions, sorts: [{ fieldId, descending }], limit }, filters?, dashboardUuid? }`；**实验**，见 §12 |
@@ -299,6 +298,8 @@ CLI                                 服务端
 | `doctor [--remote] [--json]` | 本地自检；`--remote` 时 `tools/list` + 能力探测 | 不发业务查询 |
 | `tools list [--verbose]` / `tools describe <name>` | `tools/list` | 本地展示 |
 | `call <tool> [--args '<json>' \| --file <path>]` | 任意 `tools/call` | 原样透传；`--args` 与 `--file` 互斥 |
+
+> **已下线（CLI 0.2.4）**：`verified` 命令与其映射的 `list_verified_content` 一并移除——站点没有 content-verification 功能，工具只能返回「不支持」，命令无法产出数据。需要内容清单请用 `charts find` / `dashboards find`，或 `call list_charts` 直通。
 | `login` / `logout`（顶层别名） | 本地 | 等价于 `auth login` / `auth logout`；规范形式仍是 `auth *` |
 | `auth login\|status\|logout`、`site list\|show\|use` | 本地（不调工具） | 见 §6 |
 
@@ -364,7 +365,7 @@ CLI                                 服务端
 
 | 码 | 含义 | 触发 |
 |---|---|---|
-| `0` | 成功（含 0 行结果；`verified` 站点未启用也算成功） | — |
+| `0` | 成功（含 0 行结果） | — |
 | `2` | 用法 / 参数 / 本地配置错误 | 非法 flag、坏 YAML、`--csv` 用在不支持的命令 |
 | `3` | 未登录或 401 | 无凭证，或刷新一次后仍 401 |
 | `4` | 无权限或被看板门控 | 403、权限错误文案、`dashboard_*` 五类 |
