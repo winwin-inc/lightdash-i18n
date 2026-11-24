@@ -1386,13 +1386,11 @@ export class McpService extends BaseService {
                 info.args,
             );
 
-            // Umami mcp_client：请求头优先，回落 MCP initialize 的 clientInfo.name
+            // Umami mcp_client：**只认请求头**。
+            // 不回落 this.mcpServer.getClientVersion()——McpServer 是服务单例，
+            // 无状态 transport 下该值可能是别的会话 initialize 留下的，会把 A 的调用记成 B 的客户端。
             const mcpClient =
-                pickRequestHeader(
-                    context.requestHeaders,
-                    'x-lightdash-client',
-                ) ??
-                this.mcpServer.server.getClientVersion()?.name ??
+                pickRequestHeader(context.requestHeaders, 'x-lightdash-client') ??
                 'unknown';
 
             this.analytics.track<McpToolCallEvent>({

@@ -622,6 +622,15 @@ describe('CDN config prerelease', () => {
 });
 
 describe('umami config', () => {
+    afterEach(() => {
+        // 不清理会污染同 worker 后续文件：env 留着等于「埋点已启用」
+        delete process.env.UMAMI_COLLECT_ENABLED;
+        delete process.env.UMAMI_COLLECT_ENDPOINT;
+        delete process.env.UMAMI_COLLECT_PROJECT;
+        delete process.env.UMAMI_COLLECT_TOKEN;
+        delete process.env.UMAMI_COLLECT_ENVIRONMENT;
+    });
+
     test('enabled when endpoint+project+token are set and UMAMI_COLLECT_ENABLED=true', () => {
         process.env.UMAMI_COLLECT_ENABLED = 'true';
         process.env.UMAMI_COLLECT_ENDPOINT =

@@ -7,7 +7,8 @@ export const truncateValue = (value: string, max = 100): string =>
 
 /**
  * 清洗并裁剪属性：空串 / undefined / null 的属性直接丢弃；
- * 字符串属性按码点截断 100。返回值可直接进 JSON。
+ * 布尔统一转 'true'/'false'（Umami 的 event_data 只列 string/number，
+ * 直接发 boolean 会让该键筛不出来）；字符串按码点截断 100。
  */
 export const pickProperties = (
     properties: Record<string, UmamiPropertyValue | null | undefined>,
@@ -17,10 +18,13 @@ export const pickProperties = (
             if (value === undefined || value === null || value === '') {
                 return result;
             }
-            return {
-                ...result,
-                [key]: typeof value === 'string' ? truncateValue(value) : value,
-            };
+            let normalized: UmamiPropertyValue = value;
+            if (typeof value === 'boolean') {
+                normalized = value ? 'true' : 'false';
+            } else if (typeof value === 'string') {
+                normalized = truncateValue(value);
+            }
+            return { ...result, [key]: normalized };
         },
         {},
     );

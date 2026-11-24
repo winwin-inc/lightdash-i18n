@@ -78,7 +78,7 @@ export class UmamiAnalytics {
         }
     }
 
-    /** 立即清空队列并上报；失败只 debug，不抛错 */
+    /** 立即清空队列并上报；失败只 debug，不抛错，整批放回队首重试 */
     async flush(): Promise<void> {
         if (!this.config.enabled || this.isFlushing) {
             return;
@@ -113,6 +113,10 @@ export class UmamiAnalytics {
                 Logger.debug(
                     `Umami flush rejected (status=${response.status}): ${responseBody}`,
                 );
+                // 配置类错误（project/token）重试无意义；网络/5xx 放回队首
+                if (response.ok || response.status >= 500) {
+                    this.requeue(batch);
+                }
             }
         } catch (e) {
             Logger.debug(
@@ -120,8 +124,17 @@ export class UmamiAnalytics {
                     e instanceof Error ? e.message : String(e)
                 }`,
             );
+            this.requeue(batch);
         } finally {
             this.isFlushing = false;
+        }
+    }
+
+    /** 失败批次放回队首，受队列上限约束（没有任何冲销） */
+    private requeue(batch: UmamiEvent[]): void {
+        this.queue = [...batch, ...this.queue];
+        while (this.queue.length > MAX_QUEUE_SIZE) {
+            this.queue.shift();
         }
     }
 
@@ -130,6 +143,13 @@ export class UmamiAnalytics {
         if (this.flushTimer !== undefined) {
             clearInterval(this.flushTimer);
             this.flushTimer = undefined;
+        }
+        // 等正在飞的 flush 结束，否则这次 flush 会直接早退，把残余队列留在内存里
+        while (this.isFlushing) {
+            // eslint-disable-next-line no-await-in-loop
+            await new Promise<void>((resolve) => {
+                setTimeout(resolve, 10);
+            });
         }
         await this.flush();
     }

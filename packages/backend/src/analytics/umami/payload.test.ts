@@ -36,14 +36,21 @@ describe('pickProperties', () => {
         ).toEqual({ a: 'value', d: 'ok' });
     });
 
-    it('truncates string values and keeps numbers/booleans', () => {
+    it('truncates strings, keeps numbers, and stringifies booleans', () => {
+        // Umami 的 event_data 只列 string/number；boolean 直接发会筛不出来
         expect(
             pickProperties({
                 num_rows: 120,
                 success: false,
+                ok: true,
                 long: 'x'.repeat(150),
             }),
-        ).toEqual({ num_rows: 120, success: false, long: 'x'.repeat(100) });
+        ).toEqual({
+            num_rows: 120,
+            success: 'false',
+            ok: 'true',
+            long: 'x'.repeat(100),
+        });
     });
 });
 

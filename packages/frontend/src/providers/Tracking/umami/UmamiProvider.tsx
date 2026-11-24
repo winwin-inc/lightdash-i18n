@@ -105,10 +105,22 @@ const UmamiProviderMain: FC<PropsWithChildren> = ({ children }) => {
     }, [health.data]);
 
     // 首屏必须等 user resolve（isAuthenticated 时不早发匿名事件）；
-    // 未登录页（health.isAuthenticated=false）无需等待
+    // 未登录页（health.isAuthenticated=false）无需等待。
+    // 兜底：isAuthenticated=true 但 account 不是注册用户时，user query 会被禁用
+    // 而永远停留在 loading（getUser 的 enabled: isRegisteredUser()），
+    // 这种形态下整段会话发不出任何 PV——用一次超时把它视为 settled。
     const isAuthenticated = health.data?.isAuthenticated === true;
-    const userHasSettled = user.isSuccess || user.isError;
-    const canSend = health.data !== undefined && (!isAuthenticated || userHasSettled);
+    const [userSettledByTimeout, setUserSettledByTimeout] = useState(false);
+    useEffect(() => {
+        if (!isAuthenticated || user.isSuccess || user.isError) {
+            return undefined;
+        }
+        const timer = setTimeout(() => setUserSettledByTimeout(true), 1500);
+        return () => clearTimeout(timer);
+    }, [isAuthenticated, user.isSuccess, user.isError]);
+    const userHasSettled = user.isSuccess || user.isError || userSettledByTimeout;
+    const canSend =
+        health.data !== undefined && (!isAuthenticated || userHasSettled);
 
     // 一次导航一条请求：page_view + $AppViewScreen 双发（data_list 2 条）
     useEffect(() => {
@@ -156,7 +168,8 @@ const UmamiProviderMain: FC<PropsWithChildren> = ({ children }) => {
             is_authenticated: userData !== undefined,
             $url: pageEvent.route,
             $title: getPageTitle(pageEvent.page),
-            $url_path: location.pathname,
+            // 模板路径：绝不用 location.pathname，避免把 reset/invite 的 nanoid 凭据写进埋点
+            $url_path: pageEvent.route,
             $event_session_id: sessionId,
         });
 

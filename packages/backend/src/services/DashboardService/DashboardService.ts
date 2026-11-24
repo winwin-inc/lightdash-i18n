@@ -1532,9 +1532,7 @@ export class DashboardService
     }): Promise<SavedChartDAO> {
         const chartInDashboard = await this.savedChartModel.get(savedChartUuid);
         if (chartInDashboard.projectUuid !== projectUuid) {
-            throw new ForbiddenError(
-                'Chart does not belong to this project',
-            );
+            throw new ForbiddenError('Chart does not belong to this project');
         }
 
         await this.assertCanViewSpaceContent(
@@ -1741,7 +1739,9 @@ export class DashboardService
             dashboardUuid,
         );
         if (dashboardDao.projectUuid !== projectUuid) {
-            throw new ForbiddenError('Dashboard does not belong to this project');
+            throw new ForbiddenError(
+                'Dashboard does not belong to this project',
+            );
         }
         const space = await this.spaceModel.getSpaceSummary(
             dashboardDao.spaceUuid,
@@ -1826,7 +1826,9 @@ export class DashboardService
         const remapTileUuid = (tileUuid: string): string =>
             tileUuidMap.get(tileUuid) ?? tileUuid;
 
-        const remapFilterRule = <T extends DashboardFilterRule>(rule: T): T => ({
+        const remapFilterRule = <T extends DashboardFilterRule>(
+            rule: T,
+        ): T => ({
             ...rule,
             tileTargets: rule.tileTargets
                 ? Object.entries(rule.tileTargets).reduce<
@@ -1852,9 +1854,8 @@ export class DashboardService
             return {
                 dimensions: filters.dimensions.map(remapFilterRule),
                 metrics: filters.metrics.map(remapFilterRule),
-                tableCalculations: filters.tableCalculations.map(
-                    remapFilterRule,
-                ),
+                tableCalculations:
+                    filters.tableCalculations.map(remapFilterRule),
             };
         };
 
@@ -1870,9 +1871,8 @@ export class DashboardService
                 showTabAddFilterButton: remapTabConfigProperty(
                     config.showTabAddFilterButton,
                 ),
-                syncChartTileUuids: config.syncChartTileUuids?.map(
-                    remapTileUuid,
-                ),
+                syncChartTileUuids:
+                    config.syncChartTileUuids?.map(remapTileUuid),
             };
         };
 
@@ -2183,25 +2183,40 @@ export class DashboardService
                     return String(value);
                 }
             };
+            // 只统计 payload 里真正带了的类别：客户端常只提交 tiles，
+            // 直接比 DAO 会把「未提交」误判成「已改」并产生噪音
             const changedCategories = (
                 [
-                    ['tiles', existingDashboardDao.tiles, dashboard.tiles],
                     [
+                        'tiles',
+                        'tiles',
+                        existingDashboardDao.tiles,
+                        dashboard.tiles,
+                    ],
+                    [
+                        'filters',
                         'filters',
                         existingDashboardDao.filters,
                         dashboard.filters,
                     ],
-                    ['tabs', existingDashboardDao.tabs, dashboard.tabs],
+                    ['tabs', 'tabs', existingDashboardDao.tabs, dashboard.tabs],
                     [
+                        'parameters',
                         'parameters',
                         existingDashboardDao.parameters,
                         dashboard.parameters,
                     ],
-                    ['config', existingDashboardDao.config, dashboard.config],
-                ] as Array<[string, unknown, unknown]>
+                    [
+                        'config',
+                        'config',
+                        existingDashboardDao.config,
+                        dashboard.config,
+                    ],
+                ] as Array<[string, string, unknown, unknown]>
             )
                 .filter(
-                    ([, previous, next]) =>
+                    ([, key, previous, next]) =>
+                        key in dashboard &&
                         stableJson(previous) !== stableJson(next),
                 )
                 .map(([category]) => category);
@@ -2217,7 +2232,8 @@ export class DashboardService
                           dashboard.filters.tableCalculations.length
                         : 0,
                     tilesCount: dashboard.tiles.length,
-                    tabsCount: dashboard.tabs.length,
+                    // tabs 可能不在 payload 里（isDashboardVersionedFields 只保证 tiles）
+                    tabsCount: (dashboard.tabs ?? []).length,
                 },
             });
         } else if (isDashboardUnversionedFields(dashboard) && !spaceMoved) {

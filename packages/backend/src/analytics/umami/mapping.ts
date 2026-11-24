@@ -70,6 +70,9 @@ const UMAMI_PROPERTY_MAP: Record<string, string> = {
     chartSlug: 'chart_slug',
     chartName: 'chart_name',
     chartKind: 'chart_kind',
+    // client：允许调用点显式指定（如 query.error 在 worker 里执行但来源是 web/cli），
+    // 缺省才回落 ALS 推断值
+    client: 'client',
 };
 
 const isUmamiPropertyValue = (value: unknown): value is UmamiPropertyValue =>
@@ -104,7 +107,7 @@ export const mapLightdashEvent = (
     }
 
     // 公共属性
-    umamiProperties.client = ctx.client || 'unknown';
+    umamiProperties.client = umamiProperties.client ?? (ctx.client || 'unknown');
     umamiProperties.app_version = VERSION;
     umamiProperties.env = ctx.environment;
 

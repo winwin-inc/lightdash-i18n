@@ -414,8 +414,9 @@ const isEnvValueSet = (name: string): string | undefined => {
 
 /**
  * Umami 埋点配置：endpoint + project + token 三者齐全且
- * UMAMI_COLLECT_ENABLED === 'true' 才启用；否则 enabled=false、零外发。
- * 环境变量未注入 / 空串均视为未配置。environment 缺省取 mode。
+ * UMAMI_COLLECT_ENABLED 为真值（true/1/yes，大小写不敏感）才启用；
+ * 否则 enabled=false、零外发。环境变量未注入 / 空串均视为未配置。
+ * environment 缺省取 mode。
  */
 export const parseUmamiConfig = (mode: LightdashMode): UmamiConfig => {
     const endpoint = isEnvValueSet('UMAMI_COLLECT_ENDPOINT');
@@ -425,7 +426,9 @@ export const parseUmamiConfig = (mode: LightdashMode): UmamiConfig => {
         endpoint !== undefined &&
         project !== undefined &&
         token !== undefined &&
-        isEnvValueSet('UMAMI_COLLECT_ENABLED') === 'true';
+        ['true', '1', 'yes'].includes(
+            (isEnvValueSet('UMAMI_COLLECT_ENABLED') ?? '').toLowerCase(),
+        );
 
     return {
         enabled,

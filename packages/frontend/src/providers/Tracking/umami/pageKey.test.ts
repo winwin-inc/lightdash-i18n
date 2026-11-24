@@ -366,4 +366,27 @@ describe('toPageEvent', () => {
             );
         });
     });
+
+    // 凭据类路由：reset-password 的 code、invite 的 inviteCode 是 nanoid(30)，
+    // 不是 uuid；写进埋点等于把可改密码的凭证泄漏出去（review P0-1）
+    const CREDENTIALS: Array<[string, string, string]> = [
+        ['/reset-password/' + NANOID + 'X'.repeat(10), 'password-reset', '/reset-password/:code'],
+        ['/invite/' + NANOID, 'join-organization', '/invite/:inviteCode'],
+        ['/recover-password', 'recover-password', '/recover-password'],
+        ['/share/' + NANOID, 'share', '/share/:shareNanoid'],
+    ];
+
+    it.each(CREDENTIALS)('凭据段模板化：%s', (pathname, page, route) => {
+        const event = toPageEvent(pathname);
+        expect(event.page).toBe(page);
+        expect(event.route).toBe(route);
+        expect(event.route).not.toContain(NANOID);
+    });
+
+    it('未知长 token 段也被模板化，避免新增路由再漏', () => {
+        const token = 'A'.repeat(30);
+        const { route } = toPageEvent(`/some-new-page/${token}`);
+        expect(route).toBe('/some-new-page/:id');
+        expect(route).not.toContain(token);
+    });
 });

@@ -34,11 +34,18 @@ const UUID_PATTERN =
 const splitSegments = (pathname: string): string[] =>
     pathname.split('/').filter((segment) => segment.length > 0);
 
-/** 兜底模板：uuid 形态的段替换成 :id，保证 route 永不带 uuid */
+/**
+ * 疑似凭据段：非静态页名且长度 ≥ 20（邀请码/重置码是 nanoid(30)，不是 uuid）。
+ * 这类段一律模板化，避免把可改密码的凭据写进埋点（见 review P0-1）。
+ */
+const isOpaqueToken = (segment: string): boolean =>
+    !UUID_PATTERN.test(segment) && segment.length >= 20;
+
+/** 兜底模板：uuid 或疑似凭据段替换成 :id，保证 route 永不带 uuid/凭据 */
 const templatePath = (segments: string[]): string => {
     if (segments.length === 0) return '/';
     const templated = segments.map((segment) =>
-        UUID_PATTERN.test(segment) ? ':id' : segment,
+        UUID_PATTERN.test(segment) || isOpaqueToken(segment) ? ':id' : segment,
     );
     return `/${templated.join('/')}`;
 };
@@ -64,6 +71,7 @@ const NAMED_PAGES = [
     'password-recovery',
     'password-reset',
     'join-organization',
+    'recover-password',
 ] as const;
 
 /**
@@ -198,6 +206,14 @@ export const toPageEvent = (pathname: string): UmamiPageEvent => {
     // 同名页
     if (head !== undefined && (NAMED_PAGES as readonly string[]).includes(head)) {
         return makeEvent(head, `/${head}`);
+    }
+
+    // 凭据类路由（模板化，绝不落真实 code）：重置密码 / 邀请注册
+    if (head === 'reset-password') {
+        return makeEvent('password-reset', '/reset-password/:code');
+    }
+    if (head === 'invite') {
+        return makeEvent('join-organization', '/invite/:inviteCode');
     }
 
     // /share/:nanoid
