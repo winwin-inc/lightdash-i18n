@@ -4,27 +4,41 @@
 > 本文只讲 `k8s-config` 仓库要加什么、怎么加、怎么验。**需要 SopsSecret（age key）权限**，
 > 前端的同学没有密钥权限，所以这一节交接给后端/运维执行。
 
-## 1. 为什么不能直接写明文
+## 0. 现状：预发已用明文配好
 
-`UMAMI_COLLECT_TOKEN` 是写数据到 Umami 站点的凭证（能往该站点刷假数据），而 `k8s-config` 是
-git 仓库：
+`k8s-config` **pre 分支**的 `lightdash/lightdash-config.yaml` 已加（commit `32dad64d`）：
 
-- 明文进 ConfigMap = **永久留在 git 历史**，以后轮换也删不掉；
-- 该仓已经有 secret 机制（SopsSecret / SealedSecret），明文放 ConfigMap 属于倒退。
+```yaml
+  UMAMI_COLLECT_ENABLED: 'true'
+  UMAMI_COLLECT_ENDPOINT: https://collect.dev.banmahui.cn/api/gp
+  UMAMI_COLLECT_PROJECT: msy-x-platform
+  UMAMI_COLLECT_TOKEN: <dev 实例 token>
+  UMAMI_COLLECT_ENVIRONMENT: pre
+```
 
-所以分工是：
+- 预发用**测试采集实例** `collect.dev.banmahui.cn`；生产是 `collect.banmahui.cn`。
+- 已用一条 probe 事件验证：`POST .../api/gp?project=msy-x-platform&token=...` 返回
+  HTTP 200 + `success`（project 与 token 成对、UA 未被拦）。
+- 预发直接写明文是**有意的取舍**（内部预发、便于排查）；代价是 token 永久留在 git 历史，
+  泄露就轮换。
+
+## 1. 生产建议（二选一）
 
 | 项 | 谁做 | 放哪 |
 |---|---|---|
 | `UMAMI_COLLECT_ENABLED` / `ENDPOINT` / `PROJECT` | 任何人（非密） | ConfigMap |
-| `UMAMI_COLLECT_TOKEN` | **有 age key 权限的同学** | SopsSecret |
+| `UMAMI_COLLECT_TOKEN` | 生产：**有 age key 权限的同学** | SopsSecret（推荐） |
+| | 或按团队惯例 | ConfigMap 明文（与预发一致，接受 git 历史留存风险） |
+
+为什么推荐 Secret：`UMAMI_COLLECT_TOKEN` 是能往该站点刷假数据的凭证，而 `k8s-config` 是 git 仓库，
+明文会**永久留在历史里**，轮换也删不掉；该仓本来就有 SopsSecret 机制。
 
 ## 2. 加什么（两个部署，各 3 + 1 个键）
 
 现有两个 Deployment 都是 `envFrom: configMapRef + secretRef`，**所以 `lightdash.yml` 一行不用改**
 （image tag / resources / 探针都不动，避免误发未验证版本）。
 
-### 2.1 对外站 `x.brandct.com`
+### 2.1 对外站 `x.brandct.com`（预发已配好，生产照抄改端点）
 
 `lightdash/lightdash-config.yaml`（ConfigMap `lightdash-config`）→ `data:` 追加：
 
