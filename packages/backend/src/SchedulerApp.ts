@@ -5,6 +5,7 @@ import http from 'http';
 import knex, { Knex } from 'knex';
 import refresh from 'passport-oauth2-refresh';
 import { LightdashAnalytics } from './analytics/LightdashAnalytics';
+import { UmamiAnalytics } from './analytics/umami/UmamiAnalytics';
 import {
     ClientProviderMap,
     ClientRepository,
@@ -98,6 +99,8 @@ export default class SchedulerApp {
         this.lightdashConfig = args.lightdashConfig;
         this.port = args.port;
         this.environment = args.environment || 'production';
+        // Umami 埋点（disabled 时零外发），先于 analytics 创建以便注入
+        const umamiAnalytics = new UmamiAnalytics(this.lightdashConfig.umami);
         this.analytics = new LightdashAnalytics({
             lightdashConfig: this.lightdashConfig,
             writeKey: this.lightdashConfig.rudder.writeKey || 'notrack',
@@ -109,6 +112,7 @@ export default class SchedulerApp {
                     this.lightdashConfig.rudder.writeKey &&
                     this.lightdashConfig.rudder.dataPlaneUrl,
             },
+            umami: umamiAnalytics,
         });
 
         this.database = knex(
@@ -126,6 +130,21 @@ export default class SchedulerApp {
             lightdashConfig: this.lightdashConfig,
             database: this.database,
             utils,
+        });
+        // models 就绪后注入 Umami 用户画像解析器（LRU miss 时懒查）
+        umamiAnalytics.setUserResolver(async (userUuid) => {
+            const user = await this.models
+                .getUserModel()
+                .getUserDetailsByUuid(userUuid);
+            return {
+                email: user.email ?? null,
+                name:
+                    [user.firstName, user.lastName]
+                        .filter((part) => part.length > 0)
+                        .join(' ') || null,
+                orgId: user.organizationUuid ?? null,
+                orgName: user.organizationName ?? null,
+            };
         });
 
         this.clients = new ClientRepository({

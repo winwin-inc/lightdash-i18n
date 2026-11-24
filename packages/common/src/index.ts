@@ -398,13 +398,13 @@ export * from './utils/organization';
 export * from './utils/projectMemberRole';
 export * from './utils/promises';
 export * from './utils/resolveQueryTimezone';
-export * from './utils/sorts';
 export * from './utils/resultColumns';
 export * from './utils/sanitizeHtml';
 export * from './utils/scheduler';
 export * from './utils/searchParams';
 export * from './utils/sleep';
 export * from './utils/slugs';
+export * from './utils/sorts';
 export * from './utils/subtotals';
 export * from './utils/time';
 export * from './utils/timeFrames';
@@ -1213,6 +1213,13 @@ export type HealthState = {
     rudder: {
         writeKey: string | undefined;
         dataPlaneUrl: string | undefined;
+    };
+    /** 自建 Umami 埋点配置下发（前端据此决定是否发事件）；token 为只写采集 token */
+    umami: {
+        enabled: boolean;
+        endpoint: string | null;
+        project: string | null;
+        token: string | null;
     };
     sentry: Pick<
         SentryConfig,

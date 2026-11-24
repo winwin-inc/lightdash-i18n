@@ -80,6 +80,12 @@ export const BaseResponse: HealthState = {
         dataPlaneUrl: '',
         writeKey: '',
     },
+    umami: {
+        enabled: false,
+        endpoint: null,
+        project: null,
+        token: null,
+    },
     sentry: {
         environment: '',
         frontend: {

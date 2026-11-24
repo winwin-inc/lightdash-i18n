@@ -29,6 +29,7 @@ import {
 } from '@lightdash/common';
 import * as Sentry from '@sentry/core';
 import { type ClientAuthMethod } from 'openid-client';
+import { UmamiConfig } from '../analytics/umami/types';
 import { VERSION } from '../version';
 import {
     aiCopilotConfigSchema,
@@ -402,6 +403,37 @@ const parseCdnConfig = (): LightdashConfig['cdn'] => {
     });
 
     return cdnConfig;
+};
+
+const isEnvValueSet = (name: string): string | undefined => {
+    const raw = process.env[name];
+    if (raw === undefined) return undefined;
+    const trimmed = raw.trim();
+    return trimmed === '' ? undefined : trimmed;
+};
+
+/**
+ * Umami 埋点配置：endpoint + project + token 三者齐全且
+ * UMAMI_COLLECT_ENABLED === 'true' 才启用；否则 enabled=false、零外发。
+ * 环境变量未注入 / 空串均视为未配置。environment 缺省取 mode。
+ */
+export const parseUmamiConfig = (mode: LightdashMode): UmamiConfig => {
+    const endpoint = isEnvValueSet('UMAMI_COLLECT_ENDPOINT');
+    const project = isEnvValueSet('UMAMI_COLLECT_PROJECT');
+    const token = isEnvValueSet('UMAMI_COLLECT_TOKEN');
+    const enabled =
+        endpoint !== undefined &&
+        project !== undefined &&
+        token !== undefined &&
+        isEnvValueSet('UMAMI_COLLECT_ENABLED') === 'true';
+
+    return {
+        enabled,
+        endpoint: endpoint ?? null,
+        project: project ?? null,
+        token: token ?? null,
+        environment: isEnvValueSet('UMAMI_COLLECT_ENVIRONMENT') ?? mode,
+    };
 };
 
 const parseApiExpiration = (envVariable: string): Date | null => {
@@ -781,6 +813,7 @@ export type LightdashConfig = {
     smtp: SmtpConfig | undefined;
     rudder: RudderConfig;
     posthog: PosthogConfig | undefined;
+    umami: UmamiConfig;
     mode: LightdashMode;
     license: {
         licenseKey: string | null;
@@ -1884,6 +1917,7 @@ export const parseConfig = (): LightdashConfig => {
             writeKey: undefined,
             dataPlaneUrl: undefined,
         },
+        umami: parseUmamiConfig(mode),
         sentry: {
             backend: {
                 dsn: process.env.SENTRY_BE_DSN || process.env.SENTRY_DSN || '',

@@ -8,6 +8,7 @@ import {
     getErrorMessage,
     LightdashError,
     LightdashMode,
+    LightdashRequestMethodHeader,
     LightdashVersionHeader,
     MissingConfigError,
     OauthAuthenticationError,
@@ -33,6 +34,12 @@ import cors from 'cors';
 import { produce } from 'immer';
 import * as fs from 'fs';
 import { LightdashAnalytics } from './analytics/LightdashAnalytics';
+import {
+    getUmamiRequestContext,
+    resolveUmamiClient,
+    runWithUmamiContext,
+} from './analytics/umami/requestContext';
+import { UmamiAnalytics } from './analytics/umami/UmamiAnalytics';
 import {
     ClientProviderMap,
     ClientRepository,
@@ -190,6 +197,8 @@ export default class App {
             this.lightdashConfig.rudder.writeKey &&
                 this.lightdashConfig.rudder.dataPlaneUrl,
         );
+        // Umami 埋点（disabled 时零外发），先于 analytics 创建以便注入
+        const umamiAnalytics = new UmamiAnalytics(this.lightdashConfig.umami);
         this.analytics = new LightdashAnalytics({
             lightdashConfig: this.lightdashConfig,
             writeKey: this.lightdashConfig.rudder.writeKey || 'notrack',
@@ -197,6 +206,7 @@ export default class App {
             options: {
                 enable: rudderEnabled,
             },
+            umami: umamiAnalytics,
         });
         this.database = knex(
             this.environment === 'production'
@@ -212,6 +222,21 @@ export default class App {
             lightdashConfig: this.lightdashConfig,
             database: this.database,
             utils: this.utils,
+        });
+        // models 就绪后注入 Umami 用户画像解析器（LRU miss 时懒查）
+        umamiAnalytics.setUserResolver(async (userUuid) => {
+            const user = await this.models
+                .getUserModel()
+                .getUserDetailsByUuid(userUuid);
+            return {
+                email: user.email ?? null,
+                name:
+                    [user.firstName, user.lastName]
+                        .filter((part) => part.length > 0)
+                        .join(' ') || null,
+                orgId: user.organizationUuid ?? null,
+                orgName: user.organizationName ?? null,
+            };
         });
         this.clients = new ClientRepository({
             clientProviders: args.clientProviders,
@@ -694,10 +719,40 @@ export default class App {
             next();
         });
 
+        // Umami ALS：记录 client/path，包住后续中间件与路由（紧邻 services 注入）
+        expressApp.use((req, res, next) => {
+            runWithUmamiContext(
+                {
+                    client: resolveUmamiClient(
+                        req.header(LightdashRequestMethodHeader),
+                        req.path,
+                    ),
+                    path: req.path,
+                },
+                next,
+            );
+        });
+
         // Add JWT parsing here so we can get services off the request
         // We'll also be able to add the user to Sentry for embedded users.
         expressApp.use(jwtAuthMiddleware);
         expressApp.use(sessionAccountMiddleware);
+
+        // Umami：auth 之后回填用户身份（同一 store 对象引用，直接改字段）。
+        // 目的：query.error 等上游没有 userId 的事件，distinct_id 能落到真实用户而非 'server'
+        expressApp.use((req, res, next) => {
+            const umamiStore = getUmamiRequestContext();
+            if (umamiStore !== undefined && req.user !== undefined) {
+                umamiStore.userUuid = req.user.userUuid;
+                umamiStore.userEmail = req.user.email;
+                const displayName = [req.user.firstName, req.user.lastName]
+                    .filter((part) => part.length > 0)
+                    .join(' ');
+                umamiStore.userName =
+                    displayName.length > 0 ? displayName : undefined;
+            }
+            next();
+        });
 
         expressApp.use((req, res, next) => {
             if (req.user) {

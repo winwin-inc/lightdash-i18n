@@ -75,6 +75,12 @@ export class HealthService extends BaseService {
             requiresOrgRegistration,
             latest: { version: getDockerHubVersion() },
             rudder: this.lightdashConfig.rudder,
+            umami: {
+                enabled: this.lightdashConfig.umami.enabled,
+                endpoint: this.lightdashConfig.umami.endpoint,
+                project: this.lightdashConfig.umami.project,
+                token: this.lightdashConfig.umami.token,
+            },
             sentry: {
                 frontend: this.lightdashConfig.sentry.frontend,
                 environment: this.lightdashConfig.sentry.environment,
