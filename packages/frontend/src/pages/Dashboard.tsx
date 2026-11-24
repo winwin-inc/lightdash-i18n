@@ -51,7 +51,6 @@ import { DashboardExportModal } from '../components/common/modal/DashboardExport
 // import useApp from '../providers/App/useApp';
 // import { useDashboardCommentsCheck } from '../features/comments';
 import { Parameters } from '../features/parameters';
-import { drainDashboardOperationEvents } from '../hooks/dashboard/dashboardOperationEventQueue';
 import {
     appendNewTilesToBottom,
     useUpdateDashboard,
@@ -978,10 +977,8 @@ const Dashboard: FC = () => {
         // tabs config
         const tabsConfig = getTabsConfig();
 
-        const clientEvents = drainDashboardOperationEvents();
         mutate({
             tiles: dashboardTiles || [],
-            ...(clientEvents.length > 0 ? { clientEvents } : {}),
             filters: {
                 dimensions: requiredFiltersWithoutValues,
                 metrics: [

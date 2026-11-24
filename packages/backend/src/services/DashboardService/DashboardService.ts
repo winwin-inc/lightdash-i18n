@@ -95,7 +95,6 @@ import { BaseService } from '../BaseService';
 import { ProjectOperationLogService } from '../ProjectOperationLogService/ProjectOperationLogService';
 import { SavedChartService } from '../SavedChartsService/SavedChartService';
 import { hasDirectAccessToSpace } from '../SpaceService/SpaceService';
-import { diffDashboardVersionedContent } from './dashboardOperationLogDiff';
 
 /** Fields needed to resolve client-use dashboard / explore allow-lists. */
 export type DashboardAllowListUser = Pick<SessionUser, 'userUuid' | 'email'>;
@@ -1334,6 +1333,11 @@ export class DashboardService
                 organizationId: dashboard.organizationUuid,
                 projectId: dashboard.projectUuid,
                 parametersCount: Object.keys(dashboard.parameters || {}).length,
+                // Umami：按看板名/slug 筛选与对号（见 docs/ops/umami-analytics.md §4.5）
+                dashboardSlug: dashboard.slug,
+                dashboardName: dashboard.name,
+                spaceUuid: dashboard.spaceUuid,
+                spaceName: dashboard.spaceName,
             },
         });
 
@@ -2169,117 +2173,53 @@ export class DashboardService
             });
         }
 
-        const clientEvents =
-            'clientEvents' in dashboard
-                ? (dashboard as UpdateDashboard).clientEvents
-                : undefined;
-        const hasClientEvents =
-            Array.isArray(clientEvents) && clientEvents.length > 0;
-
-        type MergedOperationChange = {
-            action: string;
-            resourceType?: string;
-            resourceUuid?: string | null;
-            resourceName?: string | null;
-            summary?: Record<string, unknown> | null;
-        };
-
-        const mergedChanges: MergedOperationChange[] = [];
-
-        if (hasClientEvents) {
-            for (const event of clientEvents!) {
-                mergedChanges.push({
-                    action: String(event.action),
-                    resourceType: event.resourceType,
-                    resourceUuid: event.resourceUuid,
-                    resourceName: event.resourceName,
-                    summary: {
-                        ...(event.summary ?? {}),
-                        source: 'client',
-                        schemaVersion: event.schemaVersion,
-                        scope: event.scope,
-                        tabUuid: event.tabUuid,
-                        tabName: event.tabName,
-                        changeKind: event.changeKind,
-                        occurredAt: event.occurredAt,
-                    },
-                });
-            }
-        }
-
         if (isDashboardVersionedFields(dashboard)) {
-            let fineEvents = diffDashboardVersionedContent(
-                existingDashboardDao,
-                {
-                    filters: dashboard.filters ?? existingDashboardDao.filters,
-                    tiles: dashboard.tiles ?? existingDashboardDao.tiles,
-                    tabs: dashboard.tabs ?? existingDashboardDao.tabs ?? [],
-                    parameters:
-                        dashboard.parameters ?? existingDashboardDao.parameters,
-                    config: dashboard.config ?? existingDashboardDao.config,
-                },
-            );
-
-            // FE semantic events cover filters; also drop incidental
-            // config/parameters "dashboard.updated" noise on the same save.
-            if (hasClientEvents) {
-                fineEvents = fineEvents.filter(
-                    (event) =>
-                        !String(event.action).startsWith(
-                            'dashboard.filters.',
-                        ) &&
-                        event.action !==
-                            PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_UPDATED,
-                );
-            }
-
-            for (const event of fineEvents) {
-                mergedChanges.push({
-                    action: String(event.action),
-                    summary: {
-                        ...(event.summary ?? {}),
-                        source: 'diff',
-                    },
-                });
-            }
-
-            const dashboardContext = {
-                dashboardUuid: baseLog.resourceUuid,
-                dashboardName: baseLog.resourceName,
+            // 瘦身后的追责日志：一次保存只记一条 dashboard.updated，
+            // summary 只含变更类别与数量，不再逐 filter/tab/tile 生成明细行
+            const stableJson = (value: unknown): string => {
+                try {
+                    return JSON.stringify(value ?? null);
+                } catch {
+                    return String(value);
+                }
             };
+            const changedCategories = (
+                [
+                    ['tiles', existingDashboardDao.tiles, dashboard.tiles],
+                    [
+                        'filters',
+                        existingDashboardDao.filters,
+                        dashboard.filters,
+                    ],
+                    ['tabs', existingDashboardDao.tabs, dashboard.tabs],
+                    [
+                        'parameters',
+                        existingDashboardDao.parameters,
+                        dashboard.parameters,
+                    ],
+                    ['config', existingDashboardDao.config, dashboard.config],
+                ] as Array<[string, unknown, unknown]>
+            )
+                .filter(
+                    ([, previous, next]) =>
+                        stableJson(previous) !== stableJson(next),
+                )
+                .map(([category]) => category);
 
-            if (mergedChanges.length === 1) {
-                const only = mergedChanges[0];
-                await this.projectOperationLogService.record({
-                    ...baseLog,
-                    action: only.action,
-                    resourceType: only.resourceType ?? baseLog.resourceType,
-                    resourceUuid: only.resourceUuid ?? baseLog.resourceUuid,
-                    resourceName: only.resourceName ?? baseLog.resourceName,
-                    summary: {
-                        ...(only.summary ?? {}),
-                        ...dashboardContext,
-                    },
-                });
-            } else if (mergedChanges.length > 1) {
-                await this.projectOperationLogService.record({
-                    ...baseLog,
-                    action: PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_UPDATED,
-                    summary: {
-                        kind: 'save',
-                        changeCount: mergedChanges.length,
-                        changeKinds: mergedChanges.map((c) => c.action),
-                        changes: mergedChanges.map((change) => ({
-                            ...change,
-                            summary: {
-                                ...(change.summary ?? {}),
-                                ...dashboardContext,
-                            },
-                        })),
-                        ...dashboardContext,
-                    },
-                });
-            }
+            await this.projectOperationLogService.record({
+                ...baseLog,
+                action: PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_UPDATED,
+                summary: {
+                    changedCategories,
+                    filtersCount: dashboard.filters
+                        ? dashboard.filters.dimensions.length +
+                          dashboard.filters.metrics.length +
+                          dashboard.filters.tableCalculations.length
+                        : 0,
+                    tilesCount: dashboard.tiles.length,
+                    tabsCount: dashboard.tabs.length,
+                },
+            });
         } else if (isDashboardUnversionedFields(dashboard) && !spaceMoved) {
             await this.projectOperationLogService.record({
                 ...baseLog,
