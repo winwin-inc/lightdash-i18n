@@ -54,7 +54,7 @@ test('未知子命令退 2，stderr 只有单行 JSON（无 commander 文案）'
     assert.doesNotMatch(stderr, /^error:/m);
 });
 
-test('--version 单行输出 msy-x <semver>（豆包版本检查依赖）', (t) => {
+test('--version 单行输出 msy-x <semver>（连接器版本检查依赖）', (t) => {
     if (skipIfNotBuilt(t)) return;
     const { code, stdout } = run(['--version']);
 
@@ -76,7 +76,7 @@ test('缺少必填选项退 2 且 stderr 为 JSON（带可执行 hint）', (t) =
     assert.match(parsed.error.hint ?? '', /--type dashboard/);
 });
 
-test('auth status 未登录也退 0 且首键是 logged_in（豆包正则依赖）', (t) => {
+test('auth status 未登录也退 0 且首键是 logged_in（连接器正则依赖）', (t) => {
     if (skipIfNotBuilt(t)) return;
     const result = spawnSync(
         process.execPath,

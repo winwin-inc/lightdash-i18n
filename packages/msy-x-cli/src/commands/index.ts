@@ -57,7 +57,7 @@ import { runDoctor, doctorCommands } from './doctor';
 const GROUP_DESCRIPTIONS: Record<string, string> = {
     project: '项目管理（列表 / 默认项目 / 查看）',
     site: '站点管理（本地命令，不发请求）',
-    auth: '登录 / 登录状态 / 登出（豆包 CLI 连接器契约命令）',
+    auth: '登录 / 登录状态 / 登出（连接器契约命令）',
     spaces: 'space 列表与搜索',
     explores: '表（explore）列表与详情',
     fields: '字段搜索',

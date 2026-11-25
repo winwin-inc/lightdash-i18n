@@ -472,8 +472,16 @@ const runRemoteChecks = async (
                 config,
             });
             return true;
-        } catch {
-            return false; // 刷新失败（已清盘）：按未登录处理
+        } catch (refreshError) {
+            // 暂时性刷新失败（网络/5xx）要交给外层按 network 类归类，不能当成
+            // 「未登录」吞掉：凭证其实还在本地
+            if (
+                refreshError instanceof CliError &&
+                refreshError.code === 'NETWORK'
+            ) {
+                throw refreshError;
+            }
+            return false; // 凭证真失效（已清盘）：按未登录处理
         }
     };
 

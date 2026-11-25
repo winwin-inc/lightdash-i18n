@@ -18,7 +18,7 @@ import type { AuthCredentials, CommandSpec, CommandContext } from '../types';
  * - status 纯本地、离线判定：凭证存在且（access 未过期或有 refresh token）
  *   即 logged_in=true；已登录 / 未登录都退 0，靠 `logged_in` 区分；
  * - 所有 stdout 都是单行 JSON，且 `logged_in` / `logged_out` 必须是第一个键
- *   （豆包侧正则 `"logged_in"\s*:\s*true`）；
+ *   （连接器侧正则 `"logged_in"\s*:\s*true`）；
  * - CliError（CONFIG 本地读失败 / AUTH_REQUIRED 授权失败等）向外抛，
  *   由集成层统一打印 stderr 单行 JSON 并按 error.exitCode 退出。
  */
@@ -269,7 +269,7 @@ const runStatus = async (ctx: CommandContext): Promise<AuthCommandResult> => {
 
     return {
         stdout: jsonLine({
-            logged_in: loggedIn, // 必须是第一个键（豆包正则依赖）
+            logged_in: loggedIn, // 必须是第一个键（连接器正则依赖）
             site: ctx.site.name,
             authMode: credentials?.mode ?? ctx.site.authMode,
             expiresAt:
