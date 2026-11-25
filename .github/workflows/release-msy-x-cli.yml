@@ -78,9 +78,9 @@ jobs:
                   MSY_X_CONFIG=/tmp/none.yaml /tmp/msy-x/bin/msy-x doctor
                   echo "smoke ok"
 
-            # 先算 URL 并过门禁，再上传：upload 脚本对同版本对象拒绝覆盖，
-            # 若把门禁放在上传之后，首次失败（占位域名）就没法重跑同一版本。
-            - name: Resolve public URL and gate doubao cli.json
+            # 先算 URL，再上传：upload 脚本对同版本对象拒绝覆盖，
+            # 地址口径要提前确定，避免上传成功但地址与后续校验不一致。
+            - name: Resolve public URL
               env:
                   CDN_PATH_PREFIX: ${{ vars.CDN_PATH_PREFIX || secrets.CDN_PATH_PREFIX || 'msy-x' }}
                   CDN_BASE_URL: ${{ vars.CDN_BASE_URL || secrets.CDN_BASE_URL }}
@@ -92,26 +92,6 @@ jobs:
                   echo "CDN_UPLOAD_PATH=${CDN_UPLOAD_PATH}" >> "${GITHUB_ENV}"
                   echo "PUBLIC_URL=${PUBLIC_URL}" >> "${GITHUB_ENV}"
                   echo "公开安装地址：${PUBLIC_URL}"
-                  node -e '
-                    const fs = require("fs");
-                    const [url, file] = process.argv.slice(1);
-                    const cli = JSON.parse(fs.readFileSync(file, "utf8"));
-                    const cmd = ((cli.connectors || {})["msy-x"] || {}).install?.default ?? [];
-                    const joined = cmd.join(" ");
-                    if (joined.includes("static.example.com")) {
-                      console.error("cli.json 的 install.default 仍指向占位地址 static.example.com。");
-                      console.error(`  下一步：pnpm set-msyx-url -- ${url}`);
-                      console.error("  改完提交后再打 tag（URL 可提前算出，见 docs/cli/msy-x-cli-dev-plan.md P4）。");
-                      process.exit(1);
-                    }
-                    if (!joined.includes(url)) {
-                      console.error(`cli.json install.default 未指向本次发布的 URL：${url}`);
-                      console.error(`  当前：${JSON.stringify(cmd)}`);
-                      console.error(`  下一步：pnpm set-msyx-url -- ${url}`);
-                      process.exit(1);
-                    }
-                    console.log(`豆包 cli.json install.default 已指向 ${url}`);
-                  ' "${PUBLIC_URL}" "packages/x-doubao-plugin/plugin/com.doubao/cli.json"
 
             - name: Upload tgz to OSS/CDN
               env:
@@ -129,7 +109,7 @@ jobs:
                   export CLI_TGZ="packages/msy-x-cli/dist-msy-x/msy-x-cli-${VERSION}.tgz"
                   export CDN_UPLOAD_PATH="${CDN_UPLOAD_PATH}"
                   if [ -z "$S3_BUCKET" ] || [ -z "$S3_ACCESS_KEY" ] || [ -z "$S3_SECRET_KEY" ]; then
-                    echo "OSS 密钥缺失（S3_BUCKET / S3_ACCESS_KEY / S3_SECRET_KEY）；豆包安装必须走公网 tgz，不能只挂 GitHub Release。"
+                    echo "OSS 密钥缺失（S3_BUCKET / S3_ACCESS_KEY / S3_SECRET_KEY）；npm 全局安装必须走公网 tgz，不能只挂 GitHub Release。"
                     echo "期望基线：S3_BUCKET=qmgy-report（k8s-config master lightdash 同桶）、CDN_PATH_PREFIX=msy-x、CDN_BASE_URL=https://img0.banmahui.cn（配置在 repo vars 或 secrets）"
                     exit 1
                   fi
@@ -146,7 +126,7 @@ jobs:
                     exit 1
                   fi
 
-            - name: Smoke test CDN anonymous access（豆包 npm 安装前提）
+            - name: Smoke test CDN anonymous access（npm 全局安装前提）
               run: |
                   SMOKE_URL="${PUBLIC_URL}"
                   HTTP_CODE=""
@@ -158,7 +138,7 @@ jobs:
                   done
                   if [ "${HTTP_CODE}" != "200" ]; then
                     echo "CDN 匿名访问 ${SMOKE_URL} 返回 HTTP ${HTTP_CODE:-<无响应>}（期望 200）"
-                    echo "豆包 npm install -g <url> 要求匿名可读；失败请检查 CDN 回源与缓存配置。"
+                    echo "npm install -g <url> 要求匿名可读；失败请检查 CDN 回源与缓存配置。"
                     echo "期望基线：S3_BUCKET=qmgy-report、CDN_PATH_PREFIX=msy-x、CDN_BASE_URL=https://img0.banmahui.cn"
                     exit 1
                   fi
@@ -197,7 +177,6 @@ jobs:
                     echo "- sha256：\`${SHA256}\`"
                     echo "- 安装：\`npm i -g ${PUBLIC_URL}\`"
                     echo "- OSS：bucket \`${S3_BUCKET}\`，prefix \`${CDN_PATH_PREFIX}\`，对象路径 \`${CDN_UPLOAD_PATH}/msy-x-cli-${VERSION}.tgz\`"
-                    echo "- 豆包 cli.json：install.default 已指向本次上传 URL ✅"
                     echo ""
                     echo "Actions 配置基线（repo vars 或 secrets）：\`S3_BUCKET=qmgy-report\`、\`CDN_PATH_PREFIX=msy-x\`、\`CDN_BASE_URL=https://img0.banmahui.cn\`"
                   } >> "${GITHUB_STEP_SUMMARY}"
