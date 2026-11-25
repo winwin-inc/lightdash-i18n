@@ -344,7 +344,7 @@ test('OAuth 登录成功后：status logged_in=true（首键）→ logout（revo
         config.auth[site.name] = credentials;
         await writeConfig(config);
 
-        // status：已登录（首键 + 豆包正则）
+        // status：已登录（首键 + 连接器正则）
         const statusIn = await runAuthCommand('status', {}, makeCtx(site));
         assert.equal(statusIn.exitCode, ExitCode.OK);
         const parsedIn = JSON.parse(statusIn.stdout);

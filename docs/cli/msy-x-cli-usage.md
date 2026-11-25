@@ -301,4 +301,4 @@ msy-x call run_semantic_metric_query --file query.json
 2. 用**退出码**（0/2/3/4/5/6/7）加 stderr 的 `error.code` 做分支，不要匹配中文文案；
 3. 大结果用 `--out`，stdout 只留摘要，避免明细灌进上下文。
 
-豆包 CLI 连接器使用的就是这份二进制与同一套命令，平台只需五条：`install`、`versionCheck`、`auth login`、`auth status`、`auth logout`（外加 `help`）。
+CLI 连接器使用的就是这份二进制与同一套命令，平台只需五条：`install`、`versionCheck`、`auth login`、`auth status`、`auth logout`（外加 `help`）。

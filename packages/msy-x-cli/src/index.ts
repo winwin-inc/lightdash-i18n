@@ -13,7 +13,7 @@ export const buildProgram = (): Command => {
     const program = new Command();
     program
         .name('msy-x')
-        // 豆包 CLI 连接器的版本检查命令依赖这行输出，保持 `msy-x <semver>` 单行
+        // 连接器的版本检查命令依赖这行输出，保持 `msy-x <semver>` 单行
         .version(`msy-x ${CLI_VERSION}`, '-v, --version', '输出 CLI 版本')
         .description(
             '马上赢 X 平台 MCP 命令行客户端（Streamable HTTP / OAuth DCR + PAT）\n' +

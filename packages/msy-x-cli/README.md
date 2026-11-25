@@ -21,7 +21,7 @@ npm i -g https://img0.banmahui.cn/msy-x/cli/msy-x-cli/0.1.1/msy-x-cli-0.1.1.tgz
 验证安装：
 
 ```bash
-msy-x --version    # 输出一行 `msy-x <版本号>`（单行，供豆包连接器等做版本检查）
+msy-x --version    # 输出一行 `msy-x <版本号>`（单行，供连接器/自动化做版本检查）
 msy-x --help
 ```
 
@@ -94,7 +94,7 @@ msy-x auth logout [--site inner]     # 清除本机凭证（幂等）
 - **凭证按站点分开存**：`auth[<siteName>]`。登了 `inner` 不等于登了 `x`，切站点要单独登。
 - 未登录时 `auth status` 的 `authMode` 会**回落成该站点配置里的默认值**（所以 `inner` 会显示 `pat`），别据此判断「这个站点只能用 PAT」。
 
-`auth status` 输出**单行 JSON**，`logged_in` 恒为首键（豆包等连接器靠它判断状态）：
+`auth status` 输出**单行 JSON**，`logged_in` 恒为首键（连接器/自动化靠它判断状态）：
 
 ```json
 {"logged_in":true,"site":"inner","authMode":"oauth","expiresAt":"2026-11-17T12:00:00.000Z"}
@@ -160,15 +160,15 @@ msy-x auth logout [--site inner]     # 清除本机凭证（幂等）
 |---|---|---|
 | `0` | 成功（含 0 行结果；`auth status` 未登录也是 0，`doctor` 仅 warn 也是 0） | — |
 | `2` | 用法 / 参数 / 本地配置错误 | 非法 flag、坏配置文件、`dashboards list` 缺 `--space` |
-| `3` | 未登录 / 凭证失效（401） | 未 `auth login`；**登的是其它站点**；token 过期且刷新失败 |
+| `3` | 未登录 / 凭证作废（401） | 未 `auth login`；**登的是其它站点**；refresh token 被服务端否掉（`invalid_grant` 等，此时会清空该站点凭证） |
 | `4` | 无权限 / 被门控（403） | 越权访问；看板门控（见下） |
 | `5` | 服务端 / MCP 错误 | 5xx、工具内部报错 |
-| `6` | 网络 / 超时 | 连不上站点、超过 `--timeout` |
+| `6` | 网络 / 超时 | 连不上站点、超过 `--timeout`；**刷新 token 时的暂时性失败（网络错误、502/503）也退 6，本地凭证保留** |
 | `7` | 结果解析失败 | 响应无结构化内容且解析不了 |
 
 常见错误对照：
 
-- **401（退 3）**：日常调用遇到 401 会自动刷新一次凭证并重试；仍失败则提示重新 `msy-x auth login`。先确认三件事：登录的站点是不是这次实际解析出的站点（`msy-x doctor` 会打印）、是否踩了 `MSY_X_MCP_URL` 之类的环境变量覆盖、PAT 是否已过期。
+- **401（退 3 或 6）**：日常调用遇到 401 会自动刷新一次凭证并重试。刷新失败分两种：网络/5xx 等暂时性失败 → 退 `6`，**不会删掉登录**，稍后重试即可；只有服务端明确否掉 refresh token（`invalid_grant` / `invalid_client` 等）才清空凭证并退 `3`，提示重新 `msy-x auth login`。先确认三件事：登录的站点是不是这次实际解析出的站点（`msy-x doctor` 会打印）、是否踩了 `MSY_X_MCP_URL` 之类的环境变量覆盖、PAT 是否已过期。
 - **403 / 看板门控（退 4）**：站点开启强制看板模式时，看板类查询可能返回 `dashboard_permission_required`（无权限）、`dashboard_selection_required`（需指定 `--dashboard`）、`dashboard_not_found` 等 `dashboard_*` 状态，CLI 会原样透出服务端中文文案与建议操作（如先 `dashboards find`）。
 - **超时（退 6）**：默认单次调用 60 秒（`MSY_X_TIMEOUT_MS` 或 `--timeout` 可调），超时后会提示"查询可能仍在服务端执行"，可加大超时或改用 `--out` 落盘重试。
 
