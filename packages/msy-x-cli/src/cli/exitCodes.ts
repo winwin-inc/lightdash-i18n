@@ -1,6 +1,6 @@
 /**
  * 退出码契约，见 docs/cli/msy-x-cli-design.md §8.2。
- * 豆包 CLI 连接器只看退出码与 stdout，改动这里等于改对外契约。
+ * 连接器/自动化只看退出码与 stdout，改动这里等于改对外契约。
  */
 export const ExitCode = {
     OK: 0,

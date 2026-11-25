@@ -157,7 +157,6 @@
         "bump-cli": "node scripts/bump-cli-version.mjs",
         "bump-mcp": "node scripts/bump-versions.mjs",
         "bump-msyx": "node scripts/bump-msy-x-cli-version.mjs",
-        "set-msyx-url": "node scripts/set-msy-x-cli-install-url.mjs",
         "msy-x-cli-build": "pnpm -F msy-x-cli build",
         "msy-x-cli-dev": "pnpm -F msy-x-cli dev",
         "msy-x-cli-typecheck": "pnpm -F msy-x-cli typecheck",
