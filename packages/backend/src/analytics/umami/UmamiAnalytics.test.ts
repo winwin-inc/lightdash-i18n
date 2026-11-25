@@ -22,16 +22,19 @@ const makeEvent = (i: number) => ({
     properties: { project_id: 'p' },
 });
 
-/** 解码 data_list body 成 wire 事件数组 */
-const parseWire = (body: string): Array<Record<string, unknown>> =>
-    JSON.parse(
-        Buffer.from(
-            decodeURIComponent(
-                body.slice('data_list='.length).replace(/&gzip=0$/, ''),
-            ),
-            'base64',
-        ).toString('utf8'),
-    );
+/** 解码 body（单条 data= / 批量 data_list=）成 wire 事件数组 */
+const parseWire = (body: string): Array<Record<string, unknown>> => {
+    const single = body.startsWith('data=');
+    const raw = single
+        ? body.slice('data='.length)
+        : body.slice('data_list='.length).replace(/&gzip=0$/, '');
+    const parsed = JSON.parse(
+        Buffer.from(decodeURIComponent(raw), 'base64').toString('utf8'),
+    ) as unknown;
+    return (Array.isArray(parsed) ? parsed : [parsed]) as Array<
+        Record<string, unknown>
+    >;
+};
 
 describe('UmamiAnalytics', () => {
     beforeEach(() => {
@@ -178,6 +181,47 @@ describe('UmamiAnalytics', () => {
         await umami.flush();
         const wire = parseWire(fetchMock.mock.calls[0][1].body);
         expect(wire.every((e) => e.type === 'track')).toBe(true);
+    });
+
+    it('profile() 直接补一条服务端会话画像（登录 identify 路径）', async () => {
+        const umami = new UmamiAnalytics(enabledConfig());
+        const uuid = '5b1c2d3e-4f50-4a6b-8c7d-9e0f1a2b3c4d';
+        umami.profile(uuid, {
+            user_email: 'user@brandct.cn',
+            user_name: '张帅波',
+            client: 'web',
+        });
+        await umami.flush();
+        const wire = parseWire(fetchMock.mock.calls[0][1].body);
+        expect(wire).toHaveLength(1);
+        expect(wire[0].type).toBe('profile_set');
+        expect(wire[0].properties).toMatchObject({
+            user_uuid: uuid,
+            user_email: 'user@brandct.cn',
+            user_name: '张帅波',
+            client: 'web',
+            env: 'production',
+            source: 'server',
+        });
+    });
+
+    it('profile() 与事件路径共用去重键：同月只发一次', async () => {
+        const umami = new UmamiAnalytics(enabledConfig());
+        const uuid = '5b1c2d3e-4f50-4a6b-8c7d-9e0f1a2b3c4d';
+        umami.profile(uuid, { user_email: 'a@b.com' });
+        umami.profile(uuid, { user_email: 'a@b.com' });
+        await umami.flush();
+        const wire = parseWire(fetchMock.mock.calls[0][1].body);
+        expect(wire.filter((e) => e.type === 'profile_set')).toHaveLength(1);
+    });
+
+    it('profile() 跳过非 uuid 与没有邮箱/组织的空画像', async () => {
+        const umami = new UmamiAnalytics(enabledConfig());
+        umami.profile('server', { user_email: 'a@b.com' });
+        umami.profile('5b1c2d3e-4f50-4a6b-8c7d-9e0f1a2b3c4d', {});
+        // 队列为空 → flush 不发请求
+        await umami.flush();
+        expect(fetchMock).not.toHaveBeenCalled();
     });
 
     it('profileDedupeKey rolls over by UTC month', () => {

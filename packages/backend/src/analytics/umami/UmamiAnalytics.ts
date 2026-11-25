@@ -187,6 +187,28 @@ export class UmamiAnalytics {
     }
 
     /**
+     * 公开入口：调用方已知身份时（如登录 `identify()`）直接补一条服务端会话画像。
+     * 与事件路径共用同一条去重键（distinct_id|UTC 月）与入队逻辑。
+     */
+    profile(
+        distinctId: string,
+        properties: Record<string, UmamiPropertyValue>,
+    ): void {
+        if (!this.config.enabled) {
+            return;
+        }
+        try {
+            this.pushProfile(distinctId, properties);
+        } catch (e) {
+            Logger.debug(
+                `Umami profile failed: ${
+                    e instanceof Error ? e.message : String(e)
+                }`,
+            );
+        }
+    }
+
+    /**
      * 后端 profile_set：给服务端会话写一份「这人是谁」的画像。
      *
      * - 只对真 uuid（真实用户）发，`server` / `anon:*` 跳过；
@@ -204,14 +226,7 @@ export class UmamiAnalytics {
         if (profile === null) {
             return;
         }
-        const now = new Date(event.time ?? Date.now());
-        const key = profileDedupeKey(event.distinctId, now);
-        if (this.profileSent.get(event.distinctId) === key) {
-            return;
-        }
-        const properties: Record<string, UmamiPropertyValue> = {
-            user_uuid: event.distinctId,
-        };
+        const properties: Record<string, UmamiPropertyValue> = {};
         if (profile.email !== null && profile.email !== '') {
             properties.user_email = profile.email;
         }
@@ -229,20 +244,60 @@ export class UmamiAnalytics {
         if (typeof client === 'string' && client !== '') {
             properties.client = client;
         }
+        this.pushProfile(event.distinctId, properties, {
+            anonymousId: event.anonymousId,
+            time: event.time,
+        });
+    }
+
+    /**
+     * 落队 + 去重（profile 的唯一出口）：
+     * 非 uuid（`server` / `anon:*`）跳过；没有邮箱也没有组织时跳过（空画像没意义）；
+     * 补 `user_uuid` / `env` / `source='server'`，按 distinct_id|UTC 月 去重。
+     */
+    private pushProfile(
+        distinctId: string,
+        rawProperties: Record<string, UmamiPropertyValue>,
+        options: { anonymousId?: string; time?: number } = {},
+    ): void {
+        if (!isUuid(distinctId)) {
+            return;
+        }
+        const properties: Record<string, UmamiPropertyValue> = {
+            ...rawProperties,
+        };
+        if (
+            (properties.user_email === undefined ||
+                properties.user_email === '') &&
+            (properties.org_id === undefined || properties.org_id === '')
+        ) {
+            return;
+        }
+        const now = new Date(options.time ?? Date.now());
+        const key = profileDedupeKey(distinctId, now);
+        if (this.profileSent.get(distinctId) === key) {
+            return;
+        }
+        if (properties.user_uuid === undefined) {
+            properties.user_uuid = distinctId;
+        }
         properties.env = this.config.environment;
         // 会话来源：后端进程写的会话恒为 server（前端那条是 web），见 docs §4.4
         properties.source = 'server';
-        this.profileSent.set(event.distinctId, key);
+        this.profileSent.set(distinctId, key);
         this.queue.push({
             kind: 'profile',
             event: 'profile_set',
-            distinctId: event.distinctId,
-            ...(event.anonymousId !== undefined
-                ? { anonymousId: event.anonymousId }
+            distinctId,
+            ...(options.anonymousId !== undefined
+                ? { anonymousId: options.anonymousId }
                 : {}),
-            time: event.time,
+            time: options.time,
             properties,
         });
+        while (this.queue.length > MAX_QUEUE_SIZE) {
+            this.queue.shift();
+        }
     }
 
     /** query_executed 专属采样：rate=1 恒不丢（Math.random() 恒 < 1）；rate=0 恒丢 */

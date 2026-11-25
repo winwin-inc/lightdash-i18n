@@ -62,6 +62,11 @@ Node    node-fetch(data_list)         ├→ collect.banmahui.cn/api/gp?project&
   （本地聚合 `event_data`）或后端 SQL。
 - 未登录页（login / register / share / embed）也上报，`distinct_id = anon:<installId>`、
   `is_authenticated=false`；embed 另加 `is_embed=true`。
+- **登录前后是两个实体、两条会话**：`distinct_id` 从 `anon:<installId>` 变成 `userUuid`，而 Umami
+  的 session key 含 `distinct_id` → 同一人当天会多算 1 个 UV、多出 1 条会话（Umami 有「认领
+  匿名会话」机制，但需要把 `/api/send` 返回的 session cache 透传回来，适配层没做）。
+  统计「登录用户 UV / 渗透率」时用 `umamiq --exclude-anon`（或事件里 `is_authenticated=true`
+  过滤），别用原生 Visitors 报表（无属性、排不掉）。
 - 时区：查询侧按 `Asia/Shanghai` 切日（`umamiq --tz`）。
 
 ## 4. 事件清单（中文名 + 能看什么）
@@ -151,6 +156,14 @@ Node    node-fetch(data_list)         ├→ collect.banmahui.cn/api/gp?project&
 `user_name` / `org_id` / `org_name` / `client`（触发事件的来源，如 `web` / `mcp` / `scheduler`）/
 `env` / `source='server'`。后端拿不到 `org_role`、`project_id`（事件级已有），不重复发。
 
+两个触发点（共用 `distinct_id|UTC 月` 去重键）：
+
+1. **事件路径** `UmamiAnalytics.maybePushProfile`：首个命中白名单的真实用户事件，画像取自
+   `UserProfileCache`；缓存还在冷启动（首条事件拿不到 email/org）时跳过，等后一条事件补。
+2. **登录路径** `LightdashAnalytics.identify()`：登录时直接用 identify 的 traits（email/姓名）
+   补一条。原因：**只登录、不产生后端事件的用户**（例如 `user_logged_in` 之后直接 403
+   `/no-dashboard-access`）在事件路径上永远是冷缓存，服务端会话会一直没有属性。
+
 发送时机只有 2 个：① 用户信息就绪首帧；② 身份指纹
 `user_uuid|org_id|org_role|project_id` 变化。
 
@@ -224,7 +237,7 @@ Umami 没有 i18n 层，看板里只展示 `data_key` / `string_value` 原文。
 |---|---|
 | `packages/backend/src/config/parseConfig.ts` | 新增 `umami` 段：`enabled` / `endpoint` / `project` / `token` / `environment`，读 `UMAMI_COLLECT_*`，**缺一项即关闭**（默认零外发） |
 | `packages/backend/src/analytics/umami/` | `payload.ts`（组装 + utf8 base64 + urlencode，纯函数）、`UmamiAnalytics.ts`（内存队列，2s 或 20 条 flush `data_list`，上限 200，timeout 3s，失败只 debug）、`mapping.ts`（白名单映射 + `pickProps`）、`requestContext.ts`（AsyncLocalStorage 记录 `client`/`path`） |
-| `packages/backend/src/analytics/LightdashAnalytics.ts` | `track()` **在 `if (!writeKey) return` 之前**先转发给 umami（Rudder 逻辑一行不改）；`distinct_id` 解析链见下 |
+| `packages/backend/src/analytics/LightdashAnalytics.ts` | `track()` **在 `if (!writeKey) return` 之前**先转发给 umami（Rudder 逻辑一行不改）；`distinct_id` 解析链见下。`identify()` 同样镜像一条后端 `profile_set`（登录即可读人，见 §4.3） |
 | `App.ts` / `SchedulerApp.ts` | 构造 `UmamiAnalytics` 注入；ALS 中间件紧邻现有 `req.services = ...`；`App.ts` 里 analytics 先于 models 创建，用 `setUserResolver()` 懒注入 |
 | `HealthService` + `packages/common` `HealthState` | 下发 `umami: { enabled, endpoint, project, token, environment }` 给前端（`environment` 给 `profile_set.env` 用） |
 | `McpService` | `mcp_tool_call` 加 `mcpClient`（`X-Lightdash-Client` 头优先，回落 `mcpServer.getClientVersion()?.name`） |

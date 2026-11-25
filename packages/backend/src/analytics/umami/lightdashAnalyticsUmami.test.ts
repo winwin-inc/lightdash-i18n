@@ -112,6 +112,47 @@ describe('LightdashAnalytics → Umami wiring', () => {
         await umami.close();
     });
 
+    it('mirrors identify() as a backend profile_set (login-only users get session props)', () => {
+        const umami = makeUmami();
+        const spy = jest.spyOn(umami, 'profile');
+        const analytics = makeAnalytics(umami);
+
+        analytics.identify({
+            userId: '7a27052e-8f55-4758-bc88-7824c3834811',
+            traits: {
+                email: 'user@brandct.cn',
+                first_name: '帅波',
+                last_name: '张',
+                is_tracking_anonymized: false,
+            },
+        });
+
+        // 只登录、不产生后端事件的用户，靠这条补上服务端会话画像
+        expect(spy).toHaveBeenCalledWith(
+            '7a27052e-8f55-4758-bc88-7824c3834811',
+            {
+                user_email: 'user@brandct.cn',
+                user_name: '帅波 张',
+                client: 'unknown', // 无 ALS 上下文
+            },
+        );
+    });
+
+    it('identify() without umami injected does not throw', () => {
+        const analytics = new LightdashAnalytics({
+            lightdashConfig: lightdashConfigMock,
+            writeKey: 'notrack',
+            dataPlaneUrl: 'notrack',
+            options: { enable: false },
+        });
+        expect(() =>
+            analytics.identify({
+                userId: 'u1',
+                traits: { email: 'a@b.com', is_tracking_anonymized: false },
+            }),
+        ).not.toThrow();
+    });
+
     it('works without umami injected (no crash)', () => {
         const analytics = new LightdashAnalytics({
             lightdashConfig: lightdashConfigMock,

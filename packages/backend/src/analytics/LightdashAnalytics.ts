@@ -1595,6 +1595,9 @@ type LightdashAnalyticsArguments = {
     umami?: UmamiAnalytics;
 };
 
+/** rudder 事件前缀（`lightdash_server.<event>`）：常量而非从 lightdashContext 取，避免 any */
+const APP_NAME = 'lightdash_server';
+
 export class LightdashAnalytics extends Analytics {
     private readonly lightdashConfig: LightdashConfig;
 
@@ -1616,8 +1619,8 @@ export class LightdashAnalytics extends Analytics {
         this.lightdashContext = {
             app: {
                 namespace: 'lightdash',
-                name: 'lightdash_server',
-                version: VERSION,
+                name: APP_NAME,
+                version: String(VERSION),
                 mode: lightdashConfig.mode,
                 siteUrl:
                     lightdashConfig.mode === LightdashMode.CLOUD_BETA
@@ -1634,6 +1637,32 @@ export class LightdashAnalytics extends Analytics {
     static anonymousId = process.env.LIGHTDASH_INSTALL_ID || uuidv4();
 
     identify(payload: Identify) {
+        // Umami 镜像：登录时补一条服务端会话画像。
+        // 目的：只登录、不产生后端事件的用户（如 403 无看板权限），其服务端会话
+        // 也能在 Sessions 面板读出是谁——事件路径的画像依赖 LRU 缓存，首条事件
+        // 通常是冷的（拿不到 email/name），登录态这里信息最全。
+        if (this.umami !== undefined) {
+            try {
+                const umamiStore = getUmamiRequestContext();
+                const userName = [
+                    payload.traits.first_name ?? '',
+                    payload.traits.last_name ?? '',
+                ]
+                    .join(' ')
+                    .trim();
+                this.umami.profile(payload.userId, {
+                    user_email: payload.traits.email ?? '',
+                    user_name: userName,
+                    client: umamiStore?.client ?? 'unknown',
+                });
+            } catch (e) {
+                console.debug(
+                    `Umami identify mirror failed: ${
+                        e instanceof Error ? e.message : String(e)
+                    }`,
+                );
+            }
+        }
         if (!this.lightdashConfig.rudder.writeKey) return; // Tracking disabled
 
         super.identify({
@@ -1683,7 +1712,7 @@ export class LightdashAnalytics extends Analytics {
 
             super.track({
                 ...payload,
-                event: `${this.lightdashContext.app.name}.${payload.event}`,
+                event: `${APP_NAME}.${payload.event}`,
                 context: { ...this.lightdashContext }, // NOTE: spread because rudderstack manipulates arg
                 properties: payload.properties.isTrackingAnonymized
                     ? basicEventProperties
@@ -1699,7 +1728,7 @@ export class LightdashAnalytics extends Analytics {
         if (isUserVerifiedEvent(payload)) {
             super.track({
                 ...payload,
-                event: `${this.lightdashContext.app.name}.${payload.event}`,
+                event: `${APP_NAME}.${payload.event}`,
                 context: { ...this.lightdashContext }, // NOTE: spread because rudderstack manipulates arg
                 properties: {
                     ...payload.properties,
@@ -1713,7 +1742,7 @@ export class LightdashAnalytics extends Analytics {
 
         super.track({
             ...payload,
-            event: `${this.lightdashContext.app.name}.${payload.event}`,
+            event: `${APP_NAME}.${payload.event}`,
             context: { ...this.lightdashContext }, // NOTE: spread because rudderstack manipulates arg
         });
     }
