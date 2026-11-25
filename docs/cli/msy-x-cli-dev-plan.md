@@ -4,12 +4,12 @@
 >
 > **2026-11-18 追加**：扫码登录（RFC 8628）多副本失效已修——设备码会话从进程内存迁至 Postgres `oauth2_device_codes`（服务端 ≥ 2.7.5），CLI 侧补 `invalid_grant`/404/`interval` NaN 处理与 `doctor --remote` 的 `device-flow` 探测。**0.2.0 发版 tag 需等此修复上线并完成生产扫码验收**。
 >
-> 已完成：配置/鉴权/MCP 客户端/渲染/35 个命令/doctor/verified/打包脚本/豆包 CLI 连接器；独立审查的 P0+P1（401 映射、门控 detail、text JSON 原样输出、Skill 文档）已修。
+> 已完成：配置/鉴权/MCP 客户端/渲染/35 个命令/doctor/verified/打包脚本；独立审查的 P0+P1（401 映射、门控 detail、text JSON 原样输出、Skill 文档）已修。
 > 待办：P4 公网 tgz 与 npm 发布、真实站点验收（OAuth 登录 + `values`/`query flat` 冒烟）、P2 尾巴（见设计稿审查清单）。
 >
 > 分支：`feat/msy-x-cli`（按 [.agents/rules/branching.md](../../.agents/rules/branching.md)，功能一律功能分支，完成后合 `dev`）。
 >
-> 产物：`packages/msy-x-cli`（npm `msy-x-cli`，bin `msy-x`）+ `packages/x-doubao-plugin` 的 CLI 连接器包。
+> 产物：`packages/msy-x-cli`（npm `msy-x-cli`，bin `msy-x`）。原 `packages/x-doubao-plugin` 连接器包已于 2026-11 删除（不再使用）。
 >
 > **口径修正（2026-11-17，以代码为准）**：v2 真实入参与本计划初稿有差异，已在设计稿 §6.2 重写。要点：`find_*` 用 `searchQueries:[{label}]`（不是 `searchQuery`）；`find_fields` 必填 `table` + `fieldSearchQueries`；`search_field_values` 必填 `table`，无 `limit`；`list_dashboards` 必填 `spaceUuid`；`get/run_saved_chart` 入参是 `savedChartUuid`；`run_metric_query` 只吃 `vizConfig`（顶层扁平参数无效）；`run_semantic_metric_query` 不吃 `metricQuery`，`filters` 形状为 `{dimensions:[{fieldId,operator,values}]}`；`run_saved_chart` 无 `full`；`run_dashboard_tiles` 无磁贴筛选。另：v2 只有看板门控 payload 带 `structuredContent`，其余 25 个是 text JSON（`run_metric_query` 为 CSV、`find_*` 为 XML、`search_field_values` 为 ```json 围栏）——渲染层必须四级探测（设计稿 §7.4）。
 
@@ -23,7 +23,7 @@
 | 2 | 真实站点 OAuth 登录成功，配置 `0600`，`auth status` 首键 `logged_in` | `msy-x auth login` → `auth status` |
 | 3 | 26 个 MCP 工具全部可达（命令 + `call`） | 映射完整性单测 26/26（2026-11-19 起服务端降到 25 个，`verified` 命令随之下线） |
 | 4 | 非 TTY 下默认 JSON、stdout 纯净、退出码符合表 | `msy-x info </dev/null`、`--json` 断言 |
-| 5 | 豆包包：`verify.mjs` 全绿，ZIP 含 `com.doubao/cli.json` 且无二进制/凭据 | `node scripts/verify.mjs` |
+| 5 | ~~豆包连接器包~~ 已删除（2026-11，插件包与 `set-msyx-url` 一并下线） | — |
 | 6 | 真实查数链路跑通：`explores find` → `values` → `query` → `dashboards tiles` | 冒烟脚本（见 §5.3） |
 | 7 | 文档：README、`docs/cli` 两篇状态同步为「已实施」 | 人工核对 |
 
@@ -176,14 +176,9 @@ packages/msy-x-cli/
 | P2-4 | `query` 组装器（`-e/--dimensions/--metrics/--filter/--sort/--limit`）与 `--file` 透传 | `--dry-run` 输出与设计稿示例逐字一致 |
 | P2-5 | 全量 `--help` 示例、`--quiet` / `--verbose` / `--raw` | 手工抽查 5 个命令 |
 
-### P3 豆包连接器包（0.5–1 天）
+### P3 连接器包（已废弃）
 
-| # | 任务 | 判据 |
-|---|---|---|
-| P3-1 | 新增 `plugin/com.doubao/cli.json`（键 `msy-x`） | JSON 合法、键不与 MCP 服务键重名 |
-| P3-2 | `plugin/skills/brandct-x-insight/references/cli.md` + `SKILL.md` 增加「CLI 通道」 | 命令/参数/输出/退出码/失败处理齐全 |
-| P3-3 | `scripts/verify.mjs` 增规则：`cli.json` 位置与结构、平台键、命令非空、`statusMatchRegex` 可编译、无二进制、无凭据、连接器键不重名 | `node scripts/verify.mjs` 全绿 |
-| P3-4 | `scripts/build-plugin.mjs` 打包包含 `cli.json`；`README.md` 补 CLI 章节与"单连接器裁剪"步骤 | `dist/x-platform-assistant.zip` 内可见 `cli.json` |
+原 `packages/x-doubao-plugin`（`plugin/com.doubao/cli.json` + Skill 文档 + `verify.mjs` / `build-plugin.mjs`）已于 2026-11 整体删除：该连接器没有实际使用，CLI 只保留通用契约（见设计稿 §10）。
 
 ### P4 发布（已完成脚本与流水线，首次发版待执行）
 
@@ -201,7 +196,7 @@ packages/msy-x-cli/
 | `S3_BUCKET` | `qmgy-report` | 与 lightdash 导出同桶；对象路径前缀区分用途 |
 | `CDN_PATH_PREFIX` | `msy-x` | 前端静态资源在 `msy-x/static/<ver>/`，CLI 在 `msy-x/cli/` |
 | `CDN_BASE_URL` | `https://img0.banmahui.cn` | 公共 CDN，**匿名可读**（已实测：`msy-x/static/...` 返 200） |
-| ⚠️ 不可用 | `https://report-assets.brandct.com` | 同一 k8s 配置里的 `S3_PUBLIC_ENDPOINT`，用于**预签名**下载（私有对象）；豆包 `npm install -g` 无法带签名 |
+| ⚠️ 不可用 | `https://report-assets.brandct.com` | 同一 k8s 配置里的 `S3_PUBLIC_ENDPOINT`，用于**预签名**下载（私有对象）；`npm install -g` 无法带签名 |
 
 #### 根脚本一览（`package.json`）
 
@@ -209,7 +204,6 @@ packages/msy-x-cli/
 |---|---|
 | `pnpm pack-msyx` | 打包 tgz + sha256：`packages/msy-x-cli/dist-msy-x/msy-x-cli-<ver>.tgz` |
 | `pnpm bump-msyx -- <ver>` | 同步 `package.json` 与 `src/lib/version.ts` 的 `CLI_VERSION`，commit，打 `msyx-v<ver>`（`--dry-run` 可用） |
-| `pnpm set-msyx-url -- <url>` | 把公网 tgz 地址写进豆包 `cli.json` 的 `install.default` |
 | `pnpm msy-x-cli-build` / `-test` / `-lint` / `-typecheck` / `-dev` | 包维度开发命令 |
 
 #### 环境地址（内部信息，不从对外文档引用）
@@ -234,12 +228,10 @@ packages/msy-x-cli/
 #### 发版流程（0.1.x 通用）
 
 1. 算好目标 URL（**确定性，可提前拼**）：`https://img0.banmahui.cn/msy-x/cli/msy-x-cli/<ver>/msy-x-cli-<ver>.tgz`
-2. `pnpm set-msyx-url -- <URL>`：把地址写进 `packages/x-doubao-plugin/plugin/com.doubao/cli.json`（只改 `install.default`）
-3. `pnpm bump-msyx -- <ver>`：同步 `package.json` 与 `src/lib/version.ts` → commit → 打 `msyx-v<ver>` tag（支持 `--dry-run`）
-4. `git push && git push origin msyx-v<ver>` 触发流水线，依次：build + `pack:tgz` → **装到临时 prefix 冒烟** → 校验 `cli.json` 指向本 URL（门禁在**上传之前**，避免同版本不可重传的死锁）→ OSS 上传（不覆盖同版本）→ **CDN 匿名 HEAD 冒烟（200 + `application/gzip`）** → GitHub Release → step summary
-5. 第 4 步全绿后，重新打豆包 Plugin ZIP（`cd packages/x-doubao-plugin && node scripts/verify.mjs` 必须 **0 警告**）并提审
+2. `pnpm bump-msyx -- <ver>`：同步 `package.json` 与 `src/lib/version.ts` → commit → 打 `msyx-v<ver>` tag（支持 `--dry-run`）
+3. `git push && git push origin msyx-v<ver>` 触发流水线，依次：build + `pack:tgz` → **装到临时 prefix 冒烟** → OSS 上传（不覆盖同版本）→ **CDN 匿名 HEAD 冒烟（200 + `application/gzip`）** → GitHub Release → step summary
 
-> 失败处理：门禁/冒烟失败不会留下半成品（OSS 对象未写或已写但 `cli.json` 已提前对齐）；若已上传而后续步骤失败，`cli.json` 无需改（URL 未变），重跑流水线时需先在 OSS 删该版本对象或 bump 新版本——upload 脚本对同版本拒绝覆盖是刻意的。
+> 失败处理：冒烟失败不会留下半成品（OSS 对象未写）；若已上传而后续步骤失败，重跑流水线时需先在 OSS 删该版本对象或 bump 新版本——upload 脚本对同版本拒绝覆盖是刻意的。
 
 ---
 
@@ -296,8 +288,7 @@ timeout 180 msy-x dashboards tiles d54853b1-85df-4ab3-8cdf-70a5244640e1
 
 1. `pnpm -F msy-x-cli pack:tgz` → `dist-msy-x/msy-x-cli-<ver>.tgz` + `.sha256`。
 2. 上传公网静态托管（HTTPS、无鉴权、可直连），路径稳定：`/<发布路径>/msy-x-cli-<ver>.tgz`。
-3. 回填 `packages/x-doubao-plugin/plugin/com.doubao/cli.json` 的 `install.default`，`verify.mjs` 校验通过后重打 ZIP。
-4. 拿到 npm 账号后：`npm publish --access public`，把 `install.default` 改为 `npm install -g msy-x-cli`（一行改动），保留 tgz 作为回退。
+3. 拿到 npm 账号后：`npm publish --access public`，公网安装改为 `npm install -g msy-x-cli`，保留 tgz 作为回退。
 5. 版本策略：`0.x` 阶段只保证"命令名与退出码"稳定；参数新增走 minor，破坏性变更走 minor 并在 README 标注。
 
 ---
