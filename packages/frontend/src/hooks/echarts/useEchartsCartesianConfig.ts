@@ -1407,7 +1407,8 @@ const calculateWidthText = (text: string | undefined): number => {
     span.style.top = '0px';
     span.style.position = 'absolute';
     span.style.whiteSpace = 'no-wrap';
-    span.innerHTML = text;
+    // 只测文本宽度，用 textContent 避免把标签文本当 HTML 解析
+    span.textContent = text;
 
     const width = Math.ceil(span.clientWidth);
     span.remove();

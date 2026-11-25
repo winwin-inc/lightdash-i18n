@@ -9676,6 +9676,7 @@
     "scan_mobile": "长按扫码添加客服",
     "mobile": "手机号:17612234299",
     "copied": "已复制",
+    "qrcode_placeholder": "二维码图片",
     "lins": {
       "mobile": "电话联系"
     }

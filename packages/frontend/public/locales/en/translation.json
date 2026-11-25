@@ -9659,6 +9659,7 @@
     "mobile": "Phone number: 17612234299",
     "scan_mobile": "Long press scan to add customer service",
     "copied": "Copied",
+    "qrcode_placeholder": "QR code image",
     "lins": {
       "mobile": "Contact by phone"
     }
