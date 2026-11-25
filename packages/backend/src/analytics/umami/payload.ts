@@ -38,18 +38,36 @@ export const toUtf8Base64UrlEncoded = (value: unknown): string =>
 /**
  * 内存事件 → sensors 兼容报文（snake_case 字段名）。
  * 时间缺省取当前毫秒时间戳。
+ *
+ * - `track`：`type:'track'` + `event`，落命名事件；
+ * - `profile`：`type:'profile_set'`、**不带 `event`**——适配层靠 `type` 判定是否
+ *   翻成 Umami identify（写 `session_data`）。写成 track + event:'profile_set'
+ *   只会落一条事件行，会话属性全丢（2026-11-25 实测）。
  */
-export const toWireEvent = (event: UmamiEvent): Record<string, unknown> => ({
-    distinct_id: event.distinctId,
-    ...(event.anonymousId !== undefined
-        ? { anonymous_id: event.anonymousId }
-        : {}),
-    time: event.time ?? Date.now(),
-    type: 'track',
-    event: event.event,
-    lib: { $lib: 'LightdashServer', $lib_version: VERSION },
-    properties: pickProperties(event.properties),
-});
+export const toWireEvent = (event: UmamiEvent): Record<string, unknown> => {
+    const base: Record<string, unknown> = {
+        distinct_id: event.distinctId,
+        ...(event.anonymousId !== undefined
+            ? { anonymous_id: event.anonymousId }
+            : {}),
+        time: event.time ?? Date.now(),
+        // VERSION 来自 require('../package.json')，是 any → 显式转 string
+        lib: { $lib: 'LightdashServer', $lib_version: String(VERSION) },
+    };
+    if (event.kind === 'profile') {
+        return {
+            ...base,
+            type: 'profile_set',
+            properties: pickProperties(event.properties),
+        };
+    }
+    return {
+        ...base,
+        type: 'track',
+        event: event.event,
+        properties: pickProperties(event.properties),
+    };
+};
 
 /**
  * 纯函数：把一批事件组装成 urlencoded body。

@@ -1,5 +1,5 @@
 import fetch from 'node-fetch';
-import { UmamiAnalytics } from './UmamiAnalytics';
+import { profileDedupeKey, UmamiAnalytics } from './UmamiAnalytics';
 import { UmamiConfig } from './types';
 
 jest.mock('node-fetch', () => jest.fn());
@@ -79,6 +79,74 @@ describe('UmamiAnalytics', () => {
             'application/x-www-form-urlencoded',
         );
         expect(options.body).toMatch(/^data_list=.+&gzip=0$/);
+    });
+
+    it('emits one backend profile_set per user per month (sensors profile semantics)', async () => {
+        const umami = new UmamiAnalytics(enabledConfig());
+        umami.setUserResolver(async () => ({
+            email: 'a@b.com',
+            name: '张三',
+            orgId: 'org-1',
+            orgName: '品牌组织',
+        }));
+        const uuid = '0f47e88c-6e59-4f2f-a1e2-381bfa2d34b1';
+        // 首条事件画像缓存还是空的 → 不发空 profile（否则会占掉本月去重键）
+        umami.track({
+            event: 'dashboard_view',
+            distinctId: uuid,
+            properties: {},
+        });
+        await new Promise<void>((resolve) => {
+            setImmediate(resolve);
+        });
+        umami.track({
+            event: 'dashboard_view',
+            distinctId: uuid,
+            properties: {},
+        });
+        umami.track({ event: 'chart_view', distinctId: uuid, properties: {} });
+        await umami.flush();
+
+        const wire = parseWire(fetchMock.mock.calls[0][1].body);
+        const profiles = wire.filter((e) => e.type === 'profile_set');
+        expect(profiles).toHaveLength(1);
+        expect(profiles[0]).not.toHaveProperty('event'); // 有 event 就变成普通事件
+        expect(profiles[0].distinct_id).toBe(uuid);
+        expect(profiles[0].properties).toMatchObject({
+            user_uuid: uuid,
+            user_email: 'a@b.com',
+            user_name: '张三',
+            org_id: 'org-1',
+            org_name: '品牌组织',
+            env: 'production',
+        });
+    });
+
+    it('skips profile_set for non-user distinct ids (server / anon)', async () => {
+        const umami = new UmamiAnalytics(enabledConfig());
+        umami.track({
+            event: 'download_completed',
+            distinctId: 'server',
+            properties: { user_email: 'a@b.com' },
+        });
+        umami.track({
+            event: 'download_completed',
+            distinctId: 'anon:install-1',
+            properties: { user_email: 'a@b.com' },
+        });
+        await umami.flush();
+        const wire = parseWire(fetchMock.mock.calls[0][1].body);
+        expect(wire.every((e) => e.type === 'track')).toBe(true);
+    });
+
+    it('profileDedupeKey rolls over by UTC month', () => {
+        const id = '0f47e88c-6e59-4f2f-a1e2-381bfa2d34b1';
+        expect(profileDedupeKey(id, new Date('2026-11-25T10:00:00Z'))).toBe(
+            profileDedupeKey(id, new Date('2026-11-01T00:00:00Z')),
+        );
+        expect(profileDedupeKey(id, new Date('2026-11-30T23:59:59Z'))).not.toBe(
+            profileDedupeKey(id, new Date('2026-12-01T00:00:00Z')),
+        );
     });
 
     it('auto-flushes at 50 queued events without manual flush', async () => {
@@ -214,7 +282,8 @@ describe('UmamiAnalytics', () => {
         });
         await umami.flush();
         const wire = parseWire(fetchMock.mock.calls[0][1].body);
-        expect(wire).toHaveLength(2);
+        // 第三条是后端 profile_set（画像就绪后补发一次，写会话属性）
+        expect(wire).toHaveLength(3);
         expect(wire[1].properties).toMatchObject({
             user_uuid: uuid,
             user_email: 'a@b.com',

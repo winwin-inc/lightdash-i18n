@@ -108,4 +108,39 @@ describe('buildPayload', () => {
     it('returns empty body for empty queue', () => {
         expect(buildPayload([])).toBe('');
     });
+
+    // 回归：写成 type:'track' + event:'profile_set' 会落成普通事件，
+    // 适配层不写 session_data，Sessions 面板的属性为空（2026-11-25 dev 实测）
+    it('encodes profile events as type=profile_set without an event name', () => {
+        const body = buildPayload([
+            baseEvent({
+                kind: 'profile',
+                event: 'profile_set',
+                properties: { user_email: 'a@b.com', env: 'pre' },
+            }),
+        ]);
+        // 单条就是 data=，不套 data_list
+        expect(body).toMatch(/^data=/);
+        const wire = JSON.parse(
+            Buffer.from(
+                decodeURIComponent(body.slice('data='.length)),
+                'base64',
+            ).toString('utf8'),
+        );
+        expect(wire.type).toBe('profile_set');
+        expect(wire).not.toHaveProperty('event');
+        expect(wire.properties).toEqual({ user_email: 'a@b.com', env: 'pre' });
+    });
+
+    it('keeps track events unchanged when kind is absent', () => {
+        const body = buildPayload([baseEvent()]);
+        const wire = JSON.parse(
+            Buffer.from(
+                decodeURIComponent(body.slice('data='.length)),
+                'base64',
+            ).toString('utf8'),
+        );
+        expect(wire.type).toBe('track');
+        expect(wire.event).toBe('dashboard_view');
+    });
 });

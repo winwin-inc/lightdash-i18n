@@ -125,16 +125,18 @@ export const mapLightdashEvent = (
     const rawMetricsCount = properties.metricsCount;
     const rawDimensionsCount = properties.dimensionsCount;
     if (rawMetricsCount !== undefined || rawDimensionsCount !== undefined) {
-        const metrics = typeof rawMetricsCount === 'number' ? rawMetricsCount : 0;
+        const metrics =
+            typeof rawMetricsCount === 'number' ? rawMetricsCount : 0;
         const dimensions =
             typeof rawDimensionsCount === 'number' ? rawDimensionsCount : 0;
         umamiProperties.fields_count = metrics + dimensions;
     }
 
     // 公共属性：client 恒写；app_version 只给低频事件（高频事件由 lib.$lib_version 兜底）
-    umamiProperties.client = umamiProperties.client ?? (ctx.client || 'unknown');
+    umamiProperties.client =
+        umamiProperties.client ?? (ctx.client || 'unknown');
     if (!HIGH_FREQUENCY_EVENTS.has(umamiEventName)) {
-        umamiProperties.app_version = VERSION;
+        umamiProperties.app_version = String(VERSION);
     }
 
     // distinct_id 解析链

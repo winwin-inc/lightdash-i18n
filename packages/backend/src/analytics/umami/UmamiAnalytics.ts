@@ -30,10 +30,34 @@ const isUuid = (value: string): boolean =>
         value,
     );
 
+/** 画像链接叶常量：这些键会搬进 session_data（会话属性） */
+const PROFILE_PROPERTY_KEYS = [
+    'user_uuid',
+    'user_email',
+    'user_name',
+    'org_id',
+    'org_name',
+    'client',
+    'app_version',
+    'env',
+] as const;
+
+/**
+ * 后端 profile_set 去重键：同一（`distinct_id` × UTC 月份）只发一次。
+ *
+ * 为什么按月：Umami 的 session key = uuid(站点, 客户端 IP, UA, salt, distinct_id)，
+ * 而 salt 缺省按月轮换 → 跨月就是一个新会话，必须重新写一次 session_data。
+ * 为什么按进程：后端 IP 随 pod 迁移变化 → 新会话，同理需要重发；
+ * 进程重启后 Map 自然清空，正好覆盖这个场景（且内存上限 = 用户数）。
+ */
+export const profileDedupeKey = (distinctId: string, now: Date): string =>
+    `${distinctId}|${now.toISOString().slice(0, 7)}`;
+
 /**
  * 自建 Umami 上报客户端：内存队列，每 5s 或攒满 50 条批量 flush（data_list）。
  * 永不抛错、永不阻塞调用方；disabled 时 track/flush 直接早退、零外发。
  * query_executed 专属降量：先采样（sampleRate）再去重（dedupeSeconds），均在入队前。
+ * 首个命中白名单的事件会顺带发一条 profile_set（写会话属性，每个用户每月一次）。
  */
 export class UmamiAnalytics {
     private readonly config: UmamiConfig;
@@ -42,6 +66,9 @@ export class UmamiAnalytics {
         new UserProfileCache();
 
     private readonly dedupeWindow = new DedupeWindow();
+
+    /** distinctId → 已发过 profile 的去重键（见 profileDedupeKey） */
+    private readonly profileSent = new Map<string, string>();
 
     private queue: UmamiEvent[] = [];
 
@@ -81,6 +108,8 @@ export class UmamiAnalytics {
             while (this.queue.length > MAX_QUEUE_SIZE) {
                 this.queue.shift();
             }
+            // 后端会话也要能读出「这人是谁」：每个用户每月补一条 profile_set
+            this.maybePushProfile(enriched);
             if (this.queue.length >= FLUSH_BATCH_SIZE) {
                 void this.flush();
             }
@@ -169,6 +198,54 @@ export class UmamiAnalytics {
         await this.flush();
     }
 
+    /**
+     * 后端 profile_set：把当前事件的用户/组织/client 属性抄成一条会话属性。
+     *
+     * - 只对真 uuid（真实用户）发，`server` / `anon:*` 跳过；
+     * - 每用户每月一次（见 profileDedupeKey），成本约 1 条报文 + 13 行 session_data；
+     * - 写的是**服务端会话**（session key 含 IP/UA），不会覆盖浏览器会话的属性。
+     */
+    private maybePushProfile(event: UmamiEvent): void {
+        if (!isUuid(event.distinctId)) {
+            return;
+        }
+        const now = new Date(event.time ?? Date.now());
+        const key = profileDedupeKey(event.distinctId, now);
+        if (this.profileSent.get(event.distinctId) === key) {
+            return;
+        }
+        const properties: Record<string, UmamiPropertyValue> = {};
+        PROFILE_PROPERTY_KEYS.forEach((name) => {
+            const value = event.properties[name];
+            if (value !== undefined && value !== null && value !== '') {
+                properties[name] = value;
+            }
+        });
+        // 画像缓存是异步的：首条事件往往还只有 user_uuid。此时不发，
+        // 否则会把「本月已发」占掉，整个月会话里只剩一个 uuid。
+        if (
+            properties.user_email === undefined &&
+            properties.org_id === undefined
+        ) {
+            return;
+        }
+        if (properties.user_uuid === undefined) {
+            properties.user_uuid = event.distinctId;
+        }
+        properties.env = this.config.environment;
+        this.profileSent.set(event.distinctId, key);
+        this.queue.push({
+            kind: 'profile',
+            event: 'profile_set',
+            distinctId: event.distinctId,
+            ...(event.anonymousId !== undefined
+                ? { anonymousId: event.anonymousId }
+                : {}),
+            time: event.time,
+            properties,
+        });
+    }
+
     /** query_executed 专属采样：rate=1 恒不丢（Math.random() 恒 < 1）；rate=0 恒丢 */
     private isSampledOut(event: UmamiEvent): boolean {
         if (event.event !== 'query_executed') {
@@ -179,7 +256,10 @@ export class UmamiAnalytics {
 
     /** query_executed 专属去重：窗口内同 distinctId+事件+图表/项目 只放行首条 */
     private isDuplicate(event: UmamiEvent): boolean {
-        if (event.event !== 'query_executed' || this.config.dedupeSeconds <= 0) {
+        if (
+            event.event !== 'query_executed' ||
+            this.config.dedupeSeconds <= 0
+        ) {
             return false;
         }
         const key = `${event.distinctId}|${event.event}|${
@@ -210,11 +290,7 @@ export class UmamiAnalytics {
         if (profile.email !== null && profile.email !== '') {
             properties.user_email = profile.email;
         }
-        if (
-            !isHighFrequency &&
-            profile.name !== null &&
-            profile.name !== ''
-        ) {
+        if (!isHighFrequency && profile.name !== null && profile.name !== '') {
             properties.user_name = profile.name;
         }
         if (profile.orgId !== null && profile.orgId !== '') {

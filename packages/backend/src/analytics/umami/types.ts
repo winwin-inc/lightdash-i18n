@@ -6,7 +6,14 @@ export type UmamiPropertyValue = string | number | boolean;
  * 发送时由 payload.ts 转成 sensors 兼容的 snake_case 报文。
  */
 export type UmamiEvent = {
-    /** 事件名，如 dashboard_view */
+    /**
+     * 报文类型（sensors 语义）：
+     * - `track`（缺省）→ `type:'track'` + `event`，落成命名事件；
+     * - `profile` → `type:'profile_set'`、**不带 `event`**，适配层翻成 Umami identify
+     *   写 `session_data`（会话属性），不产生事件行。
+     */
+    kind?: 'track' | 'profile';
+    /** 事件名，如 dashboard_view（kind='profile' 时无意义，仅作占位） */
     event: string;
     /** 去重实体 id（一般是 userUuid；回落 'server'） */
     distinctId: string;

@@ -9,7 +9,7 @@
 | 问题 | 结论 |
 |---|---|
 | 目标 | **PV/UV 为主**，附带查询 / 导出 / MCP 调用 / 敏感操作的聚合事件 |
-| 埋什么 | 前端 3 个事件（`page_view`、`$AppViewScreen`、`profile_set`）+ 后端 16 个事件镜像（白名单映射） |
+| 埋什么 | 前端 3 个事件（`page_view`、`$AppViewScreen`、`profile_set`）+ 后端 16 个事件镜像（白名单映射）+ 后端 `profile_set`（每用户每月 1 条，写服务端会话属性） |
 | CLI 使用 | **不给 CLI 做上报通道**。`packages/cli` 的 deploy/compile/query/download 都落到后端，用现成的 `Lightdash-Request-Method: CLI` 头就能在属性里切出来 |
 | msy-x 使用 | 同上。msy-x 走 MCP → 后端 `mcp_tool_call` 已存在，补 `mcp_client`（MCP `clientInfo.name` 或新增 `X-Lightdash-Client` 头）即可区分 msy-x / claude / cursor / 豆包 |
 | 盲区 | 与后端无交互的本地命令（`lightdash --version`、本地 dbt、`msy-x --help`）不埋，v1 不做 |
@@ -32,6 +32,7 @@ Node    node-fetch(data_list)         ├→ collect.banmahui.cn/api/gp?project&
   单条 `data=<base64(json)>`，批量 `data_list=<base64(array)>&gzip=0`。
 - **前端一次导航只发 1 个请求**：`data_list` 里装 2 条（`page_view` + `$AppViewScreen`）；
   `profile_set` 低频，单独 `data=`。
+- **后端也发 `profile_set`**（`UmamiAnalytics.maybePushProfile`）：首个命中白名单的真实用户事件会顺带一条，属性= `user_uuid`/`user_email`/`user_name`/`org_id`/`org_name`/`client`/`env`；去重键 `distinct_id|UTC 月`（salt 按月轮换、后端 IP 随 pod 变，所以按进程生命周期 + 月度重发）。画像缓存还没就绪时**不发**（避免把整月去重键占成一条空画像）。
 - 单条**普通事件**字段（sensors 兼容，字段真相见 dapeng 仓 `docs/track-analytics/reporting-catalog.md`）：
   `distinct_id` / `anonymous_id` / `time` / `type:'track'` / `event` /
   `lib{$lib,$lib_version}` / `identities{user_key,$identity_cookie_id}` / `properties`。
@@ -71,7 +72,7 @@ Node    node-fetch(data_list)         ├→ collect.banmahui.cn/api/gp?project&
 |---|---|---|---|---|
 | 1 | `page_view` | 页面浏览 | 前端路由 | **PV/UV 主力**：每天多少人用、看了多少页；看板/空间/图表各被看多少次多少人；某组织/项目/个人在看什么 |
 | 2 | `$AppViewScreen` | 页面浏览（原生行） | 与 1 双发 | Umami 原生 Pages / Visitors 报表（趋势、页面排行、实时在线） |
-| 3 | `profile_set` | 用户画像 | 前端登录态 | Sessions 视图：这人是谁、哪个组织、什么角色、在哪个项目（**不能做统计口径**） |
+| 3 | `profile_set` | 用户画像 | 前端登录态 + 后端（每用户每月 1 条） | Sessions 视图：这人是谁、哪个组织、什么角色、在哪个项目（**不能做统计口径**；前后端会话因 IP/UA 不同各一条） |
 | 4 | `dashboard_view` | 看板访问 | 后端 | 哪个看板最热（id/slug/名称）、所属空间、参数化看板使用度（`parameters_count`） |
 | 5 | `chart_view` | 图表查看 | 后端 | 哪些图表被**单独打开**、图表类型分布 |
 | 6 | `sql_chart_view` | SQL 图表查看 | 后端 | SQL Runner 图表的使用情况 |
@@ -153,10 +154,17 @@ Node    node-fetch(data_list)         ├→ collect.banmahui.cn/api/gp?project&
 拆成 `type:'track'` + `event:'profile_set'` 只在 Events 里多一条事件行，`session_data` 为空
 （适配层只按 `type` 决定是否翻译成 Umami identify），会话属性全丢。
 
-**会话语义（已知限制，写清楚免得用错）**：Umami 会话是 `uuid(websiteId, distinct_id)`，
-**一人一条生涯级会话**，`session_data` 按 `(sessionId, dataKey)` **后写覆盖** → Sessions 视图里
-看到的是「最新归属」（切项目后只剩最后一个项目）。**统计与筛选一律以事件属性为准。**
-`profile_set` 只从浏览器发（后端/CLI/MCP 不发，避免与浏览器会话互相覆盖）。
+**会话语义（已知限制，写清楚免得用错）**：Umami 的会话 id 是
+`uuid(websiteId, 客户端 IP, UA, salt, distinct_id)`（umami `src/lib/collection-session.ts`），
+`salt` 缺省按**月**轮换 → 会话粒度是「同站点 + 同 IP + 同 UA + 同月 + 同人」，
+**每月至少一条**（换网络/换浏览器/升级 UA 版本也会拆），不是「一人一生一条」。
+要按「人/组织」出数只能用事件属性。
+
+**因此前后端是两条会话（不是两个用户）**：后端事件的 IP 是 pod 出口 IP、UA 是固定的报告 UA，
+所以必然与浏览器那条分开；UV 仍按 `distinct_id` 去重，人数不受影响。
+**两边都发 `profile_set`**：浏览器发一条、后端发一条（每用户每月一次，见 `UmamiAnalytics` 的
+`profileDedupeKey`），因为 session key 不同，**互不覆盖**；这样条条会话在 Sessions 面板里都能读出“是谁”。
+`session_data` 仍按 `(sessionId, dataKey)` 后写覆盖，Sessions 视图看到的是最新值。
 
 ### 4.4 码值约定（埋点不翻译，中文在查询侧映射）
 
@@ -284,6 +292,8 @@ cd packages/frontend && timeout 240 npx vitest run src/providers/Tracking/umami 
 | 非浏览器 UA | ❌ 被 isbot 丢弃（见 §2） |
 | `type:'profile_set'`（sensors 语义，无 `event`） | ✅ 写 `session_data`（`/sessions/{id}/properties` 可读），**不产生事件行** |
 | `type:'track'` + `event:'profile_set'`（旧实现） | ❌ 只落一条事件行，`/sessions/{id}/properties` 返回 `[]` → Sessions 无属性 |
+| 后端 `profile_set`（每用户每月 1 条） | ✅ 写进**服务端会话**的 `session_data`；与浏览器会话互不覆盖（session key 含 IP/UA） |
+| 同一 `distinct_id` 换 UA | ❌ 两条会话（session key 含 UA，实测同秒同 ID 只换 UA → 2 条会话）；UV 仍是 1 |
 
 **联调**（先用内部站 `lightdash-internal`，流量小好洗）
 
@@ -322,7 +332,7 @@ Umami 每条事件落 1 行 `website_event` + 每个属性 1 行 `event_data`，
 | `download_started` / `download_completed` | ≈8–9 | ≈9–10 | 每次导出各 1 条 |
 | `mcp_tool_call` | ≈7–8 | ≈8–9 | 每次工具调用 1 条 |
 | `user_logged_in` | ≈7 | ≈8 | 每人每天 0–几次 |
-| `profile_set` | 13 | 13（只写 `session_data`，不落事件行） | 低频：身份指纹变化才发 |
+| `profile_set` | 13 | 13（只写 `session_data`，不落事件行） | 前端：身份指纹变化才发；后端：每用户每月 1 条 |
 | 敏感操作（`permission_updated` / `*_deleted` / `pat_created` / `share_link_created` 等） | ≈7–10 | ≈8–11 | 罕见，可忽略 |
 
 > 属性数为按 §4.1–4.2 现状的近似折算。高频组（`query_executed` / `query_error` /
