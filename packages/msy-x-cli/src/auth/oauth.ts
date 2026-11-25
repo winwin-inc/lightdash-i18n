@@ -1,4 +1,3 @@
-import { randomBytes } from 'node:crypto';
 import {
     discoverAuthorizationServerMetadata,
     discoverOAuthProtectedResourceMetadata,
@@ -14,10 +13,11 @@ import type {
     OAuthTokens,
 } from '@modelcontextprotocol/sdk/shared/auth.js';
 import type { FetchLike } from '@modelcontextprotocol/sdk/shared/transport.js';
+import { randomBytes } from 'node:crypto';
 import { CliError } from '../cli/errors';
 import type { EnvVars } from '../config/paths';
-import { openBrowser } from '../lib/openBrowser';
 import { debugLog, logInfo, logWarn } from '../lib/logger';
+import { openBrowser } from '../lib/openBrowser';
 import type { OAuthCredentials, SiteProfile } from '../types';
 import {
     DEFAULT_CALLBACK_TIMEOUT_MS,
@@ -61,6 +61,98 @@ export const siteBaseFromMcpUrl = (mcpUrl: string): string => {
 export const authorizationServerUrlFromMcpUrl = (mcpUrl: string): string =>
     `${siteBaseFromMcpUrl(mcpUrl)}${OAUTH_PATH}`;
 
+export type AuthorizationServerInfo = {
+    /** 授权服务器基址；metadata 为 undefined 时这里是约定基址 */
+    authorizationServerUrl: string;
+    metadata: AuthorizationServerMetadata | undefined;
+};
+
+/**
+ * 授权服务器发现（RFC9728 受保护资源元数据 → RFC8414 授权服务器元数据）。
+ *
+ * 发现失败**不抛**：退到 Lightdash 约定基址 `{site}/api/v1/oauth`，
+ * metadata 交给调用方用 `conventionalAuthorizationServerMetadata` 兜底
+ * （登录与刷新共用同一套路径，避免两边各拼一份端点）。
+ */
+export const discoverAuthorizationServer = async ({
+    mcpUrl,
+    fetchFn,
+}: {
+    mcpUrl: string;
+    fetchFn?: FetchLike;
+}): Promise<AuthorizationServerInfo> => {
+    const conventionalUrl = authorizationServerUrlFromMcpUrl(mcpUrl);
+    try {
+        const resourceMetadata: OAuthProtectedResourceMetadata | undefined =
+            await discoverOAuthProtectedResourceMetadata(
+                mcpUrl,
+                undefined,
+                fetchFn,
+            ).catch((error: unknown) => {
+                debugLog('受保护资源元数据发现失败，走约定路径兜底', error);
+                return undefined;
+            });
+        const discoveredUrl =
+            resourceMetadata?.authorization_servers?.[0] ??
+            siteBaseFromMcpUrl(mcpUrl);
+        const metadata = await discoverAuthorizationServerMetadata(
+            discoveredUrl,
+            { fetchFn },
+        ).catch((error: unknown) => {
+            debugLog('授权服务器元数据发现失败', error);
+            return undefined;
+        });
+        if (metadata !== undefined) {
+            return { authorizationServerUrl: discoveredUrl, metadata };
+        }
+        // 资源元数据给的基址可能只是站点根，再按约定路径试一次
+        if (discoveredUrl !== conventionalUrl) {
+            const conventionalMetadata =
+                await discoverAuthorizationServerMetadata(conventionalUrl, {
+                    fetchFn,
+                }).catch(() => undefined);
+            if (conventionalMetadata !== undefined) {
+                return {
+                    authorizationServerUrl: conventionalUrl,
+                    metadata: conventionalMetadata,
+                };
+            }
+        }
+    } catch (error) {
+        debugLog('授权服务器发现异常，走约定路径兜底', error);
+    }
+    debugLog('未拿到授权服务器元数据，按约定路径兜底', conventionalUrl);
+    return { authorizationServerUrl: conventionalUrl, metadata: undefined };
+};
+
+/**
+ * 未发现元数据时的约定兜底：Lightdash 把 OAuth 端点固定在
+ * `{site}/api/v1/oauth/{authorize,token,register,revoke}`。
+ *
+ * SDK 的 `new URL('/token', 授权服务器 URL)` 会把路径整段丢掉（拼成
+ * `{site}/token`），所以宁可用这份约定元数据显式给出 token 端点。
+ */
+export const conventionalAuthorizationServerMetadata = (
+    authorizationServerUrl: string,
+): AuthorizationServerMetadata => ({
+    issuer: authorizationServerUrl,
+    authorization_endpoint: `${authorizationServerUrl}/authorize`,
+    token_endpoint: `${authorizationServerUrl}/token`,
+    registration_endpoint: `${authorizationServerUrl}/register`,
+    revocation_endpoint: `${authorizationServerUrl}/revoke`,
+    response_types_supported: ['code'],
+    grant_types_supported: [
+        'authorization_code',
+        'refresh_token',
+        'client_credentials',
+    ],
+    token_endpoint_auth_methods_supported: [
+        'client_secret_basic',
+        'client_secret_post',
+    ],
+    code_challenge_methods_supported: ['S256'],
+});
+
 /** 网络类错误（fetch TypeError 等）→ NETWORK（退 6），其余授权问题 → AUTH_REQUIRED（退 3） */
 const toLoginError = (error: unknown, context: string): CliError => {
     if (error instanceof CliError) return error;
@@ -74,7 +166,9 @@ const toLoginError = (error: unknown, context: string): CliError => {
     }
     return new CliError({
         code: 'AUTH_REQUIRED',
-        message: `${context}：${error instanceof Error ? error.message : String(error)}`,
+        message: `${context}：${
+            error instanceof Error ? error.message : String(error)
+        }`,
         hint: '重新运行 msy-x auth login',
         cause: error,
     });
@@ -104,7 +198,10 @@ export const loginWithOAuth = async ({
 }: LoginWithOAuthInput): Promise<OAuthCredentials> => {
     // 1. 回调监听先起：redirectUri（含随机端口）是 DCR 的注册入参
     const state = randomBytes(32).toString('hex');
-    const callback = await startCallbackServer({ expectedState: state, timeoutMs });
+    const callback = await startCallbackServer({
+        expectedState: state,
+        timeoutMs,
+    });
     const provider = new ConfigOAuthClientProvider({
         siteName: site.name,
         redirectUri: callback.redirectUri,
@@ -113,36 +210,16 @@ export const loginWithOAuth = async ({
     });
 
     try {
-        // 2. 发现授权服务器（RFC9728 → RFC8414），失败时按约定路径兜底
-        let authorizationServerUrl = authorizationServerUrlFromMcpUrl(site.mcpUrl);
-        let metadata: AuthorizationServerMetadata | undefined;
-        try {
-            const resourceMetadata:
-                | OAuthProtectedResourceMetadata
-                | undefined = await discoverOAuthProtectedResourceMetadata(
-                site.mcpUrl,
-                undefined,
-                fetchFn,
-            ).catch((error: unknown) => {
-                debugLog('受保护资源元数据发现失败，走约定路径兜底', error);
-                return undefined;
-            });
-            const discoveredUrl =
-                resourceMetadata?.authorization_servers?.[0] ??
-                siteBaseFromMcpUrl(site.mcpUrl);
-            authorizationServerUrl = discoveredUrl;
-            metadata = await discoverAuthorizationServerMetadata(discoveredUrl, {
-                fetchFn,
-            });
-        } catch (error) {
-            debugLog('授权服务器元数据发现失败，走约定路径兜底', error);
-            authorizationServerUrl = authorizationServerUrlFromMcpUrl(site.mcpUrl);
-        }
-        if (metadata === undefined) {
-            debugLog(
-                '未拿到授权服务器元数据，SDK 缺省路径拼出 /register /authorize /token',
-            );
-        }
+        // 2. 发现授权服务器（RFC9728 → RFC8414）；发现不到退约定路径（
+        //    `{site}/api/v1/oauth/*`），不能退成站点根路径
+        const discovered = await discoverAuthorizationServer({
+            mcpUrl: site.mcpUrl,
+            fetchFn,
+        });
+        const authorizationServerUrl = discovered.authorizationServerUrl;
+        const metadata: AuthorizationServerMetadata =
+            discovered.metadata ??
+            conventionalAuthorizationServerMetadata(authorizationServerUrl);
 
         // 3. client 注册：能复用就复用（redirectUri 一致），否则 DCR
         let clientInfo: OAuthClientInformation | undefined =
@@ -191,7 +268,9 @@ export const loginWithOAuth = async ({
         } else if (process.platform === 'win32') {
             // Windows 上“已拉起”不等于“窗口真的出现”（URL 关联坏掉时系统会静默无操作），
             // 所以无论成败都把链接打出来，用户永远有一条兜底路径
-            logInfo('已调用系统浏览器；若没有弹出授权页，复制下面的链接手动打开：');
+            logInfo(
+                '已调用系统浏览器；若没有弹出授权页，复制下面的链接手动打开：',
+            );
             logInfo(authorizationUrl.toString());
         }
 
@@ -210,7 +289,10 @@ export const loginWithOAuth = async ({
                 addClientAuthentication: async (_headers, params) => {
                     params.set('client_id', clientAuthInfo.client_id);
                     if (clientAuthInfo.client_secret !== undefined) {
-                        params.set('client_secret', clientAuthInfo.client_secret);
+                        params.set(
+                            'client_secret',
+                            clientAuthInfo.client_secret,
+                        );
                     }
                 },
                 fetchFn,

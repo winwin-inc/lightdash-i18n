@@ -1,18 +1,22 @@
+import type { FetchLike } from '@modelcontextprotocol/sdk/shared/transport.js';
 import assert from 'node:assert/strict';
 import { mkdtemp, stat, unlink, utimes, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import type { FetchLike } from '@modelcontextprotocol/sdk/shared/transport.js';
 import { CliError } from '../cli/errors';
 import { ExitCode } from '../cli/exitCodes';
-import { defaultConfig, readConfig, writeConfig } from '../config/store';
 import type { EnvVars } from '../config/paths';
+import { defaultConfig, readConfig, writeConfig } from '../config/store';
 import type { CliConfig, OAuthCredentials, SiteProfile } from '../types';
 import { ensureFreshCredentials } from './refresh';
 
 /** 全部走临时目录（mkdtemp + MSY_X_CONFIG），绝不碰真实 ~/.config */
-const makeTempEnv = async (): Promise<{ env: EnvVars; dir: string; file: string }> => {
+const makeTempEnv = async (): Promise<{
+    env: EnvVars;
+    dir: string;
+    file: string;
+}> => {
     const dir = await mkdtemp(path.join(os.tmpdir(), 'msy-x-refresh-'));
     const file = path.join(dir, 'config.yaml');
     return { env: { MSY_X_CONFIG: file }, dir, file };
@@ -66,17 +70,72 @@ type MockOptions = {
     throwNetworkError?: boolean;
     /** token 请求期间执行（模拟并发登录/刷新已改写磁盘） */
     onToken?: () => Promise<void>;
+    /** 元数据发现：ok=正常返回；unavailable=全部 404（走约定兜底）；offline=网络异常 */
+    discovery?: 'ok' | 'unavailable' | 'offline';
+    /** 服务端元数据里的 token 端点（验诈发现结果被真的用上） */
+    tokenEndpoint?: string;
 };
 
-/** 本地 mock fetch：只应看到 token 端点（refresh 不做元数据发现） */
-const makeMock = (options: MockOptions = {}): MockControls => {
+const WELL_KNOWN_AS =
+    'https://x.brandct.com/.well-known/oauth-authorization-server';
+const WELL_KNOWN_PR =
+    'https://x.brandct.com/.well-known/oauth-protected-resource/api/v1/mcp';
+const CONVENTIONAL_TOKEN = 'https://x.brandct.com/api/v1/oauth/token';
+
+/** 本地 mock fetch：发现端点 + token 端点，其余请求一律报错（防止误发） */
+const makeMock = (
+    options: MockOptions = {},
+): MockControls & {
+    tokenUrls: () => string[];
+} => {
     let tokenCalls = 0;
     let lastBody: URLSearchParams | null = null;
+    const tokenUrls: string[] = [];
+    const discovery = options.discovery ?? 'ok';
+    const notFound = (): Response => new Response('not found', { status: 404 });
     const fetchFn: FetchLike = async (url, init) => {
         const target = String(url);
+        const isDiscovery =
+            target.includes('/.well-known/oauth-protected-resource') ||
+            target.includes('/.well-known/oauth-authorization-server');
+        if (isDiscovery) {
+            if (discovery === 'offline') throw new TypeError('fetch failed');
+            if (discovery === 'unavailable') return notFound();
+            if (target.startsWith(WELL_KNOWN_PR)) {
+                return new Response(
+                    JSON.stringify({
+                        resource: 'https://x.brandct.com/api/v1/mcp',
+                        authorization_servers: ['https://x.brandct.com'],
+                    }),
+                    {
+                        status: 200,
+                        headers: { 'Content-Type': 'application/json' },
+                    },
+                );
+            }
+            if (target.startsWith(WELL_KNOWN_AS)) {
+                return new Response(
+                    JSON.stringify({
+                        issuer: 'https://x.brandct.com',
+                        authorization_endpoint:
+                            'https://x.brandct.com/api/v1/oauth/authorize',
+                        token_endpoint:
+                            options.tokenEndpoint ?? CONVENTIONAL_TOKEN,
+                        response_types_supported: ['code'],
+                        grant_types_supported: ['refresh_token'],
+                    }),
+                    {
+                        status: 200,
+                        headers: { 'Content-Type': 'application/json' },
+                    },
+                );
+            }
+            return notFound();
+        }
         if (!target.endsWith('/token')) {
             throw new Error(`测试 mock 未预期的请求：${target}`);
         }
+        tokenUrls.push(target);
         tokenCalls += 1;
         lastBody = new URLSearchParams(String(init?.body ?? ''));
         if (options.onToken !== undefined) await options.onToken();
@@ -103,7 +162,12 @@ const makeMock = (options: MockOptions = {}): MockControls => {
             { status: 200, headers: { 'Content-Type': 'application/json' } },
         );
     };
-    return { fetchFn, tokenCalls: () => tokenCalls, lastTokenBody: () => lastBody };
+    return {
+        fetchFn,
+        tokenCalls: () => tokenCalls,
+        lastTokenBody: () => lastBody,
+        tokenUrls: () => tokenUrls,
+    };
 };
 
 test('access 未过期：原样返回，不发任何请求', async () => {
@@ -476,7 +540,8 @@ test('过期且没有 refresh token：清凭证并抛 AUTH_REQUIRED', async () =
                 env,
                 fetchFn: mock.fetchFn,
             }),
-        (error: unknown) => error instanceof CliError && error.code === 'AUTH_REQUIRED',
+        (error: unknown) =>
+            error instanceof CliError && error.code === 'AUTH_REQUIRED',
     );
     const saved = await readConfig(env);
     assert.equal(saved.auth.x, undefined);
@@ -504,4 +569,115 @@ test('残留的过期锁（>30s）会被清掉并重试刷新', async () => {
     assert.ok(result.mode === 'oauth');
     assert.equal(mock.tokenCalls(), 1);
     await assert.rejects(() => stat(lockPathOf(dir)));
+});
+
+// 0.2.5 的缺陷：SDK 在没拿到 metadata 时拼 `new URL('/token', 授权服务器 URL)`，
+// 把 `/api/v1/oauth` 整段丢掉，实际打到 `{site}/token`（404）→ 自动刷新必失败
+test('刷新打到发现出来的 token 端点，而不是 SDK 缺省的 /token', async () => {
+    const { env } = await makeTempEnv();
+    const config = await writeCredentials(env, expiredCredentials);
+    const mock = makeMock({});
+
+    await ensureFreshCredentials({
+        site,
+        credentials: expiredCredentials,
+        config,
+        env,
+        fetchFn: mock.fetchFn,
+    });
+
+    assert.deepEqual(mock.tokenUrls(), [CONVENTIONAL_TOKEN]);
+    assert.equal(
+        mock.tokenUrls().some((url) => new URL(url).pathname === '/token'),
+        false,
+        '不能打到站点根 /token',
+    );
+});
+
+test('发现到的 token 端点优先（服务端可以换路径）', async () => {
+    const { env } = await makeTempEnv();
+    const config = await writeCredentials(env, expiredCredentials);
+    const custom = 'https://x.brandct.com/custom/oauth/token';
+    const mock = makeMock({ tokenEndpoint: custom });
+
+    const result = await ensureFreshCredentials({
+        site,
+        credentials: expiredCredentials,
+        config,
+        env,
+        fetchFn: mock.fetchFn,
+    });
+
+    assert.deepEqual(mock.tokenUrls(), [custom]);
+    assert.ok(result.mode === 'oauth');
+});
+
+test('元数据发现不可用（全 404）：仍按约定打到 /api/v1/oauth/token', async () => {
+    const { env } = await makeTempEnv();
+    const config = await writeCredentials(env, expiredCredentials);
+    const mock = makeMock({ discovery: 'unavailable' });
+
+    const result = await ensureFreshCredentials({
+        site,
+        credentials: expiredCredentials,
+        config,
+        env,
+        fetchFn: mock.fetchFn,
+    });
+
+    assert.deepEqual(mock.tokenUrls(), [CONVENTIONAL_TOKEN]);
+    assert.ok(result.mode === 'oauth');
+});
+
+test('元数据发现网络异常：不判成永久失败，刷新仍走约定端点', async () => {
+    const { env } = await makeTempEnv();
+    const config = await writeCredentials(env, expiredCredentials);
+    const mock = makeMock({ discovery: 'offline' });
+
+    const result = await ensureFreshCredentials({
+        site,
+        credentials: expiredCredentials,
+        config,
+        env,
+        fetchFn: mock.fetchFn,
+    });
+
+    assert.deepEqual(mock.tokenUrls(), [CONVENTIONAL_TOKEN]);
+    assert.ok(result.mode === 'oauth');
+    const saved = await readConfig(env);
+    assert.ok(saved.auth.x?.mode === 'oauth');
+});
+
+test('过期且无 refresh token，且站点锁被别的进程持有：仍退 AUTH_REQUIRED，不删凭证', async () => {
+    const { env, dir } = await makeTempEnv();
+    const withoutRefresh: OAuthCredentials = {
+        ...expiredCredentials,
+        refreshToken: null,
+    };
+    const config = await writeCredentials(env, withoutRefresh);
+    const mock = makeMock({});
+    // 另一个进程正持锁（mtime 新鲜）
+    await writeFile(lockPathOf(dir), 'other-pid');
+
+    await assert.rejects(
+        () =>
+            ensureFreshCredentials({
+                site,
+                credentials: withoutRefresh,
+                config,
+                env,
+                fetchFn: mock.fetchFn,
+                pollTotalMs: 150,
+                pollIntervalMs: 20,
+                lockStaleMs: 60_000,
+            }),
+        (error: unknown) =>
+            error instanceof CliError &&
+            error.code === 'AUTH_REQUIRED' &&
+            error.exitCode === ExitCode.AUTH_REQUIRED,
+    );
+
+    // 拿不到锁 → 跳过清空（清理是副作用，不改结论）
+    const saved = await readConfig(env);
+    assert.deepEqual(saved.auth.x, withoutRefresh);
 });

@@ -21,6 +21,12 @@
     -   安装/升级：`npm i -g https://img0.banmahui.cn/msy-x/cli/msy-x-cli/0.2.4/msy-x-cli-0.2.4.tgz`。未升级的 0.2.3 及更早客户端执行 `verified` 会报工具不存在（该命令本就取不到数据，影响有限）
     -   配套文档同步：CLI README / 使用手册 / 设计稿、豆包技能 `references/cli.md`
 
+-   **命令行工具（msy-x-cli 0.2.6，已发布）**
+    -   修复「登录正常、自动刷新必然失败」：SDK 的 `refreshAuthorization` 在没有授权服务器元数据时会拼 `new URL('/token', 授权服务器 URL)`，把 `/api/v1/oauth` 整段路径丢掉，请求实际打到 `{site}/token`（404）；0.2.5 因此只能手工重新登录。现刷新前先按 RFC 9728 → RFC 8414 发现授权服务器，把 `metadata`（含 `token_endpoint`）传给 SDK；发现不到才按 Lightdash 约定兜底 `{site}/api/v1/oauth/token`，元数据发现给的是 4s **总**预算（持锁硬上界 4s+20s=24s，小于锁过期 30s），失败只回落约定端点、不影响「暂时失败保留凭证」的分类
+    -   登录流程复用同一套发现逻辑（新增 `discoverAuthorizationServer` / `conventionalAuthorizationServerMetadata`），发现失败时不再退回站点根 `/authorize` `/register` `/token`
+    -   修复「刷新与新登录并发时新凭证被覆盖或删除」：登录侧此前不拿刷新锁，刷新「重读配置 → 写回」的窗口里登录落盘会被刷新结果覆盖（清空动作同理会删掉新登录）。现抽出 `src/auth/configLock.ts`，`auth login`（PAT / 浏览器 OAuth / 扫码）与 `auth logout` 的写凭证动作与刷新共用同一把站点锁，均在锁内重读后再写
+    -   安装/升级：`npm i -g https://img0.banmahui.cn/msy-x/cli/msy-x-cli/0.2.6/msy-x-cli-0.2.6.tgz`（tag `msyx-v0.2.6` 已推送，由 CI 产出 tgz 并挂 GitHub Release）。0.2.5 及更早版本「登录能成功、自动刷新必然失败只能重新登录」，建议升级
+
 ## v2.7.9 (2026-11-23)
 
 -   **透视表导出：表头与合计行重构（对外有变化）**

@@ -1,13 +1,14 @@
-import { CliError } from '../cli/errors';
-import { ExitCode, ExitCodeValue } from '../cli/exitCodes';
-import { readConfig, writeConfig } from '../config/store';
+import { withSiteLock } from '../auth/configLock';
 import { loginWithDeviceQr } from '../auth/device';
 import { loginWithOAuth } from '../auth/oauth';
 import { savePat } from '../auth/pat';
 import { logout as revokeAndClear } from '../auth/revoke';
+import { CliError } from '../cli/errors';
+import { ExitCode, ExitCodeValue } from '../cli/exitCodes';
+import { readConfig, writeConfig } from '../config/store';
 import { isWsl, wslNeedsQrFallback } from '../lib/browserEnv';
 import { logWarn } from '../lib/logger';
-import type { AuthCredentials, CommandSpec, CommandContext } from '../types';
+import type { AuthCredentials, CommandContext, CommandSpec } from '../types';
 
 /**
  * `auth login|status|logout`（设计稿 §5.3 三条契约命令）。
@@ -20,7 +21,9 @@ import type { AuthCredentials, CommandSpec, CommandContext } from '../types';
  * - 所有 stdout 都是单行 JSON，且 `logged_in` / `logged_out` 必须是第一个键
  *   （连接器侧正则 `"logged_in"\s*:\s*true`）；
  * - CliError（CONFIG 本地读失败 / AUTH_REQUIRED 授权失败等）向外抛，
- *   由集成层统一打印 stderr 单行 JSON 并按 error.exitCode 退出。
+ *   由集成层统一打印 stderr 单行 JSON 并按 error.exitCode 退出；
+ * - 写凭证统一走 `withSiteLock`：「读配置 → 改凭证 → 写回」与刷新进程的
+ *   `refresh.<site>.lock` 互斥，避免刷新结果覆盖刚完成的新登录（反之亦然）。
  */
 
 export type AuthCommandName = 'login' | 'status' | 'logout';
@@ -46,20 +49,19 @@ const jsonLine = (value: Record<string, unknown>): string =>
     `${JSON.stringify(value)}\n`;
 
 /** 这些命令为本地流程，禁止走通用 ToolCall 管道 */
-const localOnlyBuild =
-    (name: string) =>
-    (): never => {
-        throw new CliError({
-            code: 'NOT_IMPLEMENTED',
-            message: `${name} 是本地命令，不走 ToolCall 通道`,
-            hint: '集成层应调用 runAuthCommand（src/commands/auth.ts）',
-        });
-    };
+const localOnlyBuild = (name: string) => (): never => {
+    throw new CliError({
+        code: 'NOT_IMPLEMENTED',
+        message: `${name} 是本地命令，不走 ToolCall 通道`,
+        hint: '集成层应调用 runAuthCommand（src/commands/auth.ts）',
+    });
+};
 
 export const authCommands: CommandSpec[] = [
     {
         name: 'auth login',
-        description: '登录当前站点（默认 OAuth；--token <pat> 用 PAT；--qr 扫码）',
+        description:
+            '登录当前站点（默认 OAuth；--token <pat> 用 PAT；--qr 扫码）',
         options: [
             {
                 flags: '--token <pat>',
@@ -171,7 +173,9 @@ const validateTimeout = (timeoutMs: number | undefined): void => {
 };
 
 /** 离线判定凭证是否算已登录（与 auth status 同口径，不发请求） */
-export const isLoggedInOffline = (credentials: AuthCredentials | null): boolean => {
+export const isLoggedInOffline = (
+    credentials: AuthCredentials | null,
+): boolean => {
     if (credentials === null) return false;
     if (credentials.mode === 'pat') return true;
     return (
@@ -188,9 +192,15 @@ const runLogin = async (
     const pat = resolvePatToken(opts);
 
     if (pat !== null) {
-        const config = await readConfig();
-        const next = savePat({ siteName: ctx.site.name, pat, config });
-        await writeConfig(next);
+        await withSiteLock({ siteName: ctx.site.name }, async () => {
+            const config = await readConfig();
+            const next = savePat({
+                siteName: ctx.site.name,
+                pat,
+                config,
+            });
+            await writeConfig(next);
+        });
         return {
             stdout: jsonLine({
                 logged_in: true,
@@ -217,9 +227,11 @@ const runLogin = async (
             site: ctx.site,
             timeoutMs: opts.timeoutMs,
         });
-        const config = await readConfig();
-        config.auth[ctx.site.name] = credentials;
-        await writeConfig(config);
+        await withSiteLock({ siteName: ctx.site.name }, async () => {
+            const config = await readConfig();
+            config.auth[ctx.site.name] = credentials;
+            await writeConfig(config);
+        });
         return {
             stdout: jsonLine({
                 logged_in: true,
@@ -246,9 +258,11 @@ const runLogin = async (
         timeoutMs: opts.timeoutMs,
         noBrowser: opts.noBrowser === true,
     });
-    const config = await readConfig();
-    config.auth[ctx.site.name] = credentials;
-    await writeConfig(config);
+    await withSiteLock({ siteName: ctx.site.name }, async () => {
+        const config = await readConfig();
+        config.auth[ctx.site.name] = credentials;
+        await writeConfig(config);
+    });
     return {
         stdout: jsonLine({
             logged_in: true,
@@ -287,11 +301,12 @@ const runStatus = async (ctx: CommandContext): Promise<AuthCommandResult> => {
 };
 
 const runLogout = async (ctx: CommandContext): Promise<AuthCommandResult> => {
+    // 删除动作在 logout 内部拿站点锁（revoke 是网络调用，不进临界区）
     const config = await readConfig();
-    const credentials = config.auth[ctx.site.name] ?? null;
-    if (credentials !== null) {
-        await revokeAndClear({ site: ctx.site, credentials, config });
-    }
+    await revokeAndClear({
+        site: ctx.site,
+        credentials: config.auth[ctx.site.name] ?? null,
+    });
     return {
         stdout: jsonLine({ logged_out: true, site: ctx.site.name }),
         exitCode: ExitCode.OK, // 幂等：没有凭证同样成功
