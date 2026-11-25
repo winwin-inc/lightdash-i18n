@@ -14,7 +14,6 @@ import {
 import { useTranslation } from 'react-i18next';
 import { useFilterDropdownStyles } from './filterDropdownStyles';
 
-import { enqueueFilterCreated } from '../../hooks/dashboard/dashboardOperationEventQueue';
 import { useDashboardFilterScope } from '../../hooks/dashboard/useDashboardFilterScope';
 import { useIsMobileDevice } from '../../hooks/useIsMobileDevice';
 import useDashboardContext from '../../providers/Dashboard/useDashboardContext';
@@ -208,18 +207,10 @@ const AddFilterButton: FC<Props> = ({
 
     const handleSaveChanges = useCallback(
         (newRule: DashboardFilterRule) => {
-            const tabName =
-                dashboardTabs?.find((tab) => tab.uuid === activeTabUuid)
-                    ?.name ?? null;
-            enqueueFilterCreated(newRule, {
-                scope: filterScope,
-                tabUuid: activeTabUuid,
-                tabName,
-            });
             onSave(newRule);
             handleClose();
         },
-        [onSave, handleClose, filterScope, activeTabUuid, dashboardTabs],
+        [onSave, handleClose],
     );
 
     const buttonText =

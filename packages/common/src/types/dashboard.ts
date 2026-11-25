@@ -4,7 +4,6 @@ import {
 } from './field';
 import { type DashboardFilters } from './filter';
 import { type DashboardParameters } from './parameters';
-import { type DashboardOperationClientEvent } from './projectOperationLog';
 import {
     type ChartKind,
     type CreateSavedChart,
@@ -282,16 +281,10 @@ export type DashboardVersionedFields = Pick<
 
 export type UpdateDashboardDetails = Pick<Dashboard, 'name' | 'description'>;
 
-export type UpdateDashboardClientEvents = {
-    clientEvents?: DashboardOperationClientEvent[];
-};
-
 export type UpdateDashboard =
-    | (DashboardUnversionedFields & UpdateDashboardClientEvents)
-    | (DashboardVersionedFields & UpdateDashboardClientEvents)
-    | (DashboardUnversionedFields &
-          DashboardVersionedFields &
-          UpdateDashboardClientEvents);
+    | DashboardUnversionedFields
+    | DashboardVersionedFields
+    | (DashboardUnversionedFields & DashboardVersionedFields);
 
 export type UpdateMultipleDashboards = Pick<
     Dashboard,

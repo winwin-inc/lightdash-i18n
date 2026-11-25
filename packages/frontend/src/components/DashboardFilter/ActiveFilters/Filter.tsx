@@ -38,10 +38,6 @@ import {
 } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import {
-    enqueueFilterDeleted,
-    enqueueFilterUpdatedFromDiff,
-} from '../../../hooks/dashboard/dashboardOperationEventQueue';
 import { useDashboardFilterScope } from '../../../hooks/dashboard/useDashboardFilterScope';
 import { useIsMobileDevice } from '../../../hooks/useIsMobileDevice';
 import { useServerFeatureFlag } from '../../../hooks/useServerOrClientFeatureFlag';
@@ -435,25 +431,10 @@ const Filter: FC<Props> = ({
 
     const handleSaveChanges = useCallback(
         (newRule: DashboardFilterRule) => {
-            const tabName =
-                dashboardTabs?.find((tab) => tab.uuid === activeTabUuid)
-                    ?.name ?? null;
-            enqueueFilterUpdatedFromDiff(filterRule, newRule, {
-                scope: filterScope,
-                tabUuid: activeTabUuid,
-                tabName,
-            });
             onUpdate(newRule);
             handleClose();
         },
-        [
-            onUpdate,
-            handleClose,
-            filterRule,
-            filterScope,
-            activeTabUuid,
-            dashboardTabs,
-        ],
+        [onUpdate, handleClose],
     );
 
     const handleRemoveFilter = useCallback(() => {
@@ -462,23 +443,8 @@ const Filter: FC<Props> = ({
             onRemove();
             return;
         }
-        const tabName =
-            dashboardTabs?.find((tab) => tab.uuid === activeTabUuid)?.name ??
-            null;
-        enqueueFilterDeleted(filterRule, {
-            scope: filterScope,
-            tabUuid: activeTabUuid,
-            tabName,
-        });
         onRemove();
-    }, [
-        onRemove,
-        filterRule,
-        filterScope,
-        activeTabUuid,
-        dashboardTabs,
-        isRestoreDefaultAction,
-    ]);
+    }, [onRemove, isRestoreDefaultAction]);
 
     const appliedDashboardTabs = useMemo(() => {
         if (filterScope === 'global') {
