@@ -32,9 +32,13 @@ Node    node-fetch(data_list)         ├→ collect.banmahui.cn/api/gp?project&
   单条 `data=<base64(json)>`，批量 `data_list=<base64(array)>&gzip=0`。
 - **前端一次导航只发 1 个请求**：`data_list` 里装 2 条（`page_view` + `$AppViewScreen`）；
   `profile_set` 低频，单独 `data=`。
-- 单条事件字段（sensors 兼容，字段真相见 dapeng 仓 `docs/track-analytics/reporting-catalog.md`）：
+- 单条**普通事件**字段（sensors 兼容，字段真相见 dapeng 仓 `docs/track-analytics/reporting-catalog.md`）：
   `distinct_id` / `anonymous_id` / `time` / `type:'track'` / `event` /
   `lib{$lib,$lib_version}` / `identities{user_key,$identity_cookie_id}` / `properties`。
+- **`profile_set` 是 sensors 的 profile 事件，不是 track 事件**：报文必须是
+  `type:'profile_set'` 且**不带 `event` 字段**，`properties` 就是画像键值。写成
+  `type:'track'` + `event:'profile_set'` 时适配层当普通事件落库（Events 里能看到名为
+  `profile_set` 的事件），**不会写 `session_data`** → Sessions 视图那个人的 Properties 永远是空。见 §6 联调结论。
 - 成功判定：HTTP 2xx 且响应体 `success|ok|空`；`project_not_exist` / `project_token_error` /
   `parse_data_failed` 记 debug 后丢弃，**永不抛错、不阻塞业务请求**。
 - **UA 必须像浏览器**（后端）：Umami 用 isbot 过滤机器人，**含 `server` 的 UA 一律丢弃**
@@ -144,6 +148,11 @@ Node    node-fetch(data_list)         ├→ collect.banmahui.cn/api/gp?project&
 发送时机只有 2 个：① 用户信息就绪首帧；② 身份指纹
 `user_uuid|org_id|org_role|project_id` 变化。
 
+**报文形态（踩过坑，别再改回去）**：`type:'profile_set'` + `properties`，**没有 `event` 字段**，
+`distinct_id = identities.user_key = user_uuid`，`anonymous_id = anon:<installId>`。
+拆成 `type:'track'` + `event:'profile_set'` 只在 Events 里多一条事件行，`session_data` 为空
+（适配层只按 `type` 决定是否翻译成 Umami identify），会话属性全丢。
+
 **会话语义（已知限制，写清楚免得用错）**：Umami 会话是 `uuid(websiteId, distinct_id)`，
 **一人一条生涯级会话**，`session_data` 按 `(sessionId, dataKey)` **后写覆盖** → Sessions 视图里
 看到的是「最新归属」（切项目后只剩最后一个项目）。**统计与筛选一律以事件属性为准。**
@@ -230,6 +239,8 @@ orgId（靠 ALS）；`pat_created` 的 userId 在 `properties` 里；`user.logge
 4. 挂载在 `App.tsx` 中 `TrackingProvider` 外层/同级（不依赖 Rudder 是否启用）。
 5. `umami/` 目录**不得 import** `TrackingProvider` / `rudder-sdk`（本机 jsdom 缺 `localStorage`，
    rudder-sdk 在 import 阶段就崩，保持纯逻辑才能用默认 vitest 配置跑单测）。
+6. `profile_set` 报文固定用 `buildProfilePacket()` 生成：`type:'profile_set'`、无 `event` 字段；
+   不要手写 `type:'track' + event:'profile_set'`（会话属性会全丢，见 §2 / §4.3）。
 
 ### 5.3 环境变量
 
@@ -260,7 +271,7 @@ cd packages/frontend && timeout 240 npx vitest run src/providers/Tracking/umami 
 覆盖：报文/utf8 base64/urlencode、白名单命中与属性裁剪、未知事件返回 null、攒批与 flush 时机、
 失败不抛、队列上限、LRU 用户信息降级、`pageKey` 表驱动、`profile` 指纹判重。
 
-**联调结论（2026-11-24，dev 适配层已实测）**
+**联调结论（2026-11-24 ~ 25，dev 适配层已实测）**
 
 | 验证项 | 结果 |
 |---|---|
@@ -271,6 +282,8 @@ cd packages/frontend && timeout 240 npx vitest run src/providers/Tracking/umami 
 | `data_list` 批量 | ✅ 可用（`gzip=0`） |
 | 中文属性（`$title`/看板名） | ✅ 不乱码 |
 | 非浏览器 UA | ❌ 被 isbot 丢弃（见 §2） |
+| `type:'profile_set'`（sensors 语义，无 `event`） | ✅ 写 `session_data`（`/sessions/{id}/properties` 可读），**不产生事件行** |
+| `type:'track'` + `event:'profile_set'`（旧实现） | ❌ 只落一条事件行，`/sessions/{id}/properties` 返回 `[]` → Sessions 无属性 |
 
 **联调**（先用内部站 `lightdash-internal`，流量小好洗）
 
@@ -309,7 +322,7 @@ Umami 每条事件落 1 行 `website_event` + 每个属性 1 行 `event_data`，
 | `download_started` / `download_completed` | ≈8–9 | ≈9–10 | 每次导出各 1 条 |
 | `mcp_tool_call` | ≈7–8 | ≈8–9 | 每次工具调用 1 条 |
 | `user_logged_in` | ≈7 | ≈8 | 每人每天 0–几次 |
-| `profile_set` | 13 | 14 | 低频：身份指纹变化才发 |
+| `profile_set` | 13 | 13（只写 `session_data`，不落事件行） | 低频：身份指纹变化才发 |
 | 敏感操作（`permission_updated` / `*_deleted` / `pat_created` / `share_link_created` 等） | ≈7–10 | ≈8–11 | 罕见，可忽略 |
 
 > 属性数为按 §4.1–4.2 现状的近似折算。高频组（`query_executed` / `query_error` /

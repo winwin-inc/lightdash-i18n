@@ -22,7 +22,7 @@ import { useLocation } from 'react-router';
 import useApp from '../../App/useApp';
 import { toPageEvent } from './pageKey';
 import { getPageTitle } from './pageTitle';
-import { buildProfileEvent, fingerprint } from './profile';
+import { buildProfilePacket, fingerprint } from './profile';
 import { getInstallId, getSessionId } from './session';
 import {
     encodeBatchBody,
@@ -59,10 +59,8 @@ const compact = (
     return result;
 };
 
-const displayName = (user: {
-    firstName: string;
-    lastName: string;
-}): string => `${user.firstName} ${user.lastName}`.trim();
+const displayName = (user: { firstName: string; lastName: string }): string =>
+    `${user.firstName} ${user.lastName}`.trim();
 
 const UmamiProviderMain: FC<PropsWithChildren> = ({ children }) => {
     const { health, user } = useApp();
@@ -79,8 +77,7 @@ const UmamiProviderMain: FC<PropsWithChildren> = ({ children }) => {
 
     // 配置就绪后 setConfig（值不变时保持同一引用，避免下游 effect 空转）
     useEffect(() => {
-        const umami = (health.data as HealthStateWithUmami | undefined)
-            ?.umami;
+        const umami = (health.data as HealthStateWithUmami | undefined)?.umami;
         if (
             umami === undefined ||
             umami.enabled !== true ||
@@ -118,7 +115,8 @@ const UmamiProviderMain: FC<PropsWithChildren> = ({ children }) => {
         const timer = setTimeout(() => setUserSettledByTimeout(true), 1500);
         return () => clearTimeout(timer);
     }, [isAuthenticated, user.isSuccess, user.isError]);
-    const userHasSettled = user.isSuccess || user.isError || userSettledByTimeout;
+    const userHasSettled =
+        user.isSuccess || user.isError || userSettledByTimeout;
     const canSend =
         health.data !== undefined && (!isAuthenticated || userHasSettled);
 
@@ -197,7 +195,15 @@ const UmamiProviderMain: FC<PropsWithChildren> = ({ children }) => {
         };
 
         send(config, encodeBatchBody([pageViewEvent, appViewScreenEvent]));
-    }, [appVersion, canSend, config, env, location.key, location.pathname, user.data]);
+    }, [
+        appVersion,
+        canSend,
+        config,
+        env,
+        location.key,
+        location.pathname,
+        user.data,
+    ]);
 
     // profile_set：用户就绪首帧 + 指纹变化各发一次（低频，单独 data= 一包）
     useEffect(() => {
@@ -209,28 +215,23 @@ const UmamiProviderMain: FC<PropsWithChildren> = ({ children }) => {
         if (lastFingerprintRef.current === currentFingerprint) return;
         lastFingerprintRef.current = currentFingerprint;
 
-        const installId = getInstallId();
+        // 报文必须是 sensors 语义的 profile 事件（type='profile_set'、无 event），
+        // 否则适配层当普通事件存，Sessions 视图拿不到会话属性，见 profile.ts 注释
         send(
             config,
-            encodeBody({
-                distinct_id: userData.userUuid,
-                anonymous_id: `anon:${installId}`,
-                time: Date.now(),
-                type: 'track',
-                event: 'profile_set',
-                lib: { $lib: LIB_NAME, $lib_version: appVersion ?? '' },
-                identities: {
-                    user_key: userData.userUuid,
-                    $identity_cookie_id: installId,
-                },
-                properties: buildProfileEvent({
+            encodeBody(
+                buildProfilePacket({
                     user: userData,
                     projectId,
                     projectName: null, // 项目名后端事件携带；前端路由只有 uuid
                     appVersion,
                     env,
+                    installId: getInstallId(),
+                    time: Date.now(),
+                    libName: LIB_NAME,
+                    libVersion: appVersion,
                 }),
-            }),
+            ),
         );
     }, [appVersion, config, env, location.pathname, user.data]);
 

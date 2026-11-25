@@ -37,6 +37,32 @@ export type ProfileEventInput = {
 
 export type ProfilePayload = Record<string, string>;
 
+/**
+ * 上报报文（sensors profile 事件语义）。
+ *
+ * **`type` 必须是 `'profile_set'`，且不能带 `event` 字段**：适配层只有在
+ * `type==='profile_set'` 时才把它翻译成 Umami 的 identify（写 `session_data`，
+ * 也就是 Sessions 视图里那个人「会话属性」的来源）；写成
+ * `type:'track' + event:'profile_set'` 会落成一条普通事件行，会话属性永远为空。
+ * 2026-11-25 在 dev 采集实例实测确认（同样两条报文对比见 docs §6 联调结论）。
+ */
+export type ProfileEventPacket = {
+    distinct_id: string;
+    anonymous_id: string;
+    time: number;
+    type: 'profile_set';
+    lib: { $lib: string; $lib_version: string };
+    identities: { user_key: string; $identity_cookie_id: string };
+    properties: ProfilePayload;
+};
+
+export type ProfilePacketInput = ProfileEventInput & {
+    installId: string;
+    time: number;
+    libName: string;
+    libVersion: string | null;
+};
+
 const hasValue = (value: string | null | undefined): value is string =>
     value !== null && value !== undefined && value !== '';
 
@@ -48,15 +74,12 @@ const toDateOnly = (value: Date | string): string => {
 const truncateField = (value: string): string =>
     truncateByCodePoints(value, FIELD_MAX_CODE_POINTS);
 
-export const buildProfileEvent = (
-    input: ProfileEventInput,
-): ProfilePayload => {
+export const buildProfileEvent = (input: ProfileEventInput): ProfilePayload => {
     const { user } = input;
     const payload: ProfilePayload = {};
 
     if (hasValue(user.userUuid)) payload.user_uuid = user.userUuid;
-    if (hasValue(user.email))
-        payload.user_email = truncateField(user.email);
+    if (hasValue(user.email)) payload.user_email = truncateField(user.email);
     const userName = `${user.firstName} ${user.lastName}`.trim();
     if (hasValue(userName)) payload.user_name = truncateField(userName);
     if (hasValue(user.organizationUuid)) payload.org_id = user.organizationUuid;
@@ -75,6 +98,25 @@ export const buildProfileEvent = (
 
     return payload;
 };
+
+/**
+ * 组装 profile 上报报文（`type:'profile_set'`，无 `event`）。
+ * 报文形态错了不会报错、也不影响业务，但会静默丢掉会话属性，所以固定在这里生成。
+ */
+export const buildProfilePacket = (
+    input: ProfilePacketInput,
+): ProfileEventPacket => ({
+    distinct_id: input.user.userUuid,
+    anonymous_id: `anon:${input.installId}`,
+    time: input.time,
+    type: 'profile_set',
+    lib: { $lib: input.libName, $lib_version: input.libVersion ?? '' },
+    identities: {
+        user_key: input.user.userUuid,
+        $identity_cookie_id: input.installId,
+    },
+    properties: buildProfileEvent(input),
+});
 
 /**
  * 身份指纹：user_uuid|org_id|org_role|project_id。

@@ -1,6 +1,11 @@
 import { OrganizationMemberRole } from '@lightdash/common';
 import { describe, expect, it } from 'vitest';
-import { buildProfileEvent, fingerprint, type ProfileUser } from './profile';
+import {
+    buildProfileEvent,
+    buildProfilePacket,
+    fingerprint,
+    type ProfileUser,
+} from './profile';
 
 const makeUser = (overrides: Partial<ProfileUser> = {}): ProfileUser => ({
     userUuid: 'u-1111',
@@ -112,6 +117,71 @@ describe('buildProfileEvent', () => {
     });
 });
 
+describe('buildProfilePacket', () => {
+    const makePacket = () =>
+        buildProfilePacket({
+            user: makeUser(),
+            projectId: 'p-3333',
+            projectName: null,
+            appVersion: '1.2.3',
+            env: 'production',
+            installId: 'install-9999',
+            time: 1795586286000,
+            libName: 'lightdash-web',
+            libVersion: '1.2.3',
+        });
+
+    // 回归：写成 type:'track' + event:'profile_set' 会落成普通事件，
+    // 适配层不写 session_data，Sessions 视图属性为空（2026-11-25 dev 实测）
+    it("报文 type 必须是 'profile_set'", () => {
+        expect(makePacket().type).toBe('profile_set');
+    });
+
+    it('profile 事件没有 event 字段（有 event 就会被当成 track）', () => {
+        expect(makePacket()).not.toHaveProperty('event');
+    });
+
+    it('身份字段：distinct_id = user_key = user_uuid，anonymous_id 用 installId', () => {
+        const packet = makePacket();
+        expect(packet.distinct_id).toBe('u-1111');
+        expect(packet.identities).toEqual({
+            user_key: 'u-1111',
+            $identity_cookie_id: 'install-9999',
+        });
+        expect(packet.anonymous_id).toBe('anon:install-9999');
+    });
+
+    it('properties 与 buildProfileEvent 一致（13 键）', () => {
+        expect(makePacket().properties).toEqual(
+            buildProfileEvent({
+                user: makeUser(),
+                projectId: 'p-3333',
+                projectName: null,
+                appVersion: '1.2.3',
+                env: 'production',
+            }),
+        );
+    });
+
+    it('lib 版本缺失时回落空串（不写 undefined）', () => {
+        const packet = buildProfilePacket({
+            user: makeUser(),
+            projectId: null,
+            projectName: null,
+            appVersion: null,
+            env: null,
+            installId: 'install-9999',
+            time: 1,
+            libName: 'lightdash-web',
+            libVersion: null,
+        });
+        expect(packet.lib).toEqual({
+            $lib: 'lightdash-web',
+            $lib_version: '',
+        });
+    });
+});
+
 describe('fingerprint', () => {
     it('指纹格式：user_uuid|org_id|org_role|project_id', () => {
         expect(fingerprint(makeUser(), 'p-3333')).toBe(
@@ -132,8 +202,12 @@ describe('fingerprint', () => {
                 'p-1',
             ),
         ).not.toBe(base);
-        expect(fingerprint(makeUser({ organizationUuid: 'org-x' }), 'p-1')).not.toBe(base);
-        expect(fingerprint(makeUser({ userUuid: 'u-2' }), 'p-1')).not.toBe(base);
+        expect(
+            fingerprint(makeUser({ organizationUuid: 'org-x' }), 'p-1'),
+        ).not.toBe(base);
+        expect(fingerprint(makeUser({ userUuid: 'u-2' }), 'p-1')).not.toBe(
+            base,
+        );
         expect(fingerprint(makeUser(), 'p-2')).not.toBe(base);
     });
 
