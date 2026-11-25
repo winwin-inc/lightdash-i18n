@@ -161,6 +161,8 @@ auth:
 - 统一脱敏：令牌模式（`ldpat_` + 38 位）与敏感键名（`token` / `secret` / `pat` / `authorization`）在日志、`--verbose`、`--debug` 中一律替换为 `***`。
 - 不提供「打印 token」的命令；`auth status` 只输出 `expiresAt` 与 `scope`；`doctor` 只输出布尔值。
 - 刷新加文件锁（`O_EXCL` + 30s 过期），避免并发命令重复刷新导致 refresh token 失效。
+- **刷新失败分两类**（0.2.5 起）：服务端明确拒绝 refresh_token（`invalid_grant` / `invalid_client` / `unauthorized_client` / `invalid_scope`）才清空该站点凭证并退 `3`；网络错误、502/503、非 OAuth 错误体（网关 HTML）属**暂时失败**，**保留本地凭证**并退 `6`，提示稍后重试。0.2.4 及更早把两者混为一谈，一次 503 就会把用户登录删掉。
+- 写回与清空前都重读配置并与「开始刷新时的快照」比对：磁盘已被并发进程或新登录替换时不动它，避免刷新结果覆盖、或清空动作删掉刚完成的新登录。
 - 失败不落盘：任何失败路径都不会留下半截凭证。
 
 ---
@@ -196,7 +198,7 @@ auth login
 | `POST /api/v1/oauth/token` | 换 token / 刷新 token |
 | `POST /api/v1/oauth/revoke` | 登出时尽力吊销 |
 
-- Access token 1 小时、refresh token 2 周；日常调用遇 401 会静默刷新一次并重试，仍失败才退 `3`。
+- Access token 1 小时、refresh token 2 周；日常调用遇 401 会静默刷新一次并重试。刷新失败按三分法：凭证被服务端否掉（`invalid_grant` 等）→ 清凭证、退 `3`（需重新登录）；网络/5xx 暂时失败 → **保留凭证**、退 `6`（稍后重试即可）；刷新成功但磁盘已被新登录替换 → 用磁盘那份、不覆盖。
 
 ### 6.2 Personal Access Token
 
@@ -367,7 +369,7 @@ CLI                                 服务端
 |---|---|---|
 | `0` | 成功（含 0 行结果） | — |
 | `2` | 用法 / 参数 / 本地配置错误 | 非法 flag、坏 YAML、`--csv` 用在不支持的命令 |
-| `3` | 未登录或 401 | 无凭证，或刷新一次后仍 401 |
+| `3` | 未登录或 401 | 无凭证，或刷新一次后仍 401（含 refresh token 被服务端否掉） |
 | `4` | 无权限或被看板门控 | 403、权限错误文案、`dashboard_*` 五类 |
 | `5` | 服务端 / JSON-RPC / 工具内部错误 | 5xx、`isError`、工具报错 |
 | `6` | 网络或超时 | DNS、连接拒绝、非法端口、超时 |

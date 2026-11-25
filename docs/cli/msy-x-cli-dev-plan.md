@@ -150,7 +150,7 @@ packages/msy-x-cli/
 | P0-2 | `config/profiles.ts`：`--site` > `MSY_X_MCP_URL` > `MSY_X_SITE_URL` > `currentSite`；未知 site 报可用列表 | 单测：四级优先级 |
 | P0-3 | `auth/callbackServer.ts`：仅 `127.0.0.1`、随机端口、单次、`state` 比对、300s 超时、`server.close()` | 单测：state 不匹配必败、超时清理 |
 | P0-4 | `auth/oauthProvider.ts` + `auth/oauth.ts`：接 SDK `auth()`，DCR（`client_name=msy-x-cli`）+ PKCE S256 + 换 token | mock OAuth 服务全链路通过 |
-| P0-5 | `auth/refresh.ts`：`refresh.lock`（`O_EXCL` + 30s）、401 静默刷新一次、失败清凭证 | 单测：并发双进程只刷一次 |
+| P0-5 | `auth/refresh.ts`：`refresh.lock`（`O_EXCL` + 30s）、401 静默刷新一次、失败分类处理（凭证作废才清、网络/5xx 保留） | 单测：并发双进程只刷一次 + 503 不删凭证 |
 | P0-6 | `commands/auth.ts`：`login` / `status` / `logout` 三态契约 | `auth status` 输出首键 `logged_in`、已登录与未登录都退 `0` |
 | P0-7 | `lib/openBrowser.ts` + `MSY_X_NO_BROWSER` | 无浏览器环境下打印 URL 且继续等待 |
 | P0-8 | `commands/doctor.ts`：本地检查 + `--remote` 打一次 `tools/list` | 真实站点 `doctor --remote` 全绿 |
@@ -307,7 +307,7 @@ timeout 180 msy-x dashboards tiles d54853b1-85df-4ab3-8cdf-70a5244640e1
 | # | 风险 | 应对 |
 |---|---|---|
 | 1 | DCR 目前只发 confidential client（必须存 `client_secret`） | 配置 `0600`；未来支持 `none` 时自动不发 secret |
-| 2 | refresh 并发导致 refresh token 失效 | `refresh.lock` + 失败只清当前站点凭证 |
+| 2 | refresh 并发导致 refresh token 失效 | `refresh.lock` + 失败只清当前站点凭证；且只有服务端否定 refresh_token 才清，网络/5xx 保留凭证 |
 | 3 | `csv-parse` 体积/维护性 | 备选：手写 RFC4180 解析（约 40 行）+ 单测；先按依赖实现，超 2MB 再换 |
 | 4 | 豆包安装默认走 npm 镜像，镜像缺失 | `install.default` 里显式带 `--registry https://registry.npmjs.org`（指南允许） |
 | 5 | Windows 浏览器拉起/编码异常 | 平台分支 + `MSY_X_NO_BROWSER` 降级；文档给出手动 URL |
