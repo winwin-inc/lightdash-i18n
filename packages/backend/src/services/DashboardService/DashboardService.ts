@@ -95,7 +95,6 @@ import { BaseService } from '../BaseService';
 import { ProjectOperationLogService } from '../ProjectOperationLogService/ProjectOperationLogService';
 import { SavedChartService } from '../SavedChartsService/SavedChartService';
 import { hasDirectAccessToSpace } from '../SpaceService/SpaceService';
-import { diffDashboardVersionedContent } from './dashboardOperationLogDiff';
 
 /** Fields needed to resolve client-use dashboard / explore allow-lists. */
 export type DashboardAllowListUser = Pick<SessionUser, 'userUuid' | 'email'>;
@@ -1334,6 +1333,11 @@ export class DashboardService
                 organizationId: dashboard.organizationUuid,
                 projectId: dashboard.projectUuid,
                 parametersCount: Object.keys(dashboard.parameters || {}).length,
+                // Umami：按看板名/slug 筛选与对号（见 docs/ops/umami-analytics.md §4.5）
+                dashboardSlug: dashboard.slug,
+                dashboardName: dashboard.name,
+                spaceUuid: dashboard.spaceUuid,
+                spaceName: dashboard.spaceName,
             },
         });
 
@@ -1528,9 +1532,7 @@ export class DashboardService
     }): Promise<SavedChartDAO> {
         const chartInDashboard = await this.savedChartModel.get(savedChartUuid);
         if (chartInDashboard.projectUuid !== projectUuid) {
-            throw new ForbiddenError(
-                'Chart does not belong to this project',
-            );
+            throw new ForbiddenError('Chart does not belong to this project');
         }
 
         await this.assertCanViewSpaceContent(
@@ -1737,7 +1739,9 @@ export class DashboardService
             dashboardUuid,
         );
         if (dashboardDao.projectUuid !== projectUuid) {
-            throw new ForbiddenError('Dashboard does not belong to this project');
+            throw new ForbiddenError(
+                'Dashboard does not belong to this project',
+            );
         }
         const space = await this.spaceModel.getSpaceSummary(
             dashboardDao.spaceUuid,
@@ -1822,7 +1826,9 @@ export class DashboardService
         const remapTileUuid = (tileUuid: string): string =>
             tileUuidMap.get(tileUuid) ?? tileUuid;
 
-        const remapFilterRule = <T extends DashboardFilterRule>(rule: T): T => ({
+        const remapFilterRule = <T extends DashboardFilterRule>(
+            rule: T,
+        ): T => ({
             ...rule,
             tileTargets: rule.tileTargets
                 ? Object.entries(rule.tileTargets).reduce<
@@ -1848,9 +1854,8 @@ export class DashboardService
             return {
                 dimensions: filters.dimensions.map(remapFilterRule),
                 metrics: filters.metrics.map(remapFilterRule),
-                tableCalculations: filters.tableCalculations.map(
-                    remapFilterRule,
-                ),
+                tableCalculations:
+                    filters.tableCalculations.map(remapFilterRule),
             };
         };
 
@@ -1866,9 +1871,8 @@ export class DashboardService
                 showTabAddFilterButton: remapTabConfigProperty(
                     config.showTabAddFilterButton,
                 ),
-                syncChartTileUuids: config.syncChartTileUuids?.map(
-                    remapTileUuid,
-                ),
+                syncChartTileUuids:
+                    config.syncChartTileUuids?.map(remapTileUuid),
             };
         };
 
@@ -2169,117 +2173,69 @@ export class DashboardService
             });
         }
 
-        const clientEvents =
-            'clientEvents' in dashboard
-                ? (dashboard as UpdateDashboard).clientEvents
-                : undefined;
-        const hasClientEvents =
-            Array.isArray(clientEvents) && clientEvents.length > 0;
-
-        type MergedOperationChange = {
-            action: string;
-            resourceType?: string;
-            resourceUuid?: string | null;
-            resourceName?: string | null;
-            summary?: Record<string, unknown> | null;
-        };
-
-        const mergedChanges: MergedOperationChange[] = [];
-
-        if (hasClientEvents) {
-            for (const event of clientEvents!) {
-                mergedChanges.push({
-                    action: String(event.action),
-                    resourceType: event.resourceType,
-                    resourceUuid: event.resourceUuid,
-                    resourceName: event.resourceName,
-                    summary: {
-                        ...(event.summary ?? {}),
-                        source: 'client',
-                        schemaVersion: event.schemaVersion,
-                        scope: event.scope,
-                        tabUuid: event.tabUuid,
-                        tabName: event.tabName,
-                        changeKind: event.changeKind,
-                        occurredAt: event.occurredAt,
-                    },
-                });
-            }
-        }
-
         if (isDashboardVersionedFields(dashboard)) {
-            let fineEvents = diffDashboardVersionedContent(
-                existingDashboardDao,
-                {
-                    filters: dashboard.filters ?? existingDashboardDao.filters,
-                    tiles: dashboard.tiles ?? existingDashboardDao.tiles,
-                    tabs: dashboard.tabs ?? existingDashboardDao.tabs ?? [],
-                    parameters:
-                        dashboard.parameters ?? existingDashboardDao.parameters,
-                    config: dashboard.config ?? existingDashboardDao.config,
-                },
-            );
-
-            // FE semantic events cover filters; also drop incidental
-            // config/parameters "dashboard.updated" noise on the same save.
-            if (hasClientEvents) {
-                fineEvents = fineEvents.filter(
-                    (event) =>
-                        !String(event.action).startsWith(
-                            'dashboard.filters.',
-                        ) &&
-                        event.action !==
-                            PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_UPDATED,
-                );
-            }
-
-            for (const event of fineEvents) {
-                mergedChanges.push({
-                    action: String(event.action),
-                    summary: {
-                        ...(event.summary ?? {}),
-                        source: 'diff',
-                    },
-                });
-            }
-
-            const dashboardContext = {
-                dashboardUuid: baseLog.resourceUuid,
-                dashboardName: baseLog.resourceName,
+            // 瘦身后的追责日志：一次保存只记一条 dashboard.updated，
+            // summary 只含变更类别与数量，不再逐 filter/tab/tile 生成明细行
+            const stableJson = (value: unknown): string => {
+                try {
+                    return JSON.stringify(value ?? null);
+                } catch {
+                    return String(value);
+                }
             };
+            // 只统计 payload 里真正带了的类别：客户端常只提交 tiles，
+            // 直接比 DAO 会把「未提交」误判成「已改」并产生噪音
+            const changedCategories = (
+                [
+                    [
+                        'tiles',
+                        'tiles',
+                        existingDashboardDao.tiles,
+                        dashboard.tiles,
+                    ],
+                    [
+                        'filters',
+                        'filters',
+                        existingDashboardDao.filters,
+                        dashboard.filters,
+                    ],
+                    ['tabs', 'tabs', existingDashboardDao.tabs, dashboard.tabs],
+                    [
+                        'parameters',
+                        'parameters',
+                        existingDashboardDao.parameters,
+                        dashboard.parameters,
+                    ],
+                    [
+                        'config',
+                        'config',
+                        existingDashboardDao.config,
+                        dashboard.config,
+                    ],
+                ] as Array<[string, string, unknown, unknown]>
+            )
+                .filter(
+                    ([, key, previous, next]) =>
+                        key in dashboard &&
+                        stableJson(previous) !== stableJson(next),
+                )
+                .map(([category]) => category);
 
-            if (mergedChanges.length === 1) {
-                const only = mergedChanges[0];
-                await this.projectOperationLogService.record({
-                    ...baseLog,
-                    action: only.action,
-                    resourceType: only.resourceType ?? baseLog.resourceType,
-                    resourceUuid: only.resourceUuid ?? baseLog.resourceUuid,
-                    resourceName: only.resourceName ?? baseLog.resourceName,
-                    summary: {
-                        ...(only.summary ?? {}),
-                        ...dashboardContext,
-                    },
-                });
-            } else if (mergedChanges.length > 1) {
-                await this.projectOperationLogService.record({
-                    ...baseLog,
-                    action: PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_UPDATED,
-                    summary: {
-                        kind: 'save',
-                        changeCount: mergedChanges.length,
-                        changeKinds: mergedChanges.map((c) => c.action),
-                        changes: mergedChanges.map((change) => ({
-                            ...change,
-                            summary: {
-                                ...(change.summary ?? {}),
-                                ...dashboardContext,
-                            },
-                        })),
-                        ...dashboardContext,
-                    },
-                });
-            }
+            await this.projectOperationLogService.record({
+                ...baseLog,
+                action: PROJECT_OPERATION_LOG_ACTIONS.DASHBOARD_UPDATED,
+                summary: {
+                    changedCategories,
+                    filtersCount: dashboard.filters
+                        ? dashboard.filters.dimensions.length +
+                          dashboard.filters.metrics.length +
+                          dashboard.filters.tableCalculations.length
+                        : 0,
+                    tilesCount: dashboard.tiles.length,
+                    // tabs 可能不在 payload 里（isDashboardVersionedFields 只保证 tiles）
+                    tabsCount: (dashboard.tabs ?? []).length,
+                },
+            });
         } else if (isDashboardUnversionedFields(dashboard) && !spaceMoved) {
             await this.projectOperationLogService.record({
                 ...baseLog,

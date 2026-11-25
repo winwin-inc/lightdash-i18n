@@ -468,6 +468,8 @@ export class UserService extends BaseService {
                     name: organization.name,
                     userRole,
                 },
+                // Umami：上游 payload 原本无 org 上下文
+                organizationId: organizationUuid,
                 newUser: existingUserWithEmail === undefined,
                 generatedInvite: true,
             },
@@ -650,6 +652,8 @@ export class UserService extends BaseService {
                 event: 'user.logged_in',
                 properties: {
                     loginProvider: openIdUser.openId.issuerType,
+                    // Umami：上游 payload 原本无 org 上下文
+                    organizationId: loginUser.organizationUuid,
                 },
             });
 
@@ -1148,6 +1152,8 @@ export class UserService extends BaseService {
                 event: 'user.logged_in',
                 properties: {
                     loginProvider: 'password',
+                    // Umami：上游 payload 原本无 org 上下文
+                    organizationId: userWithOrganization.organizationUuid,
                 },
             });
             return user;
@@ -2367,6 +2373,8 @@ export class UserService extends BaseService {
                     },
                     newUser: created,
                     generatedInvite: false,
+                    // Umami：上游 payload 原本无 org 上下文
+                    organizationId: organizationUuid,
                 },
             });
         }

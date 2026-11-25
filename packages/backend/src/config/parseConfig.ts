@@ -29,6 +29,7 @@ import {
 } from '@lightdash/common';
 import * as Sentry from '@sentry/core';
 import { type ClientAuthMethod } from 'openid-client';
+import { UmamiConfig } from '../analytics/umami/types';
 import { VERSION } from '../version';
 import {
     aiCopilotConfigSchema,
@@ -402,6 +403,68 @@ const parseCdnConfig = (): LightdashConfig['cdn'] => {
     });
 
     return cdnConfig;
+};
+
+const isEnvValueSet = (name: string): string | undefined => {
+    const raw = process.env[name];
+    if (raw === undefined) return undefined;
+    const trimmed = raw.trim();
+    return trimmed === '' ? undefined : trimmed;
+};
+
+/** 缺省/非法值回落 300；显式 0 合法（= 关闭去重），负数视为非法 */
+const parseUmamiDedupeSeconds = (): number => {
+    const raw = isEnvValueSet('UMAMI_COLLECT_DEDUPE_SECONDS');
+    if (raw === undefined) {
+        return 300;
+    }
+    const parsed = Number(raw);
+    if (!Number.isFinite(parsed) || parsed < 0) {
+        return 300;
+    }
+    return parsed;
+};
+
+/** 缺省/非法值回落 1（不采样）；数值 clamp 到 [0, 1] */
+const parseUmamiSampleRate = (): number => {
+    const raw = isEnvValueSet('UMAMI_COLLECT_SAMPLE_RATE');
+    if (raw === undefined) {
+        return 1;
+    }
+    const parsed = Number(raw);
+    if (!Number.isFinite(parsed)) {
+        return 1;
+    }
+    return Math.min(1, Math.max(0, parsed));
+};
+
+/**
+ * Umami 埋点配置：endpoint + project + token 三者齐全且
+ * UMAMI_COLLECT_ENABLED 为真值（true/1/yes，大小写不敏感）才启用；
+ * 否则 enabled=false、零外发。环境变量未注入 / 空串均视为未配置。
+ * environment 缺省取 mode（只用于将来的 profile_set，track 事件不写 env）。
+ */
+export const parseUmamiConfig = (mode: LightdashMode): UmamiConfig => {
+    const endpoint = isEnvValueSet('UMAMI_COLLECT_ENDPOINT');
+    const project = isEnvValueSet('UMAMI_COLLECT_PROJECT');
+    const token = isEnvValueSet('UMAMI_COLLECT_TOKEN');
+    const enabled =
+        endpoint !== undefined &&
+        project !== undefined &&
+        token !== undefined &&
+        ['true', '1', 'yes'].includes(
+            (isEnvValueSet('UMAMI_COLLECT_ENABLED') ?? '').toLowerCase(),
+        );
+
+    return {
+        enabled,
+        endpoint: endpoint ?? null,
+        project: project ?? null,
+        token: token ?? null,
+        environment: isEnvValueSet('UMAMI_COLLECT_ENVIRONMENT') ?? mode,
+        dedupeSeconds: parseUmamiDedupeSeconds(),
+        sampleRate: parseUmamiSampleRate(),
+    };
 };
 
 const parseApiExpiration = (envVariable: string): Date | null => {
@@ -781,6 +844,7 @@ export type LightdashConfig = {
     smtp: SmtpConfig | undefined;
     rudder: RudderConfig;
     posthog: PosthogConfig | undefined;
+    umami: UmamiConfig;
     mode: LightdashMode;
     license: {
         licenseKey: string | null;
@@ -1884,6 +1948,7 @@ export const parseConfig = (): LightdashConfig => {
             writeKey: undefined,
             dataPlaneUrl: undefined,
         },
+        umami: parseUmamiConfig(mode),
         sentry: {
             backend: {
                 dsn: process.env.SENTRY_BE_DSN || process.env.SENTRY_DSN || '',

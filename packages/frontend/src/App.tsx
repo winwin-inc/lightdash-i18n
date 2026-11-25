@@ -21,6 +21,7 @@ import MantineProvider from './providers/MantineProvider';
 import ReactQueryProvider from './providers/ReactQuery/ReactQueryProvider';
 import ThirdPartyProvider from './providers/ThirdPartyServicesProvider';
 import TrackingProvider from './providers/Tracking/TrackingProvider';
+import UmamiProvider from './providers/Tracking/umami/UmamiProvider';
 import Routes from './Routes';
 
 import './plugins/i18n';
@@ -48,24 +49,27 @@ const router = sentryCreateBrowserRouter([
                     <VersionAutoUpdater />
                     <ThirdPartyProvider enabled={true}>
                         <ErrorBoundary wrapper={{ mt: '4xl' }}>
-                            <TrackingProvider
-                                // Always enable tracking provider to avoid context errors on minimal pages
-                                enabled={true}
-                            >
-                                <AbilityProvider>
-                                    <ActiveJobProvider>
-                                        <ChartColorMappingContextProvider>
-                                            {isMobile ? (
-                                                <MobileLayout>
+                            {/* Umami 埋点挂在 TrackingProvider 外层（不依赖 Rudder 是否启用），见 docs/ops/umami-analytics.md §5.2 */}
+                            <UmamiProvider>
+                                <TrackingProvider
+                                    // Always enable tracking provider to avoid context errors on minimal pages
+                                    enabled={true}
+                                >
+                                    <AbilityProvider>
+                                        <ActiveJobProvider>
+                                            <ChartColorMappingContextProvider>
+                                                {isMobile ? (
+                                                    <MobileLayout>
+                                                        <Outlet />
+                                                    </MobileLayout>
+                                                ) : (
                                                     <Outlet />
-                                                </MobileLayout>
-                                            ) : (
-                                                <Outlet />
-                                            )}
-                                        </ChartColorMappingContextProvider>
-                                    </ActiveJobProvider>
-                                </AbilityProvider>
-                            </TrackingProvider>
+                                                )}
+                                            </ChartColorMappingContextProvider>
+                                        </ActiveJobProvider>
+                                    </AbilityProvider>
+                                </TrackingProvider>
+                            </UmamiProvider>
                         </ErrorBoundary>
                     </ThirdPartyProvider>
                 </FullscreenProvider>

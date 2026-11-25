@@ -17,6 +17,13 @@ export default function mockHealthResponse(
             dataPlaneUrl: '',
             writeKey: '',
         },
+        // 埋点默认关闭（见 docs/ops/umami-analytics.md）；需要验证采集时在用例里覆盖
+        umami: {
+            enabled: false,
+            endpoint: null,
+            project: null,
+            token: null,
+        },
         sentry: {
             frontend: {
                 dsn: '',

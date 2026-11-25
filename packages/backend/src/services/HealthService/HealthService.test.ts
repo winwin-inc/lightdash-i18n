@@ -96,4 +96,31 @@ describe('health', () => {
             requiresOrgRegistration: true,
         });
     });
+
+    it('Should pass through umami config from lightdashConfig', async () => {
+        const service = new HealthService({
+            organizationModel:
+                organizationModel as unknown as OrganizationModel,
+            lightdashConfig: {
+                ...lightdashConfigMock,
+                umami: {
+                    enabled: true,
+                    endpoint: 'https://collect.example.com/api/gp',
+                    project: 'lightdash-internal',
+                    token: 'mock_token',
+                    environment: 'production',
+                    dedupeSeconds: 300,
+                    sampleRate: 1,
+                },
+            },
+            migrationModel: migrationModel as unknown as MigrationModel,
+        });
+        const state = await service.getHealthState(undefined);
+        expect(state.umami).toEqual({
+            enabled: true,
+            endpoint: 'https://collect.example.com/api/gp',
+            project: 'lightdash-internal',
+            token: 'mock_token',
+        });
+    });
 });

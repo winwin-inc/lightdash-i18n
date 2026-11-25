@@ -620,3 +620,142 @@ describe('CDN config prerelease', () => {
         expect(config.cdn?.staticFilesVersion).toBe('2.0.1');
     });
 });
+
+describe('umami config', () => {
+    afterEach(() => {
+        // 不清理会污染同 worker 后续文件：env 留着等于「埋点已启用」
+        delete process.env.UMAMI_COLLECT_ENABLED;
+        delete process.env.UMAMI_COLLECT_ENDPOINT;
+        delete process.env.UMAMI_COLLECT_PROJECT;
+        delete process.env.UMAMI_COLLECT_TOKEN;
+        delete process.env.UMAMI_COLLECT_ENVIRONMENT;
+        delete process.env.UMAMI_COLLECT_DEDUPE_SECONDS;
+        delete process.env.UMAMI_COLLECT_SAMPLE_RATE;
+    });
+
+    test('enabled when endpoint+project+token are set and UMAMI_COLLECT_ENABLED=true', () => {
+        process.env.UMAMI_COLLECT_ENABLED = 'true';
+        process.env.UMAMI_COLLECT_ENDPOINT =
+            'https://collect.example.com/api/gp';
+        process.env.UMAMI_COLLECT_PROJECT = 'lightdash-internal';
+        process.env.UMAMI_COLLECT_TOKEN = 'mock_token';
+        const config = parseConfig();
+        expect(config.umami).toEqual({
+            enabled: true,
+            endpoint: 'https://collect.example.com/api/gp',
+            project: 'lightdash-internal',
+            token: 'mock_token',
+            environment: LightdashMode.DEFAULT, // environment 缺省取 mode
+            dedupeSeconds: 300, // 缺省 300s
+            sampleRate: 1, // 缺省不采样
+        });
+    });
+
+    test('disabled when any of endpoint/project/token is missing', () => {
+        process.env.UMAMI_COLLECT_ENABLED = 'true';
+        process.env.UMAMI_COLLECT_ENDPOINT =
+            'https://collect.example.com/api/gp';
+        process.env.UMAMI_COLLECT_PROJECT = 'lightdash-internal';
+        // token 缺失 → disabled，且不发任何请求
+        const config = parseConfig();
+        expect(config.umami.enabled).toBe(false);
+        expect(config.umami.token).toBeNull();
+
+        process.env.UMAMI_COLLECT_TOKEN = 'mock_token';
+        delete process.env.UMAMI_COLLECT_ENABLED;
+        const config2 = parseConfig();
+        expect(config2.umami.enabled).toBe(false);
+    });
+
+    test('empty string env values are treated as unset → disabled', () => {
+        process.env.UMAMI_COLLECT_ENABLED = 'true';
+        process.env.UMAMI_COLLECT_ENDPOINT = '';
+        process.env.UMAMI_COLLECT_PROJECT = '';
+        process.env.UMAMI_COLLECT_TOKEN = '   ';
+        const config = parseConfig();
+        expect(config.umami.enabled).toBe(false);
+        expect(config.umami.endpoint).toBeNull();
+        expect(config.umami.project).toBeNull();
+        expect(config.umami.token).toBeNull();
+    });
+
+    test('UMAMI_COLLECT_ENVIRONMENT overrides mode when set', () => {
+        process.env.UMAMI_COLLECT_ENABLED = 'true';
+        process.env.UMAMI_COLLECT_ENDPOINT =
+            'https://collect.example.com/api/gp';
+        process.env.UMAMI_COLLECT_PROJECT = 'lightdash-internal';
+        process.env.UMAMI_COLLECT_TOKEN = 'mock_token';
+        process.env.UMAMI_COLLECT_ENVIRONMENT = 'production';
+        const config = parseConfig();
+        expect(config.umami.environment).toBe('production');
+    });
+
+    describe('dedupeSeconds (UMAMI_COLLECT_DEDUPE_SECONDS)', () => {
+        const parseWith = () => {
+            process.env.UMAMI_COLLECT_ENABLED = 'true';
+            process.env.UMAMI_COLLECT_ENDPOINT =
+                'https://collect.example.com/api/gp';
+            process.env.UMAMI_COLLECT_PROJECT = 'lightdash-internal';
+            process.env.UMAMI_COLLECT_TOKEN = 'mock_token';
+            return parseConfig().umami;
+        };
+
+        test('defaults to 300 when unset', () => {
+            expect(parseWith().dedupeSeconds).toBe(300);
+        });
+
+        test('explicit 0 is allowed (= dedupe off)', () => {
+            process.env.UMAMI_COLLECT_DEDUPE_SECONDS = '0';
+            expect(parseWith().dedupeSeconds).toBe(0);
+        });
+
+        test('falls back to 300 on invalid values', () => {
+            process.env.UMAMI_COLLECT_DEDUPE_SECONDS = 'abc';
+            expect(parseWith().dedupeSeconds).toBe(300);
+            process.env.UMAMI_COLLECT_DEDUPE_SECONDS = '-5';
+            expect(parseWith().dedupeSeconds).toBe(300);
+        });
+
+        test('parses explicit values', () => {
+            process.env.UMAMI_COLLECT_DEDUPE_SECONDS = '60';
+            expect(parseWith().dedupeSeconds).toBe(60);
+        });
+    });
+
+    describe('sampleRate (UMAMI_COLLECT_SAMPLE_RATE)', () => {
+        const parseWith = () => {
+            process.env.UMAMI_COLLECT_ENABLED = 'true';
+            process.env.UMAMI_COLLECT_ENDPOINT =
+                'https://collect.example.com/api/gp';
+            process.env.UMAMI_COLLECT_PROJECT = 'lightdash-internal';
+            process.env.UMAMI_COLLECT_TOKEN = 'mock_token';
+            return parseConfig().umami;
+        };
+
+        test('defaults to 1 (no sampling) when unset', () => {
+            expect(parseWith().sampleRate).toBe(1);
+        });
+
+        test('explicit 0 is allowed (= drop all query_executed)', () => {
+            process.env.UMAMI_COLLECT_SAMPLE_RATE = '0';
+            expect(parseWith().sampleRate).toBe(0);
+        });
+
+        test('falls back to 1 on invalid values', () => {
+            process.env.UMAMI_COLLECT_SAMPLE_RATE = 'abc';
+            expect(parseWith().sampleRate).toBe(1);
+        });
+
+        test('clamps out-of-range values into [0, 1]', () => {
+            process.env.UMAMI_COLLECT_SAMPLE_RATE = '1.5';
+            expect(parseWith().sampleRate).toBe(1);
+            process.env.UMAMI_COLLECT_SAMPLE_RATE = '-0.5';
+            expect(parseWith().sampleRate).toBe(0);
+        });
+
+        test('parses fractional values', () => {
+            process.env.UMAMI_COLLECT_SAMPLE_RATE = '0.25';
+            expect(parseWith().sampleRate).toBe(0.25);
+        });
+    });
+});

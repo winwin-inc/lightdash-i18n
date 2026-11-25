@@ -426,6 +426,8 @@ export class OrganizationService extends BaseService {
                     },
                     newUser: false,
                     generatedInvite: false,
+                    // Umami：上游 payload 原本无 org 上下文（见 docs/ops/umami-analytics.md §4.1）
+                    organizationId: organizationUuid,
                 },
             });
         }

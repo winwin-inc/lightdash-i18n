@@ -145,6 +145,15 @@ export const lightdashConfigMock: LightdashConfig = {
         writeKey: '',
         dataPlaneUrl: '',
     },
+    umami: {
+        enabled: false,
+        endpoint: null,
+        project: null,
+        token: null,
+        environment: LightdashMode.DEFAULT,
+        dedupeSeconds: 300,
+        sampleRate: 1,
+    },
     scheduler: {
         concurrency: 0,
         enabled: false,
