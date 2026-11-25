@@ -1,6 +1,6 @@
-import { Button, Card, Image, Stack, Text, Title } from '@mantine/core';
+import { Box, Button, Card, Image, Stack, Text, Title } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import lockUrl from '../assets/images/customer-service-lock.png';
 import qrCodeUrl from '../assets/images/customer-service-qrcode.png';
@@ -17,6 +17,15 @@ const NoDashboardPermission = () => {
     const { t } = useTranslation();
 
     const isMobile = useMediaQuery('(max-width: 768px)');
+
+    // 图片加载失败时用 state 切换兜底内容，
+    // 不能直接改 DOM（如 parentElement.innerHTML / style.display），
+    // 否则会破坏 React 管理的节点，卸载时抛
+    // NotFoundError: Failed to execute 'removeChild' on 'Node'
+    const [isLockImageFailed, setIsLockImageFailed] = useState(false);
+    const [isQrCodeFailed, setIsQrCodeFailed] = useState(false);
+
+    const qrCodeSize = isMobile ? 180 : 240;
 
     const handlePhoneCall = useCallback(() => {
         window.location.href = `tel:${CUSTOMER_SERVICE.phone}`;
@@ -35,15 +44,25 @@ const NoDashboardPermission = () => {
             }}
         >
             {/* 锁图标 */}
-            <Image
-                style={{
-                    width: isMobile ? 228 : 318,
-                    height: isMobile ? 154 : 213,
-                    scale: isMobile ? 1 : 0.8,
-                }}
-                src={CUSTOMER_SERVICE.lockUrl}
-                alt="Customer Service Lock"
-            />
+            {isLockImageFailed ? (
+                <Box
+                    style={{
+                        width: isMobile ? 228 : 318,
+                        height: isMobile ? 154 : 213,
+                    }}
+                />
+            ) : (
+                <Image
+                    style={{
+                        width: isMobile ? 228 : 318,
+                        height: isMobile ? 154 : 213,
+                        scale: isMobile ? 1 : 0.8,
+                    }}
+                    src={CUSTOMER_SERVICE.lockUrl}
+                    alt="Customer Service Lock"
+                    onError={() => setIsLockImageFailed(true)}
+                />
+            )}
 
             {/* 标题和描述 */}
             <Stack
@@ -102,32 +121,32 @@ const NoDashboardPermission = () => {
                     </Text>
 
                     {/* 二维码 */}
-                    <Image
-                        src={CUSTOMER_SERVICE.qrCodeUrl}
-                        alt="Customer Service QR Code"
-                        width={isMobile ? 180 : 240}
-                        height={isMobile ? 180 : 240}
-                        onError={(e) => {
-                            // 如果图片加载失败，显示占位符
-                            const target = e.target as HTMLImageElement;
-                            target.style.display = 'none';
-                            if (target.parentElement) {
-                                target.parentElement.innerHTML = `
-                                            <div style="
-                                                width: 100%;
-                                                height: 100%;
-                                                display: flex;
-                                                align-items: center;
-                                                justify-content: center;
-                                                color: #868e96;
-                                                font-size: 14px;
-                                            ">
-                                                二维码图片
-                                            </div>
-                                        `;
-                            }
-                        }}
-                    />
+                    {isQrCodeFailed ? (
+                        <Stack
+                            align="center"
+                            justify="center"
+                            style={{
+                                width: qrCodeSize,
+                                height: qrCodeSize,
+                                color: '#868e96',
+                                fontSize: 14,
+                            }}
+                        >
+                            <Text align="center" size="sm" color="dimmed">
+                                {t(
+                                    'pages_no_dashboard_permission.qrcode_placeholder',
+                                )}
+                            </Text>
+                        </Stack>
+                    ) : (
+                        <Image
+                            src={CUSTOMER_SERVICE.qrCodeUrl}
+                            alt="Customer Service QR Code"
+                            width={qrCodeSize}
+                            height={qrCodeSize}
+                            onError={() => setIsQrCodeFailed(true)}
+                        />
+                    )}
 
                     <Text ta="center" fw={500} c="#4E4E4E" fz="14px">
                         {t('pages_no_dashboard_permission.mobile')}
