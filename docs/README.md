@@ -25,6 +25,8 @@
 | [CDN + OSS 改造方案](./ops/cdn-oss-integration-plan.md) | 静态资源上 CDN、上传走 OSS 预签名（完整方案） |
 | [CDN + OSS 执行摘要](./ops/cdn-oss-integration-plan-executive.md) | 同上，给决策/评审看的短版 |
 | [自托管：关闭官方遥测](./ops/self-hosted-disable-official-telemetry.md) | 硬关闭 RudderStack / PostHog 等外发 |
+| [产品埋点：接入 Umami](./ops/umami-analytics.md) | 自建 PV/UV 与业务事件：链路、19 个事件、口径、实现与验收（**待开发**） |
+| [埋点环境变量（k8s-config）](./ops/umami-analytics-k8s-config.md) | ConfigMap + SopsSecret 交接单，含 token 处理与回滚（**待配置**） |
 | [OIDC 登录/退出三种方式](./ops/oidc-logout-modes.md) | 本地退出 vs IdP 会话，静默重登怎么避免 |
 | [组织管理员：OIDC 用户开通 API](./ops/org-admin-users-provision.md) | 预开通 + 绑定 `openid_identities`（单个 / 批量） |
 | [大数据量导出（CSV/XLSX）优化](./ops/csv-export-performance.md) | 反馈原文、耗时构成与根因、已实施改动与实测值、产物一致性回测、后续可评估事项（**部分已实施**） |

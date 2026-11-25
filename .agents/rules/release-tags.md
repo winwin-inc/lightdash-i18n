@@ -10,6 +10,9 @@
 用户没在当轮明确说"可以打 tag / 推 tag"，就等于**没有许可**。不要从上下文推断许可，
 不要因为"上次允许过"而认为这次也允许。
 
+配套规则：[`k8s-config.md`](./k8s-config.md) —— 镜像版本号由发版/重启流程写入，
+**禁止手改 `k8s-config` 里的 `image:` 版本号**（包括为了测试把预发指到新 tag）。
+
 ## 为什么（事实）
 
 `.github/workflows/build-docker-with-i18n.yml` 的触发条件是：

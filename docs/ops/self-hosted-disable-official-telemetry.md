@@ -66,6 +66,7 @@ Dockerfile 基于历史 `winwin/tool:mise` + dbt 1.9.8 + hologres/odps，CLI 使
 仍可按需配置（自用排错）：
 
 - `SENTRY_DSN` / `SENTRY_BE_DSN` / `SENTRY_FE_DSN` 等
+- `UMAMI_COLLECT_*`：这是**新增的自建**埋点（指向公司内网 `collect.banmahui.cn`），与上文关掉的官方遥测无关；未配即关闭。详见 [`umami-analytics.md`](./umami-analytics.md)。
 
 ## 7. 不做的事
 
