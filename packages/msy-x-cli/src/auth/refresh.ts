@@ -177,22 +177,6 @@ const waitForConcurrentRefresh = async (
     }
 };
 
-/** 清空某站点凭证并原子写回（尽力而为，失败只记 debug 日志） */
-export const clearSiteCredentials = async (
-    siteName: string,
-    env: EnvVars,
-): Promise<void> => {
-    try {
-        const config = await readConfig(env);
-        if (config.auth[siteName] === undefined) return;
-        delete config.auth[siteName];
-        await writeConfig(config, env);
-        debugLog(`已清空站点 ${siteName} 的凭证`);
-    } catch (error) {
-        debugLog('清空站点凭证失败（忽略，凭证可能仍在文件中）', error);
-    }
-};
-
 /** 是否是同一份凭证（用于判断磁盘内容是否已被并发进程/新登录替换） */
 const isSameCredentials = (
     onDisk: AuthCredentials | undefined,
@@ -223,17 +207,22 @@ const clearSiteCredentialsIfUnchanged = async (
     snapshot: AuthCredentials,
     env: EnvVars,
 ): Promise<void> => {
-    const config = await readConfig(env);
-    const onDisk = config.auth[siteName];
-    if (!isSameCredentials(onDisk, snapshot)) {
-        if (onDisk !== undefined) {
-            debugLog('磁盘凭证已被并发进程更新，跳过清空', siteName);
+    // 尽力而为：清理失败不能把「需要重新登录」这个真正的结论掩盖成读写错误
+    try {
+        const config = await readConfig(env);
+        const onDisk = config.auth[siteName];
+        if (!isSameCredentials(onDisk, snapshot)) {
+            if (onDisk !== undefined) {
+                debugLog('磁盘凭证已被并发进程更新，跳过清空', siteName);
+            }
+            return;
         }
-        return;
+        delete config.auth[siteName];
+        await writeConfig(config, env);
+        debugLog(`已清空站点 ${siteName} 的凭证（refresh token 已失效）`);
+    } catch (error) {
+        debugLog('清空站点凭证失败（忽略，凭证可能仍在文件中）', error);
     }
-    delete config.auth[siteName];
-    await writeConfig(config, env);
-    debugLog(`已清空站点 ${siteName} 的凭证（refresh token 已失效）`);
 };
 
 export const ensureFreshCredentials = async ({
