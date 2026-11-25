@@ -21,7 +21,7 @@ const makeUser = (overrides: Partial<ProfileUser> = {}): ProfileUser => ({
 });
 
 describe('buildProfileEvent', () => {
-    it('字段齐全：13 键 + client 固定 web', () => {
+    it('字段齐全：14 键 + client/source 固定 web', () => {
         const payload = buildProfileEvent({
             user: makeUser(),
             projectId: 'p-3333',
@@ -41,10 +41,11 @@ describe('buildProfileEvent', () => {
             project_id: 'p-3333',
             project_name: '示例项目',
             client: 'web',
+            source: 'web',
             app_version: '1.2.3',
             env: 'production',
         });
-        expect(Object.keys(payload)).toHaveLength(13);
+        expect(Object.keys(payload)).toHaveLength(14);
     });
 
     it('空值不写：缺组织/邮箱/项目名/版本的键不出现', () => {
@@ -151,7 +152,7 @@ describe('buildProfilePacket', () => {
         expect(packet.anonymous_id).toBe('anon:install-9999');
     });
 
-    it('properties 与 buildProfileEvent 一致（13 键）', () => {
+    it('properties 与 buildProfileEvent 一致（14 键）', () => {
         expect(makePacket().properties).toEqual(
             buildProfileEvent({
                 user: makeUser(),

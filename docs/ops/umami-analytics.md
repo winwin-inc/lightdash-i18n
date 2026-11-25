@@ -132,7 +132,7 @@ Node    node-fetch(data_list)         ├→ collect.banmahui.cn/api/gp?project&
 `code`/`inviteCode` 是 `nanoid(30)`（不是 uuid，能直接改密码/入组），**绝不能进埋点**。实现上
 `pageKey.ts` 对这三条路由显式给模板，且兜底把「非静态段且长度 ≥ 20」的段替换成 `:id`。
 
-### 4.3 `profile_set` 载荷（13 键）
+### 4.3 `profile_set` 载荷（前端 14 键 / 后端 8 键）
 
 | 类 | 键 | 值来源 |
 |---|---|---|
@@ -144,7 +144,12 @@ Node    node-fetch(data_list)         ├→ collect.banmahui.cn/api/gp?project&
 | | `user_created_at` | `user.createdAt`（YYYY-MM-DD） |
 | 上下文（会变） | `project_id` / `project_name` | 当前路由里的项目 |
 | | `client` | 固定 `web` |
+| | `source` | 固定 `web`（后端那条会话写 `server`，见下） |
 | | `app_version` / `env` | `VERSION` / `health.umami.environment`（= `UMAMI_COLLECT_ENVIRONMENT`，缺省 `mode`） |
+
+**后端 profile_set（`server` 那条会话，每用户每月 1 条）**只有 8 键：`user_uuid` / `user_email` /
+`user_name` / `org_id` / `org_name` / `client`（触发事件的来源，如 `web` / `mcp` / `scheduler`）/
+`env` / `source='server'`。后端拿不到 `org_role`、`project_id`（事件级已有），不重复发。
 
 发送时机只有 2 个：① 用户信息就绪首帧；② 身份指纹
 `user_uuid|org_id|org_role|project_id` 变化。
@@ -180,12 +185,25 @@ Umami 没有 i18n 层，看板里只展示 `data_key` / `string_value` 原文。
 |---|---|
 | `page` | `dashboard` 看板详情 · `dashboard_list` 看板列表 · `chart` 图表详情 · `chart_list` 图表列表 · `space` 空间详情 · `space_list` 空间列表 · `explore` 表探索 · `explore_list` 表列表 · `sql_runner` SQL 运行器 · `metrics_catalog` 指标目录 · `catalog` 数据目录 · `project_home` 项目首页 · `usage_insights` 使用分析 · `data_apps` 数据应用 · `settings` 设置页 · `create_project` 新建项目 · `login`/`register`/`signup`/`share`/`embed`/`minimal`/`forbidden` 等同名页 |
 | `client` | `web` 网页 · `lightdash-cli` CLI · `lightdash-cli-ci` CLI（CI） · `mcp` MCP · `scheduler` 定时任务 · `api` API · `headless` 无头浏览器 |
+| `source` | `web` 浏览器跑的埋点 · `server` 后端进程发的事件（会话级标记，见 §4.3） |
 | `query_context` | `dashboardView` 看板 · `autorefreshedDashboard` 看板自动刷新 · `exploreView` 表探索 · `chartView` 图表 · `chartHistory` 图表历史 · `sqlChartView` SQL 图表 · `sqlRunner` SQL 运行器 · `viewUnderlyingData` 查看底层数据 · `alert` 告警 · `scheduledDelivery` 定时推送 · `csvDownload` CSV 下载 · `gsheets` Google 表格 · `filterAutocomplete` 过滤器联想 |
 | `file_type` | `csv` CSV · `xlsx` Excel · `gsheets` Google 表格 |
 | `auth_type` | `oauth` OAuth · `pat` 访问令牌 |
 | `mcp_client` | `msy-x-cli` msy-x 命令行 · `claude*` Claude · `cursor*` Cursor · 其余原值 |
 | `org_role` | `viewer` 查看者 · `editor` 编辑者 · `admin` 管理员 · `developer` 开发者 · `member` 成员 |
 | `chart_kind` | `cartesian` 直角坐标 · `pie` 饼图 · `table` 表格 · 其余取上游枚举 |
+
+**`client` 的取值怎么来的**（`requestContext.resolveUmamiClient`，`App.ts` 中间件写入 ALS）：
+
+| 来源 | 判定 | 现状 |
+|---|---|---|
+| MCP | 路径前缀 `/api/v1/mcp` | ✅ 准确（msy-x-cli / claude / cursor 都走这条） |
+| 网页 | `Lightdash-Request-Method: WEB_APP` | ✅ 准确 |
+| 定时任务 | `SchedulerTaskTracer` 显式注入 | ✅ 准确 |
+| 无头浏览器 | `Lightdash-Request-Method: HEADLESS_BROWSER` | ✅ 准确 |
+| **lightdash CLI** | 需要 `Lightdash-Request-Method: CLI / CLI_CI` 头 | ⚠️ **该 CLI 目前不发这个头 → 落到 `api`**（待补，见 §8 已知边界） |
+
+所以统计 CLI 用量时，`client=api` 里可能混着 CLI 流量；MCP 用量不受影响。
 
 ### 4.5 粒度：看板 + 图表独立页，不做看板内 tile
 
@@ -388,6 +406,8 @@ Umami 每条事件落 1 行 `website_event` + 每个属性 1 行 `event_data`，
 | 原生看板无中文 | 中文要靠 `umamiq` / 导出 CSV |
 | 无历史回溯 | 埋点上线前的行为拿不到，只能往后累积 |
 | `profile_set.project_name` 暂缺 | 前端路由只有 project uuid，取名字要多一次请求 → 只发 `project_id`，名字靠后端事件 |
+| lightdash CLI 归到 `client=api` | `packages/cli` 还没发 `Lightdash-Request-Method: CLI / CLI_CI` 头，所以 CLI 流量混在 `api` 里（MCP 不受影响，走 `/api/v1/mcp` 路径识别）。补的是 CLI 对外请求头，需单独提交与回归 |
+| 前后端各一条会话 | 会话 key 含 IP+UA+月度 salt，后端事件必然另开一条；`source=web/server` 用来区分，人数仍按 `distinct_id` 去重 |
 | 外发合规 | 这是**新增**外发，目标为公司内网 `collect.banmahui.cn`，与官方遥测无关；kill switch 见 k8s 文档 |
 
 ## 9. 配套（跨仓库，各自独立分支）

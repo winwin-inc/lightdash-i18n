@@ -119,6 +119,7 @@ describe('UmamiAnalytics', () => {
             org_id: 'org-1',
             org_name: '品牌组织',
             env: 'production',
+            source: 'server',
         });
     });
 
@@ -158,6 +159,7 @@ describe('UmamiAnalytics', () => {
             org_name: '品牌组织',
             client: 'web',
             env: 'production',
+            source: 'server',
         });
     });
 

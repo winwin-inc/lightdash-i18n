@@ -230,6 +230,8 @@ export class UmamiAnalytics {
             properties.client = client;
         }
         properties.env = this.config.environment;
+        // 会话来源：后端进程写的会话恒为 server（前端那条是 web），见 docs §4.4
+        properties.source = 'server';
         this.profileSent.set(event.distinctId, key);
         this.queue.push({
             kind: 'profile',

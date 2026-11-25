@@ -1,5 +1,5 @@
 /**
- * profile_set 事件载荷（docs/ops/umami-analytics.md §4.3，13 键）。
+ * profile_set 事件载荷（docs/ops/umami-analytics.md §4.3，14 键）。
  *
  * - 空值不写（组织未建、邮箱缺失等场景属性缺省）
  * - 中文名字段按码点截断 100（utf8 安全，不产生乱码）
@@ -13,6 +13,11 @@ import { truncateByCodePoints } from './transport';
 
 const FIELD_MAX_CODE_POINTS = 100;
 const CLIENT_WEB = 'web';
+/**
+ * 会话来源标记：`web`=浏览器前端发的 profile_set；后端那条会话写 `server`。
+ * 前后端会话本就因 IP/UA 不同而分开，有了这个键就不用再靠 `browser=null` 猜。
+ */
+const SOURCE_WEB = 'web';
 
 /** 与 LightdashUser 结构对齐（createdAt 在 API 层实际是 ISO 字符串；可选字段镜像上游可选属性） */
 export type ProfileUser = {
@@ -93,6 +98,7 @@ export const buildProfileEvent = (input: ProfileEventInput): ProfilePayload => {
     if (hasValue(input.projectName))
         payload.project_name = truncateField(input.projectName);
     payload.client = CLIENT_WEB;
+    payload.source = SOURCE_WEB;
     if (hasValue(input.appVersion)) payload.app_version = input.appVersion;
     if (hasValue(input.env)) payload.env = input.env;
 
