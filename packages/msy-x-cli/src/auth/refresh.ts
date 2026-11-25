@@ -1,9 +1,8 @@
-import { open, stat, unlink } from 'node:fs/promises';
-import path from 'node:path';
 import { refreshAuthorization } from '@modelcontextprotocol/sdk/client/auth.js';
+import type { AuthorizationServerMetadata } from '@modelcontextprotocol/sdk/shared/auth.js';
 import type { FetchLike } from '@modelcontextprotocol/sdk/shared/transport.js';
 import { CliError } from '../cli/errors';
-import { ensureConfigDir, getConfigDir, type EnvVars } from '../config/paths';
+import { ensureConfigDir, type EnvVars } from '../config/paths';
 import { readConfig, writeConfig } from '../config/store';
 import { debugLog } from '../lib/logger';
 import type {
@@ -12,7 +11,21 @@ import type {
     OAuthCredentials,
     SiteProfile,
 } from '../types';
-import { authorizationServerUrlFromMcpUrl } from './oauth';
+import {
+    DEFAULT_LOCK_STALE_MS,
+    DEFAULT_POLL_INTERVAL_MS,
+    DEFAULT_POLL_TOTAL_MS,
+    breakStaleLock,
+    lockPathOf,
+    releaseLock,
+    sleep,
+    tryAcquireLock,
+    withSiteLock,
+} from './configLock';
+import {
+    conventionalAuthorizationServerMetadata,
+    discoverAuthorizationServer,
+} from './oauth';
 import { DEFAULT_TOKEN_TTL_S } from './oauthProvider';
 
 /**
@@ -27,15 +40,20 @@ import { DEFAULT_TOKEN_TTL_S } from './oauthProvider';
  * - 写回与清空都先重读配置比对快照：磁盘上已被并发进程或新登录替换时不动它
  *   （避免刷新结果或清空动作吃掉刚完成的新登录）；
  * - 拿不到锁（并发进程在刷）：轮询读配置文件最多 5s，吃到别人刷好的结果，
- *   保证并发命令只刷一次（避免 refresh token 被重复消费失效）。
+ *   保证并发命令只刷一次（避免 refresh token 被重复消费失效）；
+ * - token 端点按 RFC9728/8414 发现，发现不到时按 Lightdash 约定回落到
+ *   `{site}/api/v1/oauth/token`（0.2.5 的缺陷：SDK 在没有 metadata 时会拼
+ *   `new URL('/token', 授权服务器 URL)`，把路径整段丢掉，实际打到 `{site}/token`）。
  */
 
-const LOCK_FILE_NAME_PREFIX = 'refresh';
-const DEFAULT_LOCK_STALE_MS = 30_000;
-const DEFAULT_POLL_TOTAL_MS = 5_000;
-const DEFAULT_POLL_INTERVAL_MS = 100;
 /** 刷新请求上界：必须明显小于 lock stale，否则慢请求会被判成「持锁进程崩溃」 */
 const DEFAULT_REFRESH_TIMEOUT_MS = 20_000;
+/**
+ * 元数据发现的**总**时长上界（不是单次请求）。
+ * 持锁期间的硬上界 = 发现 4s + 刷新 20s = 24s < lock stale 30s，
+ * 所以并发进程不会把还在干活的锁判成残留而重刷（refresh token 会双花）。
+ */
+const DEFAULT_DISCOVERY_TIMEOUT_MS = 4_000;
 
 /**
  * 服务端明确否掉 refresh_token 的 OAuth 错误码（RFC 6749 §5.2）。
@@ -64,11 +82,6 @@ export type EnsureFreshCredentialsInput = {
     /** 单个 token 请求的上界（测试注入），默认 20s */
     refreshTimeoutMs?: number;
 };
-
-const sleep = (ms: number): Promise<void> =>
-    new Promise((resolve) => {
-        setTimeout(resolve, ms);
-    });
 
 const isExpired = (credentials: OAuthCredentials, now: () => number): boolean =>
     Date.parse(credentials.accessExpiresAt) <= now();
@@ -104,9 +117,7 @@ const refreshUnavailableError = (cause: unknown): CliError =>
 const oauthErrorCodeOf = (error: unknown): string | null => {
     if (typeof error !== 'object' || error === null) return null;
     const candidate = error as { errorCode?: unknown };
-    return typeof candidate.errorCode === 'string'
-        ? candidate.errorCode
-        : null;
+    return typeof candidate.errorCode === 'string' ? candidate.errorCode : null;
 };
 
 /**
@@ -116,54 +127,6 @@ const oauthErrorCodeOf = (error: unknown): string | null => {
 const isPermanentRefreshFailure = (error: unknown): boolean => {
     const code = oauthErrorCodeOf(error);
     return code !== null && PERMANENT_REFRESH_ERROR_CODES.has(code);
-};
-
-const releaseLock = async (lockPath: string): Promise<void> => {
-    await unlink(lockPath).catch((error: unknown) => {
-        debugLog('释放 refresh 锁失败（忽略）', error);
-    });
-};
-
-/** 锁按站点分开：A 站刷新把 B 站命令卡住（甚至退 3）是没道理的 */
-const lockPathOf = (env: EnvVars, siteName: string): string =>
-    path.join(getConfigDir(env), `${LOCK_FILE_NAME_PREFIX}.${siteName}.lock`);
-
-/** 尝试 O_EXCL 创建锁文件；返回 true=拿到锁，false=被别的进程持有 */
-const tryAcquireLock = async (lockPath: string): Promise<boolean> => {
-    let handle: Awaited<ReturnType<typeof open>>;
-    try {
-        handle = await open(lockPath, 'wx');
-    } catch (error) {
-        if ((error as NodeJS.ErrnoException).code === 'EEXIST') return false;
-        throw error;
-    }
-    // handle 必须在异常路径关掉：write 失败不能泄漏 fd，也不能留下空锁
-    try {
-        await handle.write(`${process.pid} ${new Date().toISOString()}`);
-    } catch (error) {
-        await handle.close().catch(() => undefined);
-        await unlink(lockPath).catch(() => undefined);
-        throw error;
-    }
-    await handle.close();
-    return true;
-};
-
-/** 锁文件超过阀值视为残留（持锁进程崩溃），清掉后可重试 */
-const breakStaleLock = async (
-    lockPath: string,
-    now: () => number,
-    lockStaleMs: number,
-): Promise<void> => {
-    try {
-        const info = await stat(lockPath);
-        if (now() - info.mtimeMs >= lockStaleMs) {
-            debugLog('发现过期 refresh 锁，清除后重试', lockPath);
-            await unlink(lockPath).catch(() => undefined);
-        }
-    } catch {
-        // stat 失败（正好被释放等）交给上层重试
-    }
 };
 
 /** 是否是同一份凭证（用于判断磁盘内容是否已被并发进程/新登录替换） */
@@ -230,10 +193,71 @@ const withTimeout = (
     fetchImpl: FetchLike | undefined,
     timeoutMs: number,
 ): FetchLike => {
-    const base: FetchLike =
-        fetchImpl ?? ((input, init) => fetch(input, init));
+    const base: FetchLike = fetchImpl ?? ((input, init) => fetch(input, init));
     return async (input, init) =>
         base(input, { ...init, signal: AbortSignal.timeout(timeoutMs) });
+};
+
+/**
+ * 给一组连续请求套**总**超时预算：发现会试多个候选 URL，单请求超时约束不了
+ * 总耗时（最坏 6 次 × 单次超时，足以超过 lock stale）。
+ */
+const withTotalBudget = (
+    fetchImpl: FetchLike | undefined,
+    totalMs: number,
+): FetchLike => {
+    const base: FetchLike = fetchImpl ?? ((input, init) => fetch(input, init));
+    const deadline = Date.now() + totalMs;
+    return async (input, init) => {
+        const remaining = deadline - Date.now();
+        if (remaining <= 0) {
+            throw new Error(`元数据发现超出总预算（${totalMs}ms）`);
+        }
+        return base(input, { ...init, signal: AbortSignal.timeout(remaining) });
+    };
+};
+
+/**
+ * 刷新用的授权服务器元数据。
+ *
+ * SDK 的 `refreshAuthorization` **只在有 metadata 时**才用 `token_endpoint`，
+ * 否则拼 `new URL('/token', 授权服务器 URL)`——路径整段被丢掉，实际打到
+ * `{site}/token`（404）。这正是 0.2.5「登录能用、自动刷新必失败」的根因。
+ *
+ * 所以刷新前先按 RFC9728/8414 发现一次（带短超时，挂住也不拖死刷新），
+ * 发现不到再用 Lightdash 约定兜底 `{site}/api/v1/oauth/token`。
+ */
+const resolveAuthorizationServerForRefresh = async (
+    site: SiteProfile,
+    fetchFn: FetchLike | undefined,
+): Promise<{
+    authorizationServerUrl: string;
+    metadata: AuthorizationServerMetadata;
+}> => {
+    const discoveryFetch = withTotalBudget(
+        fetchFn,
+        DEFAULT_DISCOVERY_TIMEOUT_MS,
+    );
+    const { authorizationServerUrl, metadata } =
+        await discoverAuthorizationServer({
+            mcpUrl: site.mcpUrl,
+            fetchFn: discoveryFetch,
+        });
+    if (metadata !== undefined) {
+        debugLog('刷新前拿到授权服务器元数据', {
+            tokenEndpoint: metadata.token_endpoint,
+        });
+        return { authorizationServerUrl, metadata };
+    }
+    debugLog('授权服务器元数据发现失败，按约定兜底 token 端点', {
+        authorizationServerUrl,
+    });
+    return {
+        authorizationServerUrl,
+        metadata: conventionalAuthorizationServerMetadata(
+            authorizationServerUrl,
+        ),
+    };
 };
 
 export const ensureFreshCredentials = async ({
@@ -253,7 +277,28 @@ export const ensureFreshCredentials = async ({
     if (!isExpired(credentials, now)) return credentials;
 
     if (credentials.refreshToken === null) {
-        await clearSiteCredentialsIfUnchanged(site.name, credentials, env);
+        // 清空也要在站点锁内「重读 → 比对 → 删」：否则会把并发完成的新登录删掉。
+        // 拿不到锁只跳过清理（清理是副作用），结论仍是「需要重新登录」，退出码不变。
+        try {
+            await withSiteLock(
+                {
+                    siteName: site.name,
+                    env,
+                    now,
+                    lockStaleMs,
+                    pollTotalMs,
+                    pollIntervalMs,
+                },
+                () =>
+                    clearSiteCredentialsIfUnchanged(
+                        site.name,
+                        credentials,
+                        env,
+                    ),
+            );
+        } catch (error) {
+            debugLog('清空凭证时未拿到站点锁，跳过清空', error);
+        }
         throw new CliError({
             code: 'AUTH_REQUIRED',
             message: '访问令牌已过期且没有 refresh token',
@@ -264,7 +309,6 @@ export const ensureFreshCredentials = async ({
     // 配置目录可能还没建（首次登录前）：不建目录拿锁会报裸 ENOENT
     await ensureConfigDir(env);
     const lockPath = lockPathOf(env, site.name);
-
     const acquire = async (): Promise<boolean> => {
         if (await tryAcquireLock(lockPath)) return true;
         await breakStaleLock(lockPath, now, lockStaleMs);
@@ -284,7 +328,10 @@ export const ensureFreshCredentials = async ({
             const current = (await readConfig(env)).auth[site.name];
             if (current === undefined) return null;
             if (current.mode !== 'oauth') return current;
-            if (!isSameCredentials(current, credentials) && !isExpired(current, now)) {
+            if (
+                !isSameCredentials(current, credentials) &&
+                !isExpired(current, now)
+            ) {
                 return current;
             }
             return null;
@@ -314,26 +361,26 @@ export const ensureFreshCredentials = async ({
     }
 
     try {
-        const tokens = await refreshAuthorization(
-            authorizationServerUrlFromMcpUrl(site.mcpUrl),
-            {
-                clientInformation:
-                    credentials.clientSecret === null
-                        ? { client_id: credentials.clientId }
-                        : {
-                              client_id: credentials.clientId,
-                              client_secret: credentials.clientSecret,
-                          },
-                refreshToken: credentials.refreshToken,
-                addClientAuthentication: async (_headers, params) => {
-                    params.set('client_id', credentials.clientId);
-                    if (credentials.clientSecret !== null) {
-                        params.set('client_secret', credentials.clientSecret);
-                    }
-                },
-                fetchFn: withTimeout(fetchFn, refreshTimeoutMs),
+        const { authorizationServerUrl, metadata } =
+            await resolveAuthorizationServerForRefresh(site, fetchFn);
+        const tokens = await refreshAuthorization(authorizationServerUrl, {
+            metadata,
+            clientInformation:
+                credentials.clientSecret === null
+                    ? { client_id: credentials.clientId }
+                    : {
+                          client_id: credentials.clientId,
+                          client_secret: credentials.clientSecret,
+                      },
+            refreshToken: credentials.refreshToken,
+            addClientAuthentication: async (_headers, params) => {
+                params.set('client_id', credentials.clientId);
+                if (credentials.clientSecret !== null) {
+                    params.set('client_secret', credentials.clientSecret);
+                }
             },
-        );
+            fetchFn: withTimeout(fetchFn, refreshTimeoutMs),
+        });
         const next: OAuthCredentials = {
             ...credentials,
             accessToken: tokens.access_token,

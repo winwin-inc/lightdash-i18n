@@ -161,6 +161,8 @@ auth:
 - 统一脱敏：令牌模式（`ldpat_` + 38 位）与敏感键名（`token` / `secret` / `pat` / `authorization`）在日志、`--verbose`、`--debug` 中一律替换为 `***`。
 - 不提供「打印 token」的命令；`auth status` 只输出 `expiresAt` 与 `scope`；`doctor` 只输出布尔值。
 - 刷新加文件锁（`O_EXCL` + 30s 过期），避免并发命令重复刷新导致 refresh token 失效。
+- **`auth login` / `auth logout` 与刷新共用同一把站点锁**（0.2.6 起）：写凭证、刷写回、清空都在锁内「重读配置 → 改 → 原子写回」，刷新期间完成的新登录不会被覆盖或删掉（0.2.5 只在刷新侧比对快照，登录侧不拿锁，仍有覆盖窗口）。
+- **刷新端点按发现结果决定**（0.2.6 起）：SDK 的 `refreshAuthorization` 在没有 metadata 时会拼 `new URL('/token', 授权服务器 URL)`，把 `/api/v1/oauth` 整段丢掉（实际打 `{site}/token` → 404）——0.2.5「登录能用、自动刷新必失败」的根因。现在刷新前先做一次 RFC 9728 → RFC 8414 发现，拿不到元数据才按约定兜底 `{site}/api/v1/oauth/token`。
 - **刷新失败分两类**（0.2.5 起）：服务端明确拒绝 refresh_token（`invalid_grant` / `invalid_client` / `unauthorized_client` / `invalid_scope`）才清空该站点凭证并退 `3`；网络错误、502/503、非 OAuth 错误体（网关 HTML）属**暂时失败**，**保留本地凭证**并退 `6`，提示稍后重试。0.2.4 及更早把两者混为一谈，一次 503 就会把用户登录删掉。
 - 写回与清空前都重读配置并与「开始刷新时的快照」比对：磁盘已被并发进程或新登录替换时不动它，避免刷新结果覆盖、或清空动作删掉刚完成的新登录。
 - 失败不落盘：任何失败路径都不会留下半截凭证。
@@ -199,6 +201,7 @@ auth login
 | `POST /api/v1/oauth/revoke` | 登出时尽力吊销 |
 
 - Access token 1 小时、refresh token 2 周；日常调用遇 401 会静默刷新一次并重试。刷新失败按三分法：凭证被服务端否掉（`invalid_grant` 等）→ 清凭证、退 `3`（需重新登录）；网络/5xx 暂时失败 → **保留凭证**、退 `6`（稍后重试即可）；刷新成功但磁盘已被新登录替换 → 用磁盘那份、不覆盖。
+- **刷新同样走发现**：`POST {token_endpoint}`（发现优先，兜底 `POST /api/v1/oauth/token`），不会落到站点根 `/token`；发现给 4s **总**预算（持锁硬上界 4s+20s=24s < 锁过期 30s，避免被并发进程误判成残留而重刷），发现失败只回落约定端点。
 
 ### 6.2 Personal Access Token
 

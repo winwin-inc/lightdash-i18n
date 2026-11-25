@@ -1,8 +1,9 @@
 import type { FetchLike } from '@modelcontextprotocol/sdk/shared/transport.js';
 import type { EnvVars } from '../config/paths';
-import { writeConfig } from '../config/store';
+import { readConfig, writeConfig } from '../config/store';
 import { debugLog } from '../lib/logger';
 import type { AuthCredentials, CliConfig, SiteProfile } from '../types';
+import { withSiteLock } from './configLock';
 import { authorizationServerUrlFromMcpUrl } from './oauth';
 
 /**
@@ -10,13 +11,15 @@ import { authorizationServerUrlFromMcpUrl } from './oauth';
  *
  * - 尽力 revoke：把 refresh token POST 到 `{site}/api/v1/oauth/revoke`，
  *   失败只在 debug 日志记录（站点不可达 / 已失效都不影响本地登出）；
- * - 随后删除该站点凭证并原子写回；幂等：没有凭证时同样成功。
+ * - 随后在站点锁内「重读配置 → 删凭证 → 原子写回」：刷新进程与登录进程
+ *   共用同一把锁，所以不会把并发完成的新登录删掉（反而应该保留它）；
+ * - 幂等：没有凭证时同样成功。
  */
 
 export type LogoutInput = {
     site: SiteProfile;
-    credentials: AuthCredentials;
-    config: CliConfig;
+    /** 当前凭证（仅用于尽力 revoke；删除哪一份以磁盘最新内容为准） */
+    credentials: AuthCredentials | null;
     env?: EnvVars;
     fetchFn?: FetchLike;
 };
@@ -50,7 +53,9 @@ const revokeBestEffort = async ({
             body: params,
         });
         if (!response.ok) {
-            debugLog(`revoke 端点返回 HTTP ${response.status}（忽略，继续本地登出）`);
+            debugLog(
+                `revoke 端点返回 HTTP ${response.status}（忽略，继续本地登出）`,
+            );
         }
     } catch (error) {
         debugLog('revoke 请求失败（忽略，继续本地登出）', error);
@@ -58,21 +63,26 @@ const revokeBestEffort = async ({
 };
 
 /**
- * revoke（尽力） + 删除该站点凭证 + 原子写回。
+ * revoke（尽力） + 在站点锁内删除该站点凭证 + 原子写回。
  * 返回写回后的配置；凭证本就不存在时原样返回（幂等）。
  */
 export const logout = async ({
     site,
     credentials,
-    config,
     env = process.env,
     fetchFn = fetch,
 }: LogoutInput): Promise<CliConfig> => {
-    await revokeBestEffort({ site, credentials, fetchFn });
-    if (config.auth[site.name] === undefined) return config;
-    const next: CliConfig = { ...config, auth: { ...config.auth } };
-    delete next.auth[site.name];
-    await writeConfig(next, env);
-    debugLog(`已删除站点 ${site.name} 的凭证`);
-    return next;
+    if (credentials !== null) {
+        await revokeBestEffort({ site, credentials, fetchFn });
+    }
+    return withSiteLock({ siteName: site.name, env }, async () => {
+        // 锁内重读：期间可能刚完成一次新登录，不能拿旧快照去覆盖
+        const latest = await readConfig(env);
+        if (latest.auth[site.name] === undefined) return latest;
+        const next: CliConfig = { ...latest, auth: { ...latest.auth } };
+        delete next.auth[site.name];
+        await writeConfig(next, env);
+        debugLog(`已删除站点 ${site.name} 的凭证`);
+        return next;
+    });
 };
