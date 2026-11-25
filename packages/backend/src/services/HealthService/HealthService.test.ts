@@ -121,6 +121,7 @@ describe('health', () => {
             endpoint: 'https://collect.example.com/api/gp',
             project: 'lightdash-internal',
             token: 'mock_token',
+            environment: 'production',
         });
     });
 });

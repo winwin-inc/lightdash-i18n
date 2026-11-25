@@ -31,15 +31,8 @@ import {
     type UmamiSendConfig,
 } from './transport';
 
-// 后端 HealthState.umami 并入前的最小本地类型（后端落地后该交叉类型仍兼容）
-export type UmamiHealthConfig = {
-    enabled: boolean;
-    endpoint: string;
-    project: string;
-    token: string;
-};
-
-type HealthStateWithUmami = HealthState & { umami?: UmamiHealthConfig };
+// Umami 健康配置：直接用后端 HealthState.umami（enabled/endpoint/project/token/environment）
+export type UmamiHealthConfig = HealthState['umami'];
 
 const LIB_NAME = 'lightdash-web';
 
@@ -73,31 +66,24 @@ const UmamiProviderMain: FC<PropsWithChildren> = ({ children }) => {
     const appVersion = hasText(health.data?.version)
         ? health.data.version
         : null;
-    const env = health.data?.mode ?? null;
+    const env = health.data?.umami?.environment ?? health.data?.mode ?? null;
 
     // 配置就绪后 setConfig（值不变时保持同一引用，避免下游 effect 空转）
     useEffect(() => {
-        const umami = (health.data as HealthStateWithUmami | undefined)?.umami;
-        if (
-            umami === undefined ||
-            umami.enabled !== true ||
-            !hasText(umami.endpoint) ||
-            !hasText(umami.project) ||
-            !hasText(umami.token)
-        ) {
+        const umami = health.data?.umami;
+        if (umami === undefined || umami.enabled !== true) return;
+        // 先局部收窄再进 setConfig 回调（窄化不跨越函数边界）
+        const { endpoint, project, token } = umami;
+        if (!hasText(endpoint) || !hasText(project) || !hasText(token)) {
             return;
         }
         setConfig((previous) =>
             previous !== null &&
-            previous.endpoint === umami.endpoint &&
-            previous.project === umami.project &&
-            previous.token === umami.token
+            previous.endpoint === endpoint &&
+            previous.project === project &&
+            previous.token === token
                 ? previous
-                : {
-                      endpoint: umami.endpoint,
-                      project: umami.project,
-                      token: umami.token,
-                  },
+                : { endpoint, project, token },
         );
     }, [health.data]);
 

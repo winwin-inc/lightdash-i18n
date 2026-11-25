@@ -80,6 +80,7 @@ export class HealthService extends BaseService {
                 endpoint: this.lightdashConfig.umami.endpoint,
                 project: this.lightdashConfig.umami.project,
                 token: this.lightdashConfig.umami.token,
+                environment: this.lightdashConfig.umami.environment,
             },
             sentry: {
                 frontend: this.lightdashConfig.sentry.frontend,

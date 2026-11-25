@@ -110,7 +110,7 @@ Node    node-fetch(data_list)         ├→ collect.banmahui.cn/api/gp?project&
 | `client` | `web` / `lightdash-cli` / `lightdash-cli-ci` / `mcp` / `scheduler` / `api` / `headless` | 前端固定 `web`；后端 ALS（读 `Lightdash-Request-Method`）+ 路径 | **全部**事件 |
 | `user_name` / `org_name` | 显示名 / 组织中文名 | 同上 | 仅低频事件（高频组见 §7.1） |
 | `app_version` | 版本号 | `VERSION` | 仅低频事件 |
-| `env` | `mode` | `lightdashConfig.mode` | **仅 `profile_set`**（test/prod 是两个站点，事件里重复带无意义） |
+| `env` | `UMAMI_COLLECT_ENVIRONMENT`（缺省 `mode`） | 后端 `lightdashConfig.umami.environment` → `health.umami.environment` | **仅 `profile_set`**（test/prod 是两个站点，事件里重复带无意义） |
 
 **PII 边界**：email、姓名、组织名、看板/图表名与 slug **允许**（内部 Umami，且属性只能筛选——
 不写进属性就查不到人和资源）；手机号、证件号、地址、备注、SQL 文本、字段名、表名、结果集、
@@ -143,7 +143,7 @@ Node    node-fetch(data_list)         ├→ collect.banmahui.cn/api/gp?project&
 | | `user_created_at` | `user.createdAt`（YYYY-MM-DD） |
 | 上下文（会变） | `project_id` / `project_name` | 当前路由里的项目 |
 | | `client` | 固定 `web` |
-| | `app_version` / `env` | `VERSION` / `mode` |
+| | `app_version` / `env` | `VERSION` / `health.umami.environment`（= `UMAMI_COLLECT_ENVIRONMENT`，缺省 `mode`） |
 
 发送时机只有 2 个：① 用户信息就绪首帧；② 身份指纹
 `user_uuid|org_id|org_role|project_id` 变化。
@@ -199,7 +199,7 @@ Umami 没有 i18n 层，看板里只展示 `data_key` / `string_value` 原文。
 | `packages/backend/src/analytics/umami/` | `payload.ts`（组装 + utf8 base64 + urlencode，纯函数）、`UmamiAnalytics.ts`（内存队列，2s 或 20 条 flush `data_list`，上限 200，timeout 3s，失败只 debug）、`mapping.ts`（白名单映射 + `pickProps`）、`requestContext.ts`（AsyncLocalStorage 记录 `client`/`path`） |
 | `packages/backend/src/analytics/LightdashAnalytics.ts` | `track()` **在 `if (!writeKey) return` 之前**先转发给 umami（Rudder 逻辑一行不改）；`distinct_id` 解析链见下 |
 | `App.ts` / `SchedulerApp.ts` | 构造 `UmamiAnalytics` 注入；ALS 中间件紧邻现有 `req.services = ...`；`App.ts` 里 analytics 先于 models 创建，用 `setUserResolver()` 懒注入 |
-| `HealthService` + `packages/common` `HealthState` | 下发 `umami: { enabled, endpoint, project, token }` 给前端 |
+| `HealthService` + `packages/common` `HealthState` | 下发 `umami: { enabled, endpoint, project, token, environment }` 给前端（`environment` 给 `profile_set.env` 用） |
 | `McpService` | `mcp_tool_call` 加 `mcpClient`（`X-Lightdash-Client` 头优先，回落 `mcpServer.getClientVersion()?.name`） |
 
 **布尔属性一律转字符串** `'true'`/`'false'`（Umami 的 `event_data` 只列 string/number，

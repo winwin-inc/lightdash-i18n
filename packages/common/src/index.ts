@@ -1220,6 +1220,8 @@ export type HealthState = {
         endpoint: string | null;
         project: string | null;
         token: string | null;
+        /** 部署环境标识（UMAMI_COLLECT_ENVIRONMENT，缺省为 mode）——前端 profile_set 的 env 用它 */
+        environment: string;
     };
     sentry: Pick<
         SentryConfig,

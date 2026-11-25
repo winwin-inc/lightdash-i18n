@@ -85,6 +85,7 @@ export const BaseResponse: HealthState = {
         endpoint: null,
         project: null,
         token: null,
+        environment: 'default',
     },
     sentry: {
         environment: '',

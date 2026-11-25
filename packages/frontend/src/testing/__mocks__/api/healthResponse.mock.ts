@@ -23,6 +23,7 @@ export default function mockHealthResponse(
             endpoint: null,
             project: null,
             token: null,
+            environment: 'default',
         },
         sentry: {
             frontend: {
