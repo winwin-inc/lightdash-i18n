@@ -15,11 +15,16 @@
     -   独立包 `packages/lightdash-mcp`（v1，走 REST `/content-verification`）保留不动，历史文档按原文标注为当时记录
     -   需更新 CLI 到 `0.2.4`（`verified` 命令同源下线，见下）
 
--   **命令行工具（msy-x-cli 0.2.4，未发布）**
-    -   下线 `verified` 子命令：其唯一映射就是 `list_verified_content`，服务端删工具后该命令必然失败。命令总数 37 → 36，`doctor --remote` 的 `tools-catalog` 期望工具数 26 → 25（镜像仍是旧清单时会 warn 提示差异）
+-   **命令行工具（msy-x-cli 0.2.4，未发布）**    -   下线 `verified` 子命令：其唯一映射就是 `list_verified_content`，服务端删工具后该命令必然失败。命令总数 37 → 36，`doctor --remote` 的 `tools-catalog` 期望工具数 26 → 25（镜像仍是旧清单时会 warn 提示差异）
     -   删除 `cli/run.ts` 的 `beforeRender` 钩子（唯一使用者是 `verified` 的 `supported:false` 旁路；通用管道只剩 `transformResult`），`cli/run.ts` 的 dry-run / 401 刷新重试 / verbose / client 生命周期语义不变
     -   文档同步：CLI README、使用手册、设计稿（命令映射表 + 已下线说明）、豆包技能 `references/cli.md` 的 `verified` 行与退出码脚注
     -   发版顺序（需人工放行）：`pnpm set-msyx-url`（指向 0.2.4 tgz）→ `pnpm bump-msyx -- 0.2.4`（tag `msyx-v0.2.4`）→ 重打豆包 Plugin ZIP
+
+-   **命令行工具（msy-x-cli 0.2.6，未发布）**
+    -   修复「登录正常、自动刷新必然失败」：SDK 的 `refreshAuthorization` 在没有授权服务器元数据时会拼 `new URL('/token', 授权服务器 URL)`，把 `/api/v1/oauth` 整段路径丢掉，请求实际打到 `{site}/token`（404）；0.2.5 因此只能手工重新登录。现刷新前先按 RFC 9728 → RFC 8414 发现授权服务器，把 `metadata`（含 `token_endpoint`）传给 SDK；发现不到才按 Lightdash 约定兜底 `{site}/api/v1/oauth/token`，元数据发现给的是 4s **总**预算（持锁硬上界 4s+20s=24s，小于锁过期 30s），失败只回落约定端点、不影响「暂时失败保留凭证」的分类
+    -   登录流程复用同一套发现逻辑（新增 `discoverAuthorizationServer` / `conventionalAuthorizationServerMetadata`），发现失败时不再退回站点根 `/authorize` `/register` `/token`
+    -   修复「刷新与新登录并发时新凭证被覆盖或删除」：登录侧此前不拿刷新锁，刷新「重读配置 → 写回」的窗口里登录落盘会被刷新结果覆盖（清空动作同理会删掉新登录）。现抽出 `src/auth/configLock.ts`，`auth login`（PAT / 浏览器 OAuth / 扫码）与 `auth logout` 的写凭证动作与刷新共用同一把站点锁，均在锁内重读后再写
+    -   发版顺序（需人工放行）：`pnpm set-msyx-url`（指向 0.2.6 tgz）→ `pnpm bump-msyx -- 0.2.6`（tag `msyx-v0.2.6`）
 
 ## v2.7.9 (2026-11-23)
 
