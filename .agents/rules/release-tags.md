@@ -66,7 +66,9 @@ git tag -d <tag>                     # 删本地 tag
 1. 用户在本轮是否**明确**说了"可以打 tag / 推 tag"？没有 → 停。
 2. 这个 tag 名、指向的 commit 是否是用户点头的那个？不是 → 停。
 3. 命令里是否有 `--tags` / `--follow-tags` 这类会隐式带出多个 tag 的参数？有 → 换成单个 tag 显式推送。
-4. 是否需要同步版本号（14 个 `package.json` + `CHANGELOG.md`）？用户没说同步就不要改版本号。
+4. 版本号是否已用 `pnpm bump-version -- <ver>` 同步（14 个 `package.json`）？**`-test.N` 也必须 bump**
+   —— tag 与仓库版本必须一致，否则 prerelease 判定失效（预发会去 CDN 找不存在的 `static/<旧版本>`）。
+   只有用户当轮明确说"不 bump"才可跳过。
 
 ## 已经打错了怎么办
 

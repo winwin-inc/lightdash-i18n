@@ -13,7 +13,22 @@ description: 打 git tag / 发版时使用。仅在用户明确许可后才能�
 用户必须在本轮明确说过"可以打 tag / 推 tag"。没有 → 输出申请（模板见规则文件），等回复。
 获得许可后，确认三件事：tag 名、指向的 commit、是否同步版本号。**只做被批准的那一个 tag。**
 
-## 步骤 1：（仅在用户要求同步版本号时）升版本号
+## 步骤 1：升版本号（**必做，测试 tag 也要**）
+
+`-test.N` 与正式版一样必须先 bump：**仓库里的 `package.json` 版本必须等于 tag 版本**。
+跳过 bump 会导致「tag 是 2.8.1-test.2，仓库还是 2.8.0」，本地构建 / CDN 判定（prerelease 才走镜像内静态）
+/ CHANGELOG 全对不上。只有用户当轮明确说"不 bump 直接打 tag"才可跳过。
+
+标准姿势（脚本会写 14 个 `package.json` + commit，`--no-tag` 表示 tag 手动打）：
+
+```bash
+HUSKY=0 node scripts/bump-workspace-version.mjs 2.8.1-test.2 --no-tag
+git push                     # 先推 commit
+git tag -a v2.8.1-test.2 -m "lightdash v2.8.1-test.2"
+git push origin v2.8.1-test.2
+```
+
+不发 `--no-tag` 时脚本自己会 commit + 打 annotated tag（效果等价）。
 
 本仓库发版提交固定改 14 个 `package.json` 的 `version` 字段：
 
@@ -83,3 +98,5 @@ git tag -d <tag>                 # 删本地
 -   ❌ 用了 `git push --follow-tags`，把本地历史 tag 一起推上去。
 -   ❌ 为了让预发测到新镜像，去改 `../k8s-config` 里 `image:` 的版本号：**版本号由发版/重启流程自动覆盖**，
     手改无效且会把环境指错。规则见 `.agents/rules/k8s-config.md`；正确路径是打完 tag 等镜像，再走正常重启。
+-   ❌ 不 bump 直接 `git tag`（哪怕是 `-test.N`）：仓库版本与 tag 脱节，prerelease 判定失效，
+    预发会去 CDN 找根本不存在的 `static/<旧版本>` 目录（真实踩过：预发白屏）。
