@@ -201,9 +201,10 @@ Umami 没有 i18n 层，看板里只展示 `data_key` / `string_value` 原文。
 | 网页 | `Lightdash-Request-Method: WEB_APP` | ✅ 准确 |
 | 定时任务 | `SchedulerTaskTracer` 显式注入 | ✅ 准确 |
 | 无头浏览器 | `Lightdash-Request-Method: HEADLESS_BROWSER` | ✅ 准确 |
-| **lightdash CLI** | 需要 `Lightdash-Request-Method: CLI / CLI_CI` 头 | ⚠️ **该 CLI 目前不发这个头 → 落到 `api`**（待补，见 §8 已知边界） |
+| lightdash CLI | `Lightdash-Request-Method: CLI / CLI_CI`（`packages/cli/src/handlers/utils.ts` 的 `buildRequestHeaders`，`CI=true` 时为 `CLI_CI`） | ✅ 准确 |
+| 其他 REST 调用方（脚本/第三方） | 无头或未知头值 | 回落 `api` |
 
-所以统计 CLI 用量时，`client=api` 里可能混着 CLI 流量；MCP 用量不受影响。
+所以：MCP / CLI / CI / 网页 / 定时任务 / 无头都能区分；只有不带头的自定义调用方落在 `api`。
 
 ### 4.5 粒度：看板 + 图表独立页，不做看板内 tile
 
@@ -406,7 +407,7 @@ Umami 每条事件落 1 行 `website_event` + 每个属性 1 行 `event_data`，
 | 原生看板无中文 | 中文要靠 `umamiq` / 导出 CSV |
 | 无历史回溯 | 埋点上线前的行为拿不到，只能往后累积 |
 | `profile_set.project_name` 暂缺 | 前端路由只有 project uuid，取名字要多一次请求 → 只发 `project_id`，名字靠后端事件 |
-| lightdash CLI 归到 `client=api` | `packages/cli` 还没发 `Lightdash-Request-Method: CLI / CLI_CI` 头，所以 CLI 流量混在 `api` 里（MCP 不受影响，走 `/api/v1/mcp` 路径识别）。补的是 CLI 对外请求头，需单独提交与回归 |
+| 不带头的调用方归到 `client=api` | `client` 依赖 `Lightdash-Request-Method` 头（或 `/api/v1/mcp` 路径）。CLI/前端/无头都已发头，只有脚本或第三方直连 REST 时会落到 `api` |
 | 前后端各一条会话 | 会话 key 含 IP+UA+月度 salt，后端事件必然另开一条；`source=web/server` 用来区分，人数仍按 `distinct_id` 去重 |
 | 外发合规 | 这是**新增**外发，目标为公司内网 `collect.banmahui.cn`，与官方遥测无关；kill switch 见 k8s 文档 |
 
