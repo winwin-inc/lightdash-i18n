@@ -30,18 +30,6 @@ const isUuid = (value: string): boolean =>
         value,
     );
 
-/** 画像链接叶常量：这些键会搬进 session_data（会话属性） */
-const PROFILE_PROPERTY_KEYS = [
-    'user_uuid',
-    'user_email',
-    'user_name',
-    'org_id',
-    'org_name',
-    'client',
-    'app_version',
-    'env',
-] as const;
-
 /**
  * 后端 profile_set 去重键：同一（`distinct_id` × UTC 月份）只发一次。
  *
@@ -199,14 +187,21 @@ export class UmamiAnalytics {
     }
 
     /**
-     * 后端 profile_set：把当前事件的用户/组织/client 属性抄成一条会话属性。
+     * 后端 profile_set：给服务端会话写一份「这人是谁」的画像。
      *
      * - 只对真 uuid（真实用户）发，`server` / `anon:*` 跳过；
-     * - 每用户每月一次（见 profileDedupeKey），成本约 1 条报文 + 13 行 session_data；
+     * - 画像**直接读 UserProfileCache**，不看事件自身属性：高频事件会被
+     *   withUserProfile 裁掉 user_name/org_name，照抄事件属性会导致会话属性缺名字；
+     * - 缓存未就绪（冷启动第一条）不发，否则一条只有 uuid 的画像会占掉整月去重键；
+     * - 每用户每月一次（见 profileDedupeKey），成本约 1 条报文 + ~7 行 session_data；
      * - 写的是**服务端会话**（session key 含 IP/UA），不会覆盖浏览器会话的属性。
      */
     private maybePushProfile(event: UmamiEvent): void {
         if (!isUuid(event.distinctId)) {
+            return;
+        }
+        const profile = this.userProfileCache.get(event.distinctId);
+        if (profile === null) {
             return;
         }
         const now = new Date(event.time ?? Date.now());
@@ -214,23 +209,25 @@ export class UmamiAnalytics {
         if (this.profileSent.get(event.distinctId) === key) {
             return;
         }
-        const properties: Record<string, UmamiPropertyValue> = {};
-        PROFILE_PROPERTY_KEYS.forEach((name) => {
-            const value = event.properties[name];
-            if (value !== undefined && value !== null && value !== '') {
-                properties[name] = value;
-            }
-        });
-        // 画像缓存是异步的：首条事件往往还只有 user_uuid。此时不发，
-        // 否则会把「本月已发」占掉，整个月会话里只剩一个 uuid。
-        if (
-            properties.user_email === undefined &&
-            properties.org_id === undefined
-        ) {
-            return;
+        const properties: Record<string, UmamiPropertyValue> = {
+            user_uuid: event.distinctId,
+        };
+        if (profile.email !== null && profile.email !== '') {
+            properties.user_email = profile.email;
         }
-        if (properties.user_uuid === undefined) {
-            properties.user_uuid = event.distinctId;
+        if (profile.name !== null && profile.name !== '') {
+            properties.user_name = profile.name;
+        }
+        if (profile.orgId !== null && profile.orgId !== '') {
+            properties.org_id = profile.orgId;
+        }
+        if (profile.orgName !== null && profile.orgName !== '') {
+            properties.org_name = profile.orgName;
+        }
+        // 谁触发了这条画像：取当前事件的 client（web / lightdash-cli / mcp / scheduler …）
+        const { client } = event.properties;
+        if (typeof client === 'string' && client !== '') {
+            properties.client = client;
         }
         properties.env = this.config.environment;
         this.profileSent.set(event.distinctId, key);

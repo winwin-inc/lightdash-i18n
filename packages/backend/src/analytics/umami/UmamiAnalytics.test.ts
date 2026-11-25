@@ -122,6 +122,45 @@ describe('UmamiAnalytics', () => {
         });
     });
 
+    it('backend profile keeps user_name/org_name even when the first event is high-frequency', async () => {
+        const umami = new UmamiAnalytics(enabledConfig());
+        umami.setUserResolver(async () => ({
+            email: 'a@b.com',
+            name: '张三',
+            orgId: 'org-1',
+            orgName: '品牌组织',
+        }));
+        const uuid = '9a1c2d3e-4f50-4a6b-8c7d-1e2f3a4b5c6d';
+        // 首条事件命中高频（query_executed）：事件属性会被裁掉 name/org_name，
+        // 但 profile 直接读画像缓存，必须仍是完整的
+        umami.track({
+            event: 'query_executed',
+            distinctId: uuid,
+            properties: { client: 'web', project_id: 'p1' },
+        });
+        await new Promise<void>((resolve) => {
+            setImmediate(resolve);
+        });
+        umami.track({
+            event: 'query_executed',
+            distinctId: uuid,
+            properties: { client: 'web', project_id: 'p2' },
+        });
+        await umami.flush();
+        const wire = parseWire(fetchMock.mock.calls[0][1].body);
+        const profile = wire.find((e) => e.type === 'profile_set');
+        expect(profile).toBeDefined();
+        expect(profile?.properties).toMatchObject({
+            user_uuid: uuid,
+            user_email: 'a@b.com',
+            user_name: '张三',
+            org_id: 'org-1',
+            org_name: '品牌组织',
+            client: 'web',
+            env: 'production',
+        });
+    });
+
     it('skips profile_set for non-user distinct ids (server / anon)', async () => {
         const umami = new UmamiAnalytics(enabledConfig());
         umami.track({
