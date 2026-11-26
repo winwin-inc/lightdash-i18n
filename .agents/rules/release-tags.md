@@ -66,6 +66,7 @@ git tag -d <tag>                     # 删本地 tag
 -   **已是目标版本时脚本只打 tag、不写文件也不 commit**（`bump-msyx` / `bump-mcp` / `bump-cli` 均如此）。所以想要「脚本产的发版 commit」，必须在旧版本号状态下运行；已经手改到目标版本再跑，只会多出一个 tag。
 -   脚本会 `JSON.stringify(pkg, null, 4)` 重写 `package.json`，可能带来整文件格式 diff；这是预期行为，不要手工“修”回去。
 -   脚本**不写 CHANGELOG**：正式版需要人工补 `## vX.Y.Z (YYYY-MM-DD)` 段。
+-   **脚本只会把 tag 打在 HEAD 上**：所以升版本号后不要先追加无关提交/合并，再回来跑脚本补 tag；顺序必须是「合完要发的改动 → bump 脚本（产出 commit + tag）→ 推分支 + 推 tag」。
 
 申请许可时的写法：
 
