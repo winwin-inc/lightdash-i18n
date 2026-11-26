@@ -711,6 +711,68 @@ test('runToolCommand：正常路径走假 client 并渲染结果', async () => {
     assert.ok(out.includes('"rows"'), `stdout 应含行数据：${out}`);
 });
 
+test('runToolCommand：过期 OAuth 凭证先预刷新，再用新凭证建客户端', async () => {
+    const fake = makeFakeClient(textResult({ rows: [] }));
+    const expired = {
+        mode: 'oauth' as const,
+        clientId: 'msy-x-cli',
+        clientSecret: 'secret',
+        redirectUri: '',
+        accessToken: 'old-access',
+        accessExpiresAt: new Date(Date.now() - 60_000).toISOString(),
+        refreshToken: 'old-refresh',
+        scope: 'mcp:read',
+    };
+    const refreshed = { ...expired, accessToken: 'new-access' };
+    const seen: string[] = [];
+    const ensureFresh = async () => refreshed;
+
+    await captureStdout(() =>
+        runToolCommand({ tool: 'get_mcp_docs', args: {} }, { ...makeCtx({}), credentials: expired }, {
+            createClient: async ({ credentials }) => {
+                seen.push(credentials?.mode === 'oauth' ? credentials.accessToken : 'non-oauth');
+                return fake.client;
+            },
+            ensureFresh,
+        }),
+    );
+
+    assert.deepEqual(seen, ['new-access'], '建客户端时应已换成新的 access token');
+    assert.equal(fake.callCount(), 1);
+});
+
+test('runToolCommand：预刷新被服务端否掉（AUTH_REQUIRED）时直接上抛，不发请求', async () => {
+    const fake = makeFakeClient(textResult({ rows: [] }));
+    const expired = {
+        mode: 'oauth' as const,
+        clientId: 'msy-x-cli',
+        clientSecret: 'secret',
+        redirectUri: '',
+        accessToken: 'old-access',
+        accessExpiresAt: new Date(Date.now() - 60_000).toISOString(),
+        refreshToken: 'old-refresh',
+        scope: 'mcp:read',
+    };
+    await assert.rejects(
+        () =>
+            runToolCommand({ tool: 'get_site_info', args: {} }, { ...makeCtx({}), credentials: expired }, {
+                createClient: async () => {
+                    throw new Error('不应创建客户端');
+                },
+                ensureFresh: async () => {
+                    throw new CliError({
+                        code: 'AUTH_REQUIRED',
+                        message: '刷新访问令牌失败，该站点凭证已失效',
+                        hint: '运行 msy-x auth login 重新登录',
+                    });
+                },
+            }),
+        (error: unknown) =>
+            error instanceof CliError && error.code === 'AUTH_REQUIRED',
+    );
+    assert.equal(fake.callCount(), 0);
+});
+
 test('runToolCommand：未登录（无凭证）遇 AUTH_REQUIRED 不重试直接上抛', async () => {
     let calls = 0;
     const client: McpClient = {
