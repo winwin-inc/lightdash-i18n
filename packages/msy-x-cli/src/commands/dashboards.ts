@@ -4,8 +4,9 @@ import type { CommandBuildInput, CommandSpec, ToolCall, ToolResult } from '../ty
 /**
  * `msy-x dashboards`（设计稿 §6.2，v2 真实入参）：
  *
- * - `list --space <spaceUuid>`：spaceUuid 必填，缺省本地退 2 并提示改用
- *   `search --type dashboard`（v2 不支持跨 space 列全部看板）；
+ * - `list [--space <spaceUuid>]`：带 `--space` 时只列该空间；**省略时项目级列出
+ *   当前用户可见的全部看板**（一次调用即可拿全，也是唯一能一次拿到「我有权限的
+ *   看板」的入口）；旧版后端给必填 spaceUuid 时会返回参数错误；
  * - `find <query>` → find_dashboards（searchQueries:[{label}]）；
  * - `tiles <uuid>` → get_dashboard_tiles（UUID 或 slug，无 full）；
  * - `run <uuid>` → run_dashboard_tiles：服务端会**跑整板**，`--tile <slug>`
@@ -138,14 +139,62 @@ export const filterDashboardTiles = (
     }
 };
 
+/**
+ * `dashboards map --dashboard <uuid|slug>` 的本地行过滤（纯函数）：
+ * 服务端已按权限过滤（rows 是当前用户可见的看板），这里只收窄到某一块看板；
+ * 结构不符（无 rows 数组）时原样返回。
+ */
+export const filterDashboardExploreRows = (
+    result: ToolResult,
+    dashboardSelector: string,
+): ToolResult => {
+    const filterPayload = (
+        payload: Record<string, unknown>,
+    ): Record<string, unknown> => {
+        if (!Array.isArray(payload.rows)) return payload;
+        const kept = payload.rows.filter(
+            (row) =>
+                isRecord(row) &&
+                (row.dashboardUuid === dashboardSelector ||
+                    row.dashboardSlug === dashboardSelector),
+        );
+        return { ...payload, rows: kept };
+    };
+
+    if (isRecord(result.structuredContent)) {
+        return {
+            ...result,
+            structuredContent: filterPayload(result.structuredContent),
+        };
+    }
+
+    const textBlock = result.content.find(
+        (block) => block.type === 'text' && typeof block.text === 'string',
+    );
+    if (textBlock?.text === undefined) return result;
+    try {
+        const parsed: unknown = JSON.parse(textBlock.text);
+        if (!isRecord(parsed) || !Array.isArray(parsed.rows)) return result;
+        const filtered = JSON.stringify(filterPayload(parsed), null, 2);
+        return {
+            ...result,
+            content: result.content.map((block) =>
+                block === textBlock ? { ...block, text: filtered } : block,
+            ),
+        };
+    } catch {
+        return result;
+    }
+};
+
 export const dashboardsCommands: CommandSpec[] = [
     {
         name: 'dashboards list',
-        description: '列出指定 space 内的看板（spaceUuid 必填）',
+        description: '列出看板；省略 --space 时列出项目内当前用户可见的全部看板',
         options: [
             {
                 flags: '--space <spaceUuid>',
-                description: '目标 space 的 UUID，必填',
+                description: '只列该空间的看板；省略则列项目内全部可见看板',
             },
             { flags: '--page <n>', description: '页码，从 1 开始' },
             {
@@ -154,18 +203,14 @@ export const dashboardsCommands: CommandSpec[] = [
             },
             { flags: '--full', description: '返回完整内容摘要' },
         ],
-        example: 'msy-x dashboards list --space <spaceUuid>   # spaceUuid 先由 msy-x spaces list 获取',
+        example: 'msy-x dashboards list   # 省略 --space = 我可见的全部看板；只看某空间加 --space <spaceUuid>',
         dataCommand: false,
         build: (input: CommandBuildInput): ToolCall[] => {
             const { space } = input.options;
-            if (typeof space !== 'string' || space.trim() === '') {
-                throw new CliError({
-                    code: 'USAGE',
-                    message: '缺少必填选项 --space <spaceUuid>',
-                    hint: '先运行 msy-x search <关键词> --type dashboard 找到看板所在 space，或 msy-x spaces list 列出 space',
-                });
+            const args: Record<string, unknown> = {};
+            if (typeof space === 'string' && space.trim() !== '') {
+                args.spaceUuid = space.trim();
             }
-            const args: Record<string, unknown> = { spaceUuid: space.trim() };
             const page = parsePositiveInt(input.options.page, '--page');
             if (page !== null) args.page = page;
             const pageSize = parsePageSize(input.options.pageSize);
@@ -277,6 +322,35 @@ export const dashboardsCommands: CommandSpec[] = [
             return [
                 {
                     tool: 'get_dashboard_code',
+                    args: withProject(args, input.projectUuid),
+                },
+            ];
+        },
+    },
+    {
+        name: 'dashboards map',
+        description: '看板 ↔ 数据表映射；--table 反查看哪块看板用了这张表',
+        options: [
+            {
+                flags: '--table <exploreName>',
+                description: '只看用到该数据表（explore）的看板',
+            },
+            {
+                flags: '--dashboard <uuid|slug>',
+                description: '只看指定看板用到的数据表（本地过滤）',
+            },
+        ],
+        example: 'msy-x dashboards map --table ads_orders   # 这张表被哪些看板用了',
+        dataCommand: false,
+        build: (input: CommandBuildInput): ToolCall[] => {
+            const args: Record<string, unknown> = {};
+            const { table } = input.options;
+            if (typeof table === 'string' && table.trim() !== '') {
+                args.exploreName = table.trim();
+            }
+            return [
+                {
+                    tool: 'list_dashboard_explore_map',
                     args: withProject(args, input.projectUuid),
                 },
             ];

@@ -309,6 +309,21 @@ const missingDiscriminatorHint = (): string =>
     '查维度取值改用 msy-x query --dimensions <fieldId>';
 
 /**
+ * 老版本主站仍把 `list_dashboards` 的 `spaceUuid` 定为必填时的提示。
+ *
+ * MCP SDK 的入参校验错误文本形如
+ * `Invalid arguments for tool list_dashboards: [{"path":["spaceUuid"],…}]`，
+ * 服务端还没升级时，新版 CLI 的「省略 --space」会被判成缺参数。
+ */
+const isLegacyListDashboardsArgs = (text: string): boolean =>
+    /list_dashboards/.test(text) && /spaceUuid/.test(text);
+
+const legacyListDashboardsHint = (): string =>
+    '服务端版本较旧：list_dashboards 仍要求 spaceUuid（需升级主站到包含' +
+    '「项目级列看板」的版本）；临时替代：先 msy-x spaces list 取空间后加 ' +
+    '--space，或用 msy-x search <关键词> --type dashboard';
+
+/**
  * 工具返回 `isError: true` 时的映射（此时调用本身成功，异常映射不适用）：
  * - structuredContent / content JSON 里带五类 `dashboard_*` status → code 原样用
  *   服务端 status（退 4），detail 携带服务端附加字段；
@@ -335,10 +350,19 @@ export const mapToolResultError = (result: ToolResult): CliError => {
     const missingDiscriminator =
         typeof firstText === 'string' &&
         MISSING_DISCRIMINATOR_RE.test(firstText);
+    const legacyListDashboards =
+        typeof firstText === 'string' &&
+        isLegacyListDashboardsArgs(firstText);
+    let hint: string | null = null;
+    if (missingDiscriminator) {
+        hint = missingDiscriminatorHint();
+    } else if (legacyListDashboards) {
+        hint = legacyListDashboardsHint();
+    }
     return new CliError({
         code: 'SERVER_ERROR',
         message: firstText ?? '工具执行失败（服务端返回 isError）',
-        hint: missingDiscriminator ? missingDiscriminatorHint() : null,
+        hint,
         cause: result,
     });
 };

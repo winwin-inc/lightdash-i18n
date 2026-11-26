@@ -130,6 +130,114 @@ type DashboardModelArguments = {
     database: Knex;
 };
 
+const DASHBOARD_LAST_VERSION_CTE = 'dashboard_last_version_cte';
+const DASHBOARD_TILE_CHART_CTE = 'dashboard_tile_chart_cte';
+const LATEST_CHART_VERSION_CTE = 'latest_chart_version_cte';
+
+/**
+ * 每个看板只保留最新一版的 CTE。
+ *
+ * `findDashboardContexts`（看板 → 图表）与 `findDashboardExplorePairs`
+ * （看板 ↔ 数据集）必须用同一份口径：只算看板最新版本的磁贴。
+ */
+const dashboardLastVersionCte = (
+    qb: Knex.QueryBuilder,
+    database: Knex,
+    projectUuid: string,
+): void => {
+    void qb
+        .select({
+            dashboard_uuid: `${DashboardsTableName}.dashboard_uuid`,
+            name: `${DashboardsTableName}.name`,
+            slug: `${DashboardsTableName}.slug`,
+            space_uuid: `${SpaceTableName}.space_uuid`,
+            project_uuid: `${ProjectTableName}.project_uuid`,
+            organization_uuid: `${OrganizationTableName}.organization_uuid`,
+            dashboard_version_id: database.raw(
+                `MAX(${DashboardVersionsTableName}.dashboard_version_id)`,
+            ),
+        })
+        .from(DashboardsTableName)
+        .innerJoin(
+            SpaceTableName,
+            `${DashboardsTableName}.space_id`,
+            `${SpaceTableName}.space_id`,
+        )
+        .innerJoin(
+            ProjectTableName,
+            `${SpaceTableName}.project_id`,
+            `${ProjectTableName}.project_id`,
+        )
+        .innerJoin(
+            OrganizationTableName,
+            `${ProjectTableName}.organization_id`,
+            `${OrganizationTableName}.organization_id`,
+        )
+        .innerJoin(
+            DashboardVersionsTableName,
+            `${DashboardsTableName}.dashboard_id`,
+            `${DashboardVersionsTableName}.dashboard_id`,
+        )
+        .where(`${ProjectTableName}.project_uuid`, projectUuid)
+        .groupBy(
+            `${DashboardsTableName}.dashboard_uuid`,
+            `${DashboardsTableName}.name`,
+            `${DashboardsTableName}.slug`,
+            `${SpaceTableName}.space_uuid`,
+            `${ProjectTableName}.project_uuid`,
+            `${OrganizationTableName}.organization_uuid`,
+        );
+};
+
+/**
+ * 看板磁贴引用的图表 CTE（去重的 saved_query_id）。
+ * 需与 {@link latestChartVersionCte} 成对使用。
+ */
+const dashboardTileChartCte = (
+    qb: Knex.QueryBuilder,
+    dashboardCteName: string,
+): void => {
+    void qb
+        .distinct({
+            saved_query_id: `${SavedChartsTableName}.saved_query_id`,
+        })
+        .from(dashboardCteName)
+        .innerJoin(
+            DashboardTileChartTableName,
+            `${dashboardCteName}.dashboard_version_id`,
+            `${DashboardTileChartTableName}.dashboard_version_id`,
+        )
+        .innerJoin(
+            SavedChartsTableName,
+            `${DashboardTileChartTableName}.saved_chart_id`,
+            `${SavedChartsTableName}.saved_query_id`,
+        );
+};
+
+/**
+ * 上述图表各自最新版本的 CTE：只在最新图表版本里出现的 explore 才算关联
+ * （与 `getExploreNamesByDashboardUuids` 同口径）。
+ */
+const latestChartVersionCte = (
+    qb: Knex.QueryBuilder,
+    database: Knex,
+    tileChartCteName: string,
+): void => {
+    void qb
+        .select({
+            saved_query_id: `${SavedChartVersionsTableName}.saved_query_id`,
+            saved_queries_version_id: database.raw(
+                `MAX(${SavedChartVersionsTableName}.saved_queries_version_id)`,
+            ),
+        })
+        .from(SavedChartVersionsTableName)
+        .whereIn(
+            `${SavedChartVersionsTableName}.saved_query_id`,
+            database.select('saved_query_id').from(tileChartCteName),
+        )
+        .groupBy(`${SavedChartVersionsTableName}.saved_query_id`);
+};
+
 export class DashboardModel {
     private readonly database: Knex;
 
@@ -670,54 +778,13 @@ export class DashboardModel {
             return [];
         }
 
-        const cteName = 'dashboard_last_version_cte';
-        const tileChartCteName = 'dashboard_tile_chart_cte';
-        const latestChartVersionCteName = 'latest_chart_version_cte';
+        const cteName = DASHBOARD_LAST_VERSION_CTE;
+        const tileChartCteName = DASHBOARD_TILE_CHART_CTE;
+        const latestChartVersionCteName = LATEST_CHART_VERSION_CTE;
         const query = this.database
-            .with(cteName, (qb) => {
-                void qb
-                    .select({
-                        dashboard_uuid: `${DashboardsTableName}.dashboard_uuid`,
-                        name: `${DashboardsTableName}.name`,
-                        slug: `${DashboardsTableName}.slug`,
-                        space_uuid: `${SpaceTableName}.space_uuid`,
-                        project_uuid: `${ProjectTableName}.project_uuid`,
-                        organization_uuid: `${OrganizationTableName}.organization_uuid`,
-                        dashboard_version_id: this.database.raw(
-                            `MAX(${DashboardVersionsTableName}.dashboard_version_id)`,
-                        ),
-                    })
-                    .from(DashboardsTableName)
-                    .innerJoin(
-                        SpaceTableName,
-                        `${DashboardsTableName}.space_id`,
-                        `${SpaceTableName}.space_id`,
-                    )
-                    .innerJoin(
-                        ProjectTableName,
-                        `${SpaceTableName}.project_id`,
-                        `${ProjectTableName}.project_id`,
-                    )
-                    .innerJoin(
-                        OrganizationTableName,
-                        `${ProjectTableName}.organization_id`,
-                        `${OrganizationTableName}.organization_id`,
-                    )
-                    .innerJoin(
-                        DashboardVersionsTableName,
-                        `${DashboardsTableName}.dashboard_id`,
-                        `${DashboardVersionsTableName}.dashboard_id`,
-                    )
-                    .where(`${ProjectTableName}.project_uuid`, projectUuid)
-                    .groupBy(
-                        `${DashboardsTableName}.dashboard_uuid`,
-                        `${DashboardsTableName}.name`,
-                        `${DashboardsTableName}.slug`,
-                        `${SpaceTableName}.space_uuid`,
-                        `${ProjectTableName}.project_uuid`,
-                        `${OrganizationTableName}.organization_uuid`,
-                    );
-            })
+            .with(cteName, (qb) =>
+                dashboardLastVersionCte(qb, this.database, projectUuid),
+            )
             .select({
                 dashboardUuid: `${cteName}.dashboard_uuid`,
                 dashboardSlug: `${cteName}.slug`,
@@ -758,40 +825,12 @@ export class DashboardModel {
 
         if (exploreName) {
             void query
-                .with(tileChartCteName, (qb) => {
-                    void qb
-                        .distinct({
-                            saved_query_id: `${SavedChartsTableName}.saved_query_id`,
-                        })
-                        .from(cteName)
-                        .innerJoin(
-                            DashboardTileChartTableName,
-                            `${cteName}.dashboard_version_id`,
-                            `${DashboardTileChartTableName}.dashboard_version_id`,
-                        )
-                        .innerJoin(
-                            SavedChartsTableName,
-                            `${DashboardTileChartTableName}.saved_chart_id`,
-                            `${SavedChartsTableName}.saved_query_id`,
-                        );
-                })
-                .with(latestChartVersionCteName, (qb) => {
-                    void qb
-                        .select({
-                            saved_query_id: `${SavedChartVersionsTableName}.saved_query_id`,
-                            saved_queries_version_id: this.database.raw(
-                                `MAX(${SavedChartVersionsTableName}.saved_queries_version_id)`,
-                            ),
-                        })
-                        .from(SavedChartVersionsTableName)
-                        .whereIn(
-                            `${SavedChartVersionsTableName}.saved_query_id`,
-                            this.database
-                                .select('saved_query_id')
-                                .from(tileChartCteName),
-                        )
-                        .groupBy(`${SavedChartVersionsTableName}.saved_query_id`);
-                })
+                .with(tileChartCteName, (qb) =>
+                    dashboardTileChartCte(qb, cteName),
+                )
+                .with(latestChartVersionCteName, (qb) =>
+                    latestChartVersionCte(qb, this.database, tileChartCteName),
+                )
                 .innerJoin(
                     latestChartVersionCteName,
                     `${latestChartVersionCteName}.saved_query_id`,
@@ -829,6 +868,109 @@ export class DashboardModel {
     }
 
     /**
+     * 看板 ↔ 数据集（explore）对，供「表 → 看板 / 看板 → 表」双向反查。
+     *
+     * 与 {@link findDashboardContexts} 共用同一条统计规则：只算看板最新版本
+     * 的磁贴、只算图表最新版本里的 explore；区别是这里**不做 explore 过滤**，
+     * 而是把 explore 作为维度返回，所以一次查询就能拿到整个项目的映射。
+     *
+     * 权限过滤不在这里做（本方法只看数据），调用方（DashboardService）
+     * 必须按查看人过滤后才能返回。
+     */
+    async findDashboardExplorePairs(
+        projectUuid: string,
+        filters: { exploreName?: string },
+    ): Promise<
+        Array<{
+            dashboardUuid: string;
+            dashboardSlug: string;
+            dashboardName: string;
+            spaceUuid: string;
+            projectUuid: string;
+            organizationUuid: string;
+            exploreName: string;
+        }>
+    > {
+        const cteName = DASHBOARD_LAST_VERSION_CTE;
+        const tileChartCteName = DASHBOARD_TILE_CHART_CTE;
+        const latestChartVersionCteName = LATEST_CHART_VERSION_CTE;
+
+        const query = this.database
+            .with(cteName, (qb) =>
+                dashboardLastVersionCte(qb, this.database, projectUuid),
+            )
+            .with(tileChartCteName, (qb) => dashboardTileChartCte(qb, cteName))
+            .with(latestChartVersionCteName, (qb) =>
+                latestChartVersionCte(qb, this.database, tileChartCteName),
+            )
+            .select({
+                dashboardUuid: `${cteName}.dashboard_uuid`,
+                dashboardSlug: `${cteName}.slug`,
+                dashboardName: `${cteName}.name`,
+                spaceUuid: `${cteName}.space_uuid`,
+                projectUuid: `${cteName}.project_uuid`,
+                organizationUuid: `${cteName}.organization_uuid`,
+                exploreName: `${SavedChartVersionsTableName}.explore_name`,
+            })
+            .from(cteName)
+            .innerJoin(
+                DashboardTileChartTableName,
+                `${cteName}.dashboard_version_id`,
+                `${DashboardTileChartTableName}.dashboard_version_id`,
+            )
+            .innerJoin(
+                SavedChartsTableName,
+                `${DashboardTileChartTableName}.saved_chart_id`,
+                `${SavedChartsTableName}.saved_query_id`,
+            )
+            .innerJoin(
+                latestChartVersionCteName,
+                `${latestChartVersionCteName}.saved_query_id`,
+                `${SavedChartsTableName}.saved_query_id`,
+            )
+            .innerJoin(SavedChartVersionsTableName, (join) => {
+                void join
+                    .on(
+                        `${SavedChartVersionsTableName}.saved_query_id`,
+                        '=',
+                        `${latestChartVersionCteName}.saved_query_id`,
+                    )
+                    .andOn(
+                        `${SavedChartVersionsTableName}.saved_queries_version_id`,
+                        '=',
+                        `${latestChartVersionCteName}.saved_queries_version_id`,
+                    );
+            })
+            .groupBy(
+                `${cteName}.dashboard_uuid`,
+                `${cteName}.slug`,
+                `${cteName}.name`,
+                `${cteName}.space_uuid`,
+                `${cteName}.project_uuid`,
+                `${cteName}.organization_uuid`,
+                `${SavedChartVersionsTableName}.explore_name`,
+            );
+
+        if (filters.exploreName) {
+            void query.andWhere(
+                `${SavedChartVersionsTableName}.explore_name`,
+                filters.exploreName,
+            );
+        }
+
+        const rows = await query;
+        return rows.map((row) => ({
+            dashboardUuid: row.dashboardUuid,
+            dashboardSlug: row.dashboardSlug,
+            dashboardName: row.dashboardName,
+            spaceUuid: row.spaceUuid,
+            projectUuid: row.projectUuid,
+            organizationUuid: row.organizationUuid,
+            exploreName: row.exploreName,
+        }));
+    }
+
+    /**
      * Explore names used by saved-chart tiles on the latest version of each dashboard.
      */
     async getExploreNamesByDashboardUuids(
@@ -840,7 +982,7 @@ export class DashboardModel {
 
         const latestDashboardVersionCte = 'latest_dashboard_version_cte';
         const tileChartCte = 'tile_chart_cte';
-        const latestChartVersionCte = 'latest_chart_version_cte';
+        const latestChartVersionCteName = 'latest_chart_version_cte';
 
         const rows = await this.database
             .with(latestDashboardVersionCte, (qb) => {
@@ -879,7 +1021,7 @@ export class DashboardModel {
                         `${SavedChartsTableName}.saved_query_id`,
                     );
             })
-            .with(latestChartVersionCte, (qb) => {
+            .with(latestChartVersionCteName, (qb) => {
                 void qb
                     .select({
                         saved_query_id: `${SavedChartVersionsTableName}.saved_query_id`,
@@ -899,18 +1041,18 @@ export class DashboardModel {
             .distinct({
                 exploreName: `${SavedChartVersionsTableName}.explore_name`,
             })
-            .from(latestChartVersionCte)
+            .from(latestChartVersionCteName)
             .innerJoin(SavedChartVersionsTableName, (join) => {
                 void join
                     .on(
                         `${SavedChartVersionsTableName}.saved_query_id`,
                         '=',
-                        `${latestChartVersionCte}.saved_query_id`,
+                        `${latestChartVersionCteName}.saved_query_id`,
                     )
                     .andOn(
                         `${SavedChartVersionsTableName}.saved_queries_version_id`,
                         '=',
-                        `${latestChartVersionCte}.saved_queries_version_id`,
+                        `${latestChartVersionCteName}.saved_queries_version_id`,
                     );
             })
             .whereNotNull(`${SavedChartVersionsTableName}.explore_name`);

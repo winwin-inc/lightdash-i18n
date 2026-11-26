@@ -309,6 +309,22 @@ test('缺少 type 判别的服务端错误 → 5 且给出替代路径 hint', ()
     assert.match(error.hint ?? '', /msy-x query/);
 });
 
+test('旧版主站仍要求 spaceUuid → 5 且给出 --space 临时替代 hint', () => {
+    const error = mapToolResultError({
+        content: [
+            {
+                type: 'text',
+                text: 'Invalid arguments for tool list_dashboards: [{"code":"invalid_type","path":["spaceUuid"],"message":"Required"}]',
+            },
+        ],
+        isError: true,
+    });
+    assert.equal(error.code, 'SERVER_ERROR');
+    assert.equal(error.exitCode, ExitCode.SERVER_ERROR);
+    assert.ok(error.hint !== null);
+    assert.match(error.hint ?? '', /--space/);
+});
+
 test('普通服务端错误不带判别键 hint', () => {
     const error = mapToolResultError({
         content: [{ type: 'text', text: 'boom' }],

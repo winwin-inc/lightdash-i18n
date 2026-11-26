@@ -1170,6 +1170,67 @@ export class DashboardService
         });
     }
 
+    /**
+     * 按查看人过滤“看板行”（只要有 dashboardUuid / spaceUuid 即可）。
+     *
+     * `getDashboardContexts`（表 → 看板）与 `getDashboardExplorePairs`
+     * （看板 ↔ 表映射）**必须共用这一份判断**，避免两套权限逻辑漂移。
+     * 过滤条件：CASL 看板权限 + client-use 白名单（allow-list）。
+     */
+    private async filterDashboardRowsByViewer<
+        T extends { dashboardUuid: string; spaceUuid: string },
+    >(
+        user: SessionUser,
+        projectUuid: string,
+        rows: T[],
+        includePrivate: boolean,
+    ): Promise<T[]> {
+        const spaceUuids = [...new Set(rows.map((row) => row.spaceUuid))];
+        const spaces = await Promise.all(
+            spaceUuids.map((spaceUuid) =>
+                this.spaceModel.getSpaceSummary(spaceUuid),
+            ),
+        );
+        const spacesAccess = await this.spaceModel.getUserSpacesAccess(
+            user.userUuid,
+            spaces.map((s) => s.uuid),
+        );
+        const allowedDashboardUuids =
+            await this.getAllowedDashboardUuidsForViewer(user, projectUuid);
+
+        return rows.filter((row) => {
+            const dashboardSpace = spaces.find(
+                (space) => space.uuid === row.spaceUuid,
+            );
+            const hasAbility = user.ability.can(
+                'view',
+                subject('Dashboard', {
+                    organizationUuid: dashboardSpace?.organizationUuid,
+                    projectUuid: dashboardSpace?.projectUuid,
+                    isPrivate: dashboardSpace?.isPrivate,
+                    access: spacesAccess[row.spaceUuid] ?? [],
+                }),
+            );
+
+            if (allowedDashboardUuids !== undefined && isUserWithOrg(user)) {
+                if (allowedDashboardUuids.size === 0) {
+                    return false;
+                }
+                if (!allowedDashboardUuids.has(row.dashboardUuid)) {
+                    return false;
+                }
+            }
+
+            return Boolean(
+                dashboardSpace &&
+                    (includePrivate
+                        ? hasAbility
+                        : hasAbility &&
+                          hasDirectAccessToSpace(user, dashboardSpace)),
+            );
+        });
+    }
+
     async getDashboardContexts(
         user: SessionUser,
         projectUuid: string,
@@ -1195,50 +1256,12 @@ export class DashboardService
         );
         // 计数必须在权限过滤前取，调用方据此区分配置问题与权限问题
         const associatedCount = rows.length;
-        const spaceUuids = [...new Set(rows.map((row) => row.spaceUuid))];
-        const spaces = await Promise.all(
-            spaceUuids.map((spaceUuid) =>
-                this.spaceModel.getSpaceSummary(spaceUuid),
-            ),
+        const filtered = await this.filterDashboardRowsByViewer(
+            user,
+            projectUuid,
+            rows,
+            includePrivate,
         );
-        const spacesAccess = await this.spaceModel.getUserSpacesAccess(
-            user.userUuid,
-            spaces.map((s) => s.uuid),
-        );
-        const allowedDashboardUuids =
-            await this.getAllowedDashboardUuidsForViewer(user, projectUuid);
-
-        const filtered = rows.filter((row) => {
-            const dashboardSpace = spaces.find(
-                (space) => space.uuid === row.spaceUuid,
-            );
-            const hasAbility = user.ability.can(
-                'view',
-                subject('Dashboard', {
-                    organizationUuid: dashboardSpace?.organizationUuid,
-                    projectUuid: dashboardSpace?.projectUuid,
-                    isPrivate: dashboardSpace?.isPrivate,
-                    access: spacesAccess[row.spaceUuid] ?? [],
-                }),
-            );
-
-            if (allowedDashboardUuids !== undefined && isUserWithOrg(user)) {
-                if (allowedDashboardUuids.size === 0) {
-                    return false;
-                }
-                if (!allowedDashboardUuids.has(row.dashboardUuid)) {
-                    return false;
-                }
-            }
-
-            return (
-                dashboardSpace &&
-                (includePrivate
-                    ? hasAbility
-                    : hasAbility &&
-                      hasDirectAccessToSpace(user, dashboardSpace))
-            );
-        });
 
         const contexts = filtered
             .map((row) => ({
@@ -1256,6 +1279,91 @@ export class DashboardService
             });
 
         return { contexts, associatedCount };
+    }
+
+    /**
+     * 看板 ↔ 数据集（explore）映射，已按查看人做权限过滤。
+     *
+     * 一次调用返回整个项目里「当前用户可打开的看板」用到的全部
+     * （看板, 数据集）对，供「表 → 看板 / 看板 → 表」双向反查，避免逐表
+     * 反查带来的 N 次调用。
+     *
+     * 权限判定与 {@link getDashboardContexts} 共用
+     * `filterDashboardRowsByViewer`（CASL + client-use 白名单），不另写一套。
+     */
+    async getDashboardExplorePairs(
+        user: SessionUser,
+        projectUuid: string,
+        filters: { exploreName?: string } = {},
+        includePrivate: boolean = true,
+    ): Promise<{
+        pairs: Array<{
+            dashboardUuid: string;
+            dashboardSlug: string;
+            dashboardName: string;
+            spaceUuid: string;
+            exploreName: string;
+        }>;
+        /**
+         * 权限过滤前的看板数量（按 dashboardUuid 去重）。
+         * 与 {@link getDashboardContexts} 的 associatedCount 同义：区分
+         * 「没配看板」与「没权限」。
+         */
+        associatedCount: number;
+        /** 权限过滤后的看板数量（按 dashboardUuid 去重）。 */
+        dashboardCount: number;
+    }> {
+        const rows = await this.dashboardModel.findDashboardExplorePairs(
+            projectUuid,
+            filters,
+        );
+        // 计数必须在权限过滤前取，调用方据此区分配置问题与权限问题
+        const associatedCount = new Set(
+            rows.map((row) => row.dashboardUuid),
+        ).size;
+
+        const filtered = await this.filterDashboardRowsByViewer(
+            user,
+            projectUuid,
+            rows,
+            includePrivate,
+        );
+
+        const pairs = filtered
+            // 防御：explore_name 在 schema 上是 notNullable，但空串 / 未来放宽
+            // 都会让下面的 localeCompare 抛错，而单行坏数据会拖垮整张看板映射。
+            // 没有表名的对本来就无法回答「哪张表」，直接丢弃。
+            .filter(
+                (row) =>
+                    typeof row.exploreName === 'string' &&
+                    row.exploreName.length > 0,
+            )
+            .map((row) => ({
+                dashboardUuid: row.dashboardUuid,
+                dashboardSlug: row.dashboardSlug,
+                dashboardName: row.dashboardName,
+                spaceUuid: row.spaceUuid,
+                exploreName: row.exploreName,
+            }))
+            .sort((a, b) => {
+                const byName = a.dashboardName.localeCompare(b.dashboardName);
+                if (byName !== 0) return byName;
+                const bySlug = a.dashboardSlug.localeCompare(b.dashboardSlug);
+                if (bySlug !== 0) return bySlug;
+                const byDashboardUuid = a.dashboardUuid.localeCompare(
+                    b.dashboardUuid,
+                );
+                if (byDashboardUuid !== 0) return byDashboardUuid;
+                return a.exploreName.localeCompare(b.exploreName);
+            });
+
+        return {
+            pairs,
+            associatedCount,
+            dashboardCount: new Set(
+                pairs.map((pair) => pair.dashboardUuid),
+            ).size,
+        };
     }
 
     async getByIdOrSlug(

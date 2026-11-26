@@ -12,6 +12,8 @@
 主站 MCP 已完成 P1–P7 全部阶段：核心能力从 `src/ee/` 下沉到非 EE 后端、鉴权统一为「OAuth + PAT」并落实 scope 校验、26 个工具全部模块化迁移并带单测、埋点收口、健康检查与文档齐备。
 
 > **2026-11-19 变更**：`list_verified_content` 已下线。本仓库未移植 content-verification（`packages/common/src/types/content.ts` 仍是 STUB），该工具只能恒定返回 `supported:false`，对客户端是纯噪声、且会被自动评测记为「失败」。主站当前注册 **25 个工具**；下文 P4/P6 与决策表里的 26 是历史记录，不再代表现状。
+>
+> **2026-11-26 变更**：新增 `list_dashboard_explore_map`（看板 ↔ 数据表映射，可按表反查看板），主站当前注册 **26 个工具**；独立包未同步该工具。同时 `list_dashboards` 的 `spaceUuid` 改为可选（省略即项目级列全部可见看板）。
 
 **最后一步已于 2026-11-10 落地：MCP 的项目上下文语义从「当前项目」收敛为「默认项目」**，建立「显式参数 → 用户级默认 → 组织级默认 → 部署级默认」四级兜底链。**保留**服务端持久记忆与 26 个工具（不删除 `set_project` / `get_current_project`）。实施记录见 §4。
 
