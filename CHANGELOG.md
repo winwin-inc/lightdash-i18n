@@ -7,6 +7,27 @@
 > -   自 **v2.0** 起产品主版本独立编号
 
 
+## v2.8.1 (2026-11-26)
+
+-   **内置 MCP：看板可以一次拿全（对外有变化）**
+    -   背景：客户权限按看板开通，之前 `list_dashboards` 的 `spaceUuid` 是必填，要按 space 逐个枚举（26 个 space = 26 次调用，约 38s），而且私有 space 不出现在 `list_spaces` 里，那些已授权的看板必漏
+    -   现在 `list_dashboards` 的 `spaceUuid` 可选：**省略即项目级列出当前用户可见的全部看板**（一次调用）；权限判定完全沿用 `ContentService.find`（项目 CASL、space 可见性、客户使用模式白名单），没有新增过滤分支；顺带修掉私有 space 已授权看板被漏掉的问题
+    -   返回仍是分页的（`pageSize` 默认 50、上限 100），看板多时需翻页
+
+-   **内置 MCP：新增 `list_dashboard_explore_map`（看板 ↔ 数据表映射，对外有变化）**
+    -   背景：只有「看板/图表 → 表」单向，没有「表 → 哪些看板用了」的入口；查一张表被哪些看板引用，只能靠 space 枚举 + 逐磁贴读 chart 再回查，成本极高
+    -   新工具一次返回项目内「当前用户可打开的看板」用到的全部（看板, 数据集）对：传 `exploreName` 就是「这张表被哪些看板用了」，不传就是整个项目的双向映射；每条含看板 uuid/名称/slug/space/浏览器 URL
+    -   权限：与 `getDashboardContexts` 共用同一份过滤实现（CASL + space access + 客户使用模式白名单），未新增第二套判断；`associatedCount` 是权限过滤前的看板数，用来区分「没配看板」与「没权限」
+    -   统计口径与既有的 dashboard 上下文反查一致：只算看板最新版本的磁贴、只算图表最新版本里的 explore（已删除图表/看板不计入）
+    -   主站 MCP 工具数 25 → 26；独立包 `packages/lightdash-mcp`（v1，已计划退役）未同步该工具
+
+-   **命令行工具（msy-x-cli 0.2.7，本版发布）**
+    -   `msy-x dashboards list` 的 `--space` 改为**可选**：省略时一次列出项目内当前用户可见的全部看板；仍保留 `--space <spaceUuid>` 只看某个空间
+    -   新增 `msy-x dashboards map [--table <exploreName>] [--dashboard <uuid|slug>]`：看板 ↔ 数据表映射，`--table` 走服务端按表反查，`--dashboard` 只在本地收窄
+    -   `msy-x doctor --remote` 的期望工具数 25 → 26（与主站一致），文案不再硬编码数量
+    -   兼容性：新 CLI 打旧镜像时，`dashboards list` 省略 `--space` 会收到明确的替代提示（先 `spaces list` 后加 `--space`，或用 `search --type dashboard`），不会静默失败
+    -   安装/升级：`npm i -g https://img0.banmahui.cn/msy-x/cli/msy-x-cli/0.2.7/msy-x-cli-0.2.7.tgz`
+
 ## v2.8.0 (2026-11-24)
 
 -   **内置 MCP 工具下线：`list_verified_content`（对外有变化）**
