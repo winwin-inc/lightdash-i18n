@@ -7,6 +7,22 @@
 > -   自 **v2.0** 起产品主版本独立编号
 
 
+## v2.8.2 (2026-11-26)
+
+-   **修 OAuth 令牌自省（`/api/v1/oauth/introspect`）的 `iat` 偏差（对外有变化）**
+    -   `iat` 原来写死为 `exp - 3600`，只有 access token 有效期恰好是 1 小时才正确；一旦用
+        `AUTH_OAUTH_SERVER_ACCESS_TOKEN_LIFETIME` 调长（例如 4h/8h），`iat` 就会偏 3~7 小时，
+        用 `iat` 推算签发时间/剩余寿命的客户端会算错。现改为按**配置的有效期**反推
+        （`OAuthService.accessTokenLifetimeSeconds`，默认 3600）
+    -   `token_type` 由 `access_token` 改为 `Bearer`，与 `/api/v1/oauth/token` 及 RFC 7662 一致
+    -   `/api/v1/oauth/token` 成功时新增一条 `OAuth token issued` 日志（`grantType` / `clientId` /
+        `hasRefreshToken`，**不记令牌本身**）。排障用途：若日志里没有 `grant_type=refresh_token`
+        记录，说明客户端**没有发起刷新**，而是拿过期 token 直接调用
+
+-   **说明（非本次改动）**：access token 有效期默认仍是 1 小时、refresh token 14 天，均可通过
+    `AUTH_OAUTH_SERVER_ACCESS_TOKEN_LIFETIME` / `AUTH_OAUTH_SERVER_REFRESH_TOKEN_LIFETIME` 调整；
+    服务端刷新时会**轮换 refresh token**（旧值立即失效），客户端必须保存每次返回的新 refresh token
+
 ## v2.8.1 (2026-11-26)
 
 -   **内置 MCP：看板可以一次拿全（对外有变化）**
