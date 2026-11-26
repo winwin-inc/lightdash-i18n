@@ -1330,6 +1330,14 @@ export class DashboardService
         );
 
         const pairs = filtered
+            // 防御：explore_name 在 schema 上是 notNullable，但空串 / 未来放宽
+            // 都会让下面的 localeCompare 抛错，而单行坏数据会拖垮整张看板映射。
+            // 没有表名的对本来就无法回答「哪张表」，直接丢弃。
+            .filter(
+                (row) =>
+                    typeof row.exploreName === 'string' &&
+                    row.exploreName.length > 0,
+            )
             .map((row) => ({
                 dashboardUuid: row.dashboardUuid,
                 dashboardSlug: row.dashboardSlug,

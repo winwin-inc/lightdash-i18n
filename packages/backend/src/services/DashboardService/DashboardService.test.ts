@@ -802,6 +802,35 @@ describe('DashboardService', () => {
             expect(result.associatedCount).toBe(1);
         });
 
+        test('should drop pairs whose exploreName is not a usable string', async () => {
+            (
+                dashboardModel.findDashboardExplorePairs as jest.Mock
+            ).mockResolvedValueOnce([
+                buildPair({ dashboardUuid: 'dash-1' }),
+                // schema 是 notNullable，这里只模拟脏数据：不能让整张映射抛错
+                buildPair({
+                    dashboardUuid: 'dash-2',
+                    exploreName: null as unknown as string,
+                }),
+                buildPair({
+                    dashboardUuid: 'dash-3',
+                    exploreName: '',
+                }),
+            ]);
+
+            const result = await service.getDashboardExplorePairs(
+                user,
+                projectUuid,
+            );
+
+            expect(result.pairs.map((pair) => pair.dashboardUuid)).toEqual([
+                'dash-1',
+            ]);
+            expect(result.dashboardCount).toBe(1);
+            // 计数仍在过滤前就取，只按 dashboardUuid 去重
+            expect(result.associatedCount).toBe(3);
+        });
+
         test('should hide pairs when the user cannot view the dashboard ability', async () => {
             (
                 dashboardModel.findDashboardExplorePairs as jest.Mock
