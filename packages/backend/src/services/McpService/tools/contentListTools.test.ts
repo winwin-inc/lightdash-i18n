@@ -329,6 +329,27 @@ describe('registerContentListTools', () => {
             );
             expect(find.mock.calls[0][3]).toEqual({ page: 2, pageSize: 10 });
         });
+
+        it('lists every visible dashboard of the project when spaceUuid is omitted', async () => {
+            const { registry, registered } = buildRegistry();
+            const { deps, find } = buildDeps({
+                contextProjectUuid: 'project-uuid',
+            });
+            registerContentListTools(registry, deps);
+
+            await registered[1].handler({}, buildContext());
+
+            const filters = find.mock.calls[0][1];
+            expect(filters).toEqual(
+                expect.objectContaining({
+                    projectUuids: ['project-uuid'],
+                    contentTypes: [ContentType.DASHBOARD],
+                }),
+            );
+            // 不传 spaceUuids：由 ContentService 做空间 + 看板白名单的权限过滤
+            expect(filters.spaceUuids).toBeUndefined();
+            expect(find.mock.calls[0][3]).toEqual({ page: 1, pageSize: 50 });
+        });
     });
 
     describe('list_charts', () => {

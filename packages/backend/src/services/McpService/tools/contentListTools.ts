@@ -29,7 +29,10 @@ type ListSpacesArgs = {
 };
 
 type ListDashboardsArgs = ListSpacesArgs & {
-    spaceUuid: string;
+    /**
+     * 省略时空项目级列出：返回该项目下当前用户可见的全部看板。
+     */
+    spaceUuid?: string;
 };
 
 type ListChartsArgs = {
@@ -101,7 +104,10 @@ const listSpacesArgsSchema = {
 const listDashboardsArgsSchema = {
     spaceUuid: z
         .string()
-        .describe('UUID of the space to list the dashboards of.'),
+        .optional()
+        .describe(
+            'UUID of the space to list the dashboards of. Omit it to list every dashboard of the project the caller can view (permission filtered, including dashboards of private spaces the caller has access to).',
+        ),
     projectUuid: z.string().optional().describe(PROJECT_UUID_PARAM_DESCRIPTION),
     ...paginationSchema,
     full: fullSchema,
@@ -275,7 +281,7 @@ export const registerContentListTools = (
         McpToolName.LIST_DASHBOARDS,
         {
             description:
-                'List the dashboards inside a space of a Lightdash project. Use it to browse the dashboards of a space (not a keyword search - use find_dashboards for that). Each dashboard lists its uuid, name, description and the URL to open it in the browser.',
+                'List the dashboards of a Lightdash project (not a keyword search - use find_dashboards for that). Pass spaceUuid to browse the dashboards of a single space; omit it to list every dashboard the caller can view in the project in one call (permission filtered, and dashboards of private spaces the caller has access to are included). Each dashboard lists its uuid, name, space name, description and the URL to open it in the browser. Results are paginated (pageSize default 50, max 100), so page through when the project has more dashboards.',
             inputSchema: listDashboardsArgsSchema,
         },
         async (args, context) => {
@@ -293,12 +299,23 @@ export const registerContentListTools = (
                 explicitProjectUuid,
             );
 
+            // 空字符串等同于省略：不把它当成一个待匹配的 spaceUuid
+            const scopedSpaceUuid =
+                typeof spaceUuid === 'string' && spaceUuid.trim().length > 0
+                    ? spaceUuid.trim()
+                    : undefined;
+
             const contents = await listContent(
                 deps,
                 context,
                 {
                     projectUuids: [projectUuid],
-                    spaceUuids: [spaceUuid],
+                    // 省略 spaceUuid：项目级列举（仍由 ContentService 做空间 /
+                    // 看板白名单的权限过滤）
+                    spaceUuids:
+                        scopedSpaceUuid === undefined
+                            ? undefined
+                            : [scopedSpaceUuid],
                     contentTypes: [ContentType.DASHBOARD],
                 },
                 page,

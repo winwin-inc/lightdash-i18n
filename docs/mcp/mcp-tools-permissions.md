@@ -76,7 +76,7 @@
 | `find_spaces` | 按关键词搜索空间 | `view Space` |
 | `find_content` | 混合搜索图表、看板、空间 | `view SavedChart` / `view Dashboard` / `view Space` |
 | `find_dashboards` | 按关键词搜索看板 | `view Dashboard` |
-| `list_dashboards` | 按空间列出看板 | `view Dashboard` |
+| `list_dashboards` | 列看板（按空间，或省略 spaceUuid 项目级列全部可见看板） | `view Dashboard` |
 | `find_charts` | 按关键词搜索已保存图表 | `view SavedChart` |
 | `get_saved_chart` | 读取已保存图表元数据 | `view SavedChart` |
 | `get_dashboard_tiles` | 读取看板磁贴布局 | `view Dashboard` |
