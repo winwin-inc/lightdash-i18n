@@ -29,8 +29,8 @@ import { docsCommands } from './docs';
 /**
  * 集成层单测（设计稿 §6.2/§6.3/§7.4 验收口径）：
  * globalOptions 互斥/上限/--csv 门控、query 两路径组装、metricQuery 本地翻译、
- * flat vizConfig 形状与 --filter 拒绝、savedChartUuid 键名、dashboards list 缺
- * --space、dry-run 不发请求（假 client 断言未调用）、
+ * flat vizConfig 形状与 --filter 拒绝、savedChartUuid 键名、dashboards list 的
+ * --space 可选（省略则项目级列全部可见看板）、dry-run 不发请求（假 client 断言未调用）、
  * doctor 新命令与 tools/call 的注册与端到端路由。
  */
 
@@ -449,15 +449,22 @@ test('charts get/run：入参键为 savedChartUuid；run 不发 full', () => {
 });
 
 /* ------------------------------------------------------------------ */
-/* dashboards：list 缺 --space / tiles / run --tile 不进服务端参数        */
+/* dashboards：list 的 --space 可选 / tiles / run --tile 不进服务端参数        */
 /* ------------------------------------------------------------------ */
 
-test('dashboards list：缺 --space → USAGE 并提示 search --type dashboard', () => {
+test('dashboards list：--space 可选，省略则项目级列出全部可见看板', () => {
     const spec = specByName(dashboardsCommands, 'dashboards list');
-    assertUsage(() => buildOne(spec, {}), '--type dashboard');
-    const call = buildOne(spec, { options: { space: UUID, full: true } });
-    assert.equal(call.tool, 'list_dashboards');
-    assert.deepEqual(call.args, { spaceUuid: UUID, full: true });
+    const projectWide = buildOne(spec, { options: {} });
+    assert.equal(projectWide.tool, 'list_dashboards');
+    assert.deepEqual(projectWide.args, {});
+    assert.ok(
+        !('spaceUuid' in projectWide.args),
+        '省略 --space 时不应携带 spaceUuid',
+    );
+
+    const scoped = buildOne(spec, { options: { space: UUID, full: true } });
+    assert.equal(scoped.tool, 'list_dashboards');
+    assert.deepEqual(scoped.args, { spaceUuid: UUID, full: true });
 });
 
 test('dashboards tiles/run：dashboardUuid 位置参数；--tile 只本地过滤', () => {
@@ -837,19 +844,27 @@ test('挂载端到端：dashboards code 别名 → get_dashboard_code', async ()
     }
 });
 
-test('挂载端到端：dashboards list 缺 --space 退 USAGE', async () => {
-    await assert.rejects(
-        runProgram(['dashboards', 'list']),
-        (error: unknown) => {
-            assert.ok(error instanceof CliError);
-            assert.equal(error.code, 'USAGE');
-            assert.ok(
-                `${error.hint ?? ''}`.includes('--type dashboard'),
-                `hint 应提示用 search --type dashboard：${error.hint ?? ''}`,
-            );
-            return true;
-        },
-    );
+test('挂载端到端：dashboards list 省略 --space 不带 spaceUuid', async () => {
+    const previous = process.env.MSY_X_CONFIG;
+    process.env.MSY_X_CONFIG = '/tmp/msy-x-cli-integration-none.yaml';
+    try {
+        const out = await runProgram(['dashboards', 'list', '--dry-run']);
+        const parsed = dryRunLineOf(out) as {
+            tool: string;
+            args: Record<string, unknown>;
+        };
+        assert.equal(parsed.tool, 'list_dashboards');
+        assert.ok(
+            !('spaceUuid' in parsed.args),
+            '省略 --space 时不应携带 spaceUuid',
+        );
+    } finally {
+        if (previous === undefined) {
+            delete process.env.MSY_X_CONFIG;
+        } else {
+            process.env.MSY_X_CONFIG = previous;
+        }
+    }
 });
 
 test('挂载端到端：非数据命令 --csv 退 USAGE', async () => {

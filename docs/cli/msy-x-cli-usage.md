@@ -207,7 +207,7 @@ msy-x charts run <chartUuid> --value-format formatted
 
 注意：
 
-- `dashboards list` 的 `--space` 是**必填**的空间 UUID（先 `spaces list`）；不知道空间时用 `search --type dashboard`。
+- `dashboards list` 默认**项目级**列出当前用户可见的全部看板（一次调用即可拿到「我有权限的看板」）；`--space <spaceUuid>` 只列某个空间，需要先 `spaces list`。注意结果分页（默认 50、上限 100），看板多时用 `--page` 翻页。独立包老版本服务端只接受 `spaceUuid`，直接跑会报参数错误。
 - `dashboards run --tile <slug>` 只是**本地过滤展示**，服务端仍然会跑整块看板。
 
 ### 5.3 元信息与透传
