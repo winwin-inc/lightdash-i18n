@@ -22,7 +22,7 @@ import type {
 } from '../types';
 import { registeredSpecs, registerCommands } from './index';
 import { buildQueryFileCalls, queryCommands, translateMetricQuery } from './query';
-import { dashboardsCommands } from './dashboards';
+import { dashboardsCommands, filterDashboardExploreRows } from './dashboards';
 import { chartsCommands } from './charts';
 import { docsCommands } from './docs';
 
@@ -467,6 +467,63 @@ test('dashboards list：--space 可选，省略则项目级列出全部可见看
     assert.deepEqual(scoped.args, { spaceUuid: UUID, full: true });
 });
 
+test('dashboards map：--table → 服务端 exploreName 过滤；--dashboard 只本地收窄', () => {
+    const spec = specByName(dashboardsCommands, 'dashboards map');
+
+    const fullMap = buildOne(spec, { options: {} });
+    assert.equal(fullMap.tool, 'list_dashboard_explore_map');
+    assert.deepEqual(fullMap.args, {});
+
+    const byTable = buildOne(spec, {
+        options: { table: '  ads_orders  ' },
+        projectUuid: UUID,
+    });
+    assert.deepEqual(byTable.args, {
+        exploreName: 'ads_orders',
+        projectUuid: UUID,
+    });
+
+    // --dashboard 不进服务端参数（服务端返回值已按权限过滤，本地收窄即可）
+    const byDashboard = buildOne(spec, {
+        options: { dashboard: 'd1' },
+    });
+    assert.deepEqual(byDashboard.args, {});
+});
+
+test('filterDashboardExploreRows：按 dashboardUuid / slug 收窄 rows', () => {
+    const result = {
+        content: [
+            {
+                type: 'text' as const,
+                text: JSON.stringify({
+                    rows: [
+                        { dashboardUuid: 'd1', dashboardSlug: 's1', exploreName: 'a' },
+                        { dashboardUuid: 'd2', dashboardSlug: 's2', exploreName: 'a' },
+                    ],
+                    associatedCount: 2,
+                }),
+            },
+        ],
+    };
+
+    const byUuid = filterDashboardExploreRows(result, 'd1');
+    const parsedUuid = JSON.parse(byUuid.content[0].text as string);
+    assert.equal(parsedUuid.rows.length, 1);
+    assert.equal(parsedUuid.rows[0].dashboardUuid, 'd1');
+    assert.equal(parsedUuid.associatedCount, 2);
+
+    const bySlug = filterDashboardExploreRows(result, 's2');
+    const parsedSlug = JSON.parse(bySlug.content[0].text as string);
+    assert.equal(parsedSlug.rows[0].dashboardUuid, 'd2');
+
+    // 无 rows 形状原样返回（例如错误 payload）
+    const untouched = filterDashboardExploreRows(
+        { content: [{ type: 'text' as const, text: '{"status":"error"}' }] },
+        'd1',
+    );
+    assert.equal(untouched.content[0].text, '{"status":"error"}');
+});
+
 test('dashboards tiles/run：dashboardUuid 位置参数；--tile 只本地过滤', () => {
     const tilesCall = buildOne(
         specByName(dashboardsCommands, 'dashboards tiles <dashboardUuid>'),
@@ -710,12 +767,12 @@ test('writeResult：--out 写文件 0600 且 stdout 只回摘要', async () => {
 /* 挂载：全部 CommandSpec 注册、code 别名、--csv 门控与缺 --space 退出   */
 /* ------------------------------------------------------------------ */
 
-test('挂载：全部命令注册且名字唯一（含 auth/site/doctor/tools/call/别名，共 36 个）', () => {
+test('挂载：全部命令注册且名字唯一（含 auth/site/doctor/tools/call/别名，共 37 个）', () => {
     const specs = registeredSpecs();
     const names = specs.map((spec) => spec.name);
     assert.equal(new Set(names).size, names.length, '命令名不应重复');
     // 旧断言清单缺 project use/project show/spaces find，这里补全为完整清单
-    assert.equal(names.length, 36, `应注册 36 个命令，实际 ${names.length}`);
+    assert.equal(names.length, 37, `应注册 37 个命令，实际 ${names.length}`);
     for (const expected of [
         'info',
         'access',
@@ -744,6 +801,7 @@ test('挂载：全部命令注册且名字唯一（含 auth/site/doctor/tools/ca
         'dashboards tiles <dashboardUuid>',
         'dashboards run <dashboardUuid>',
         'dashboards get <dashboardUuid>',
+        'dashboards map',
         'charts list',
         'charts find <query>',
         'charts get <chartUuid>',

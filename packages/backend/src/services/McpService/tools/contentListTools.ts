@@ -123,6 +123,16 @@ const listChartsArgsSchema = {
     full: fullSchema,
 };
 
+const listDashboardExploreMapArgsSchema = {
+    projectUuid: z.string().optional().describe(PROJECT_UUID_PARAM_DESCRIPTION),
+    exploreName: z
+        .string()
+        .optional()
+        .describe(
+            'Only return the dashboards that use this explore (table). Use it to answer "which dashboards use this table" without pulling the whole map.',
+        ),
+};
+
 /**
  * Builds the browser URL of a content item.
  */
@@ -415,6 +425,62 @@ export const registerContentListTools = (
                       }))
                     : items,
             );
+        },
+    );
+
+    registry.register(
+        McpToolName.LIST_DASHBOARD_EXPLORE_MAP,
+        {
+            description:
+                'List which explores (tables) each dashboard uses, or which dashboards use one explore - the reverse of list_charts and the only way to go from a table to its dashboards. Returns `rows`, one per (dashboard, explore) pair, for every dashboard the caller can open (permission filtered, including private spaces the caller has access to), plus the browser URL of the dashboard. Pass exploreName to answer "which dashboards use this table" directly; omit it to get the whole dashboard to table map of the project in a single call (no per-space or per-chart loops). `associatedCount` is the dashboard count before the permission filter: 0 means no dashboard uses this explore, while >0 together with an empty `rows` means the caller cannot open them.',
+            inputSchema: listDashboardExploreMapArgsSchema,
+        },
+        async (args, context) => {
+            const {
+                exploreName,
+                projectUuid: explicitProjectUuid,
+            } = args as {
+                exploreName?: string;
+                projectUuid?: string;
+            };
+
+            const { projectUuid } = await resolveProjectContext(
+                deps,
+                context,
+                explicitProjectUuid,
+            );
+
+            const { pairs, associatedCount, dashboardCount } =
+                await deps.dashboardService.getDashboardExplorePairs(
+                    context.user,
+                    projectUuid,
+                    {
+                        exploreName:
+                            typeof exploreName === 'string' &&
+                            exploreName.trim().length > 0
+                                ? exploreName.trim()
+                                : undefined,
+                    },
+                );
+
+            const { siteUrl } = deps.lightdashConfig;
+            return jsonToolResult({
+                rows: pairs.map((pair) => ({
+                    dashboardName: pair.dashboardName,
+                    dashboardUuid: pair.dashboardUuid,
+                    dashboardSlug: pair.dashboardSlug,
+                    spaceUuid: pair.spaceUuid,
+                    exploreName: pair.exploreName,
+                    webUrl: buildWebUrl(
+                        siteUrl,
+                        projectUuid,
+                        ContentType.DASHBOARD,
+                        pair.dashboardUuid,
+                    ),
+                })),
+                dashboardCount,
+                associatedCount,
+            });
         },
     );
 };

@@ -15,7 +15,8 @@ jest.mock('@lightdash/warehouses', () => ({
  * It used to match the tool list of the standalone `packages/lightdash-mcp`
  * package (26 tools), minus `list_verified_content`, which was removed from the
  * unified server because content verification is not ported in this repository
- * and the tool could only ever answer "not supported" (25 tools). When a tool
+ * and the tool could only ever answer "not supported" (25 tools). Now 26 tools
+ * after adding `list_dashboard_explore_map`. When a tool
  * is added or removed, this list must be updated in the same change.
  */
 const EXPECTED_TOOL_NAMES: string[] = [
@@ -34,6 +35,7 @@ const EXPECTED_TOOL_NAMES: string[] = [
     'get_saved_chart',
     'get_site_info',
     'list_charts',
+    'list_dashboard_explore_map',
     'list_dashboards',
     'list_explores',
     'list_projects',

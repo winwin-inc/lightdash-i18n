@@ -13,6 +13,7 @@ export enum McpToolName {
     LIST_SPACES = 'list_spaces',
     LIST_CHARTS = 'list_charts',
     LIST_DASHBOARDS = 'list_dashboards',
+    LIST_DASHBOARD_EXPLORE_MAP = 'list_dashboard_explore_map',
     SET_PROJECT = 'set_project',
     GET_CURRENT_PROJECT = 'get_current_project',
     GET_SAVED_CHART = 'get_saved_chart',

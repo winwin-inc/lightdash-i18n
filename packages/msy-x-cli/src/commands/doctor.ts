@@ -157,6 +157,7 @@ export const EXPECTED_MCP_TOOL_NAMES: string[] = [
     'get_saved_chart',
     'get_site_info',
     'list_charts',
+    'list_dashboard_explore_map',
     'list_dashboards',
     'list_explores',
     'list_projects',

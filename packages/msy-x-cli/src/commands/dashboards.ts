@@ -139,6 +139,54 @@ export const filterDashboardTiles = (
     }
 };
 
+/**
+ * `dashboards map --dashboard <uuid|slug>` 的本地行过滤（纯函数）：
+ * 服务端已按权限过滤（rows 是当前用户可见的看板），这里只收窄到某一块看板；
+ * 结构不符（无 rows 数组）时原样返回。
+ */
+export const filterDashboardExploreRows = (
+    result: ToolResult,
+    dashboardSelector: string,
+): ToolResult => {
+    const filterPayload = (
+        payload: Record<string, unknown>,
+    ): Record<string, unknown> => {
+        if (!Array.isArray(payload.rows)) return payload;
+        const kept = payload.rows.filter(
+            (row) =>
+                isRecord(row) &&
+                (row.dashboardUuid === dashboardSelector ||
+                    row.dashboardSlug === dashboardSelector),
+        );
+        return { ...payload, rows: kept };
+    };
+
+    if (isRecord(result.structuredContent)) {
+        return {
+            ...result,
+            structuredContent: filterPayload(result.structuredContent),
+        };
+    }
+
+    const textBlock = result.content.find(
+        (block) => block.type === 'text' && typeof block.text === 'string',
+    );
+    if (textBlock?.text === undefined) return result;
+    try {
+        const parsed: unknown = JSON.parse(textBlock.text);
+        if (!isRecord(parsed) || !Array.isArray(parsed.rows)) return result;
+        const filtered = JSON.stringify(filterPayload(parsed), null, 2);
+        return {
+            ...result,
+            content: result.content.map((block) =>
+                block === textBlock ? { ...block, text: filtered } : block,
+            ),
+        };
+    } catch {
+        return result;
+    }
+};
+
 export const dashboardsCommands: CommandSpec[] = [
     {
         name: 'dashboards list',
@@ -274,6 +322,35 @@ export const dashboardsCommands: CommandSpec[] = [
             return [
                 {
                     tool: 'get_dashboard_code',
+                    args: withProject(args, input.projectUuid),
+                },
+            ];
+        },
+    },
+    {
+        name: 'dashboards map',
+        description: '看板 ↔ 数据表映射；--table 反查看哪块看板用了这张表',
+        options: [
+            {
+                flags: '--table <exploreName>',
+                description: '只看用到该数据表（explore）的看板',
+            },
+            {
+                flags: '--dashboard <uuid|slug>',
+                description: '只看指定看板用到的数据表（本地过滤）',
+            },
+        ],
+        example: 'msy-x dashboards map --table ads_orders   # 这张表被哪些看板用了',
+        dataCommand: false,
+        build: (input: CommandBuildInput): ToolCall[] => {
+            const args: Record<string, unknown> = {};
+            const { table } = input.options;
+            if (typeof table === 'string' && table.trim() !== '') {
+                args.exploreName = table.trim();
+            }
+            return [
+                {
+                    tool: 'list_dashboard_explore_map',
                     args: withProject(args, input.projectUuid),
                 },
             ];

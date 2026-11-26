@@ -199,6 +199,8 @@ msy-x dashboards find 品类洞察
 msy-x dashboards tiles 5ad107a4-81d1-4ded-a173-ff41366122b4
 msy-x dashboards run 5ad107a4-81d1-4ded-a173-ff41366122b4 --limit 50
 msy-x dashboards get d54853b1-85df-4ab3-8cdf-70a5244640e1 --full
+msy-x dashboards map --table ads_orders      # 这张表被哪些看板用了（反向索引）
+msy-x dashboards map                          # 看板 ↔ 表 全量映射（一次调用）
 
 msy-x charts list --dashboard d54853b1-85df-4ab3-8cdf-70a5244640e1
 msy-x charts get <chartUuid> --full          # chartUuid 先由 charts find 拿到
@@ -208,6 +210,7 @@ msy-x charts run <chartUuid> --value-format formatted
 注意：
 
 - `dashboards list` 默认**项目级**列出当前用户可见的全部看板（一次调用即可拿到「我有权限的看板」）；`--space <spaceUuid>` 只列某个空间，需要先 `spaces list`。注意结果分页（默认 50、上限 100），看板多时用 `--page` 翻页。独立包老版本服务端只接受 `spaceUuid`，直接跑会报参数错误。
+- `dashboards map` 是**一次调用**拿全项目「看板 ↔ 数据表」映射（服务端按权限过滤）：`--table <exploreName>` 在服务端按表收窄（推荐），`--dashboard <uuid|slug>` 在本地收窄到某块看板。
 - `dashboards run --tile <slug>` 只是**本地过滤展示**，服务端仍然会跑整块看板。
 
 ### 5.3 元信息与透传

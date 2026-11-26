@@ -27,6 +27,7 @@ export const MCP_TOOL_SCOPES: Record<McpToolName, McpToolScope> = {
     [McpToolName.LIST_SPACES]: McpToolScope.Read,
     [McpToolName.LIST_CHARTS]: McpToolScope.Read,
     [McpToolName.LIST_DASHBOARDS]: McpToolScope.Read,
+    [McpToolName.LIST_DASHBOARD_EXPLORE_MAP]: McpToolScope.Read,
     [McpToolName.SET_PROJECT]: McpToolScope.Read,
     [McpToolName.GET_CURRENT_PROJECT]: McpToolScope.Read,
     [McpToolName.GET_SAVED_CHART]: McpToolScope.Read,

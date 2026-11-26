@@ -19,7 +19,7 @@
 | 会话 | `Mcp-Session-Id`（内存 TTL/LRU/容量） | **无状态**，不返回也不需要 session 头 |
 | 项目上下文 | 进程内存（按 PAT 隔离，重启丢） | **PG `mcp_context`**（按 user+org 隔离，重启不丢、跨副本一致） |
 | 错误 | HTTP 往返后压平成文本 | 原生错误直接传播（`ForbiddenError` / `ParameterError` …） |
-| 工具 | 26 个 | **25 个（同名同义，参数与返回结构已对齐；`list_verified_content` 已在主站下线）** |
+| 工具 | 26 个 | **26 个（同名同义，参数与返回结构已对齐；`list_verified_content` 已在主站下线，主站新增 `list_dashboard_explore_map`）** |
 | 观测 | stdout 日志 | `mcp_tool_call` 埋点（user/org/project/authType/duration/success）+ 结构化日志 + `/health` |
 
 **换到 v2 需要改的只有两件事：URL 和鉴权头。**
@@ -106,7 +106,7 @@ curl -X POST "$SITE_URL/api/v1/oauth/register" \
 
 | scope | 含义 | 当前状态 |
 |---|---|---|
-| `mcp:read` | 探索/查询类工具 | **全部 25 个工具都是 read** |
+| `mcp:read` | 探索/查询类工具 | **全部 26 个工具都是 read** |
 | `mcp:write` | 修改内容类工具 | 预留，暂无工具需要 |
 
 - OAuth token 缺 `mcp:read` → **403**（`ForbiddenError`），不是 401。
@@ -204,7 +204,7 @@ hint:  Resolution order: explicit projectUuid > user default (set_project) > org
 
 ---
 
-## 4. 工具清单（25 个，全部 `mcp:read`）
+## 4. 工具清单（26 个，全部 `mcp:read`）
 
 | 分组 | 工具 |
 |---|---|
@@ -212,7 +212,7 @@ hint:  Resolution order: explicit projectUuid > user default (set_project) > org
 | 项目上下文 | `list_projects`、`set_project`、`get_current_project` |
 | 目录 / 元数据 | `find_explores`、`list_explores`、`find_fields`、`search_field_values` |
 | 内容检索 | `find_content`、`find_spaces`、`find_charts`、`find_dashboards` |
-| 内容列表 | `list_spaces`、`list_dashboards`、`list_charts` |
+| 内容列表 | `list_spaces`、`list_dashboards`、`list_charts`、`list_dashboard_explore_map` |
 | 已保存内容 | `get_saved_chart`、`run_saved_chart`、`get_dashboard_tiles`、`run_dashboard_tiles`、`get_dashboard_code` |
 | 指标查询 | `run_metric_query`、`run_semantic_metric_query` |
 | 文档 | `get_mcp_docs` |
@@ -220,6 +220,8 @@ hint:  Resolution order: explicit projectUuid > user default (set_project) > org
 `get_mcp_docs` 可以在会话内直接问「怎么连、怎么查」，返回内置静态文档。
 
 > `list_verified_content` 已于 v2.7.10 下线：本仓库未移植 content-verification 功能，该工具只能恒定返回「不支持」，对客户端是噪声。需要已认证内容请改看 `list_charts` / `list_dashboards`。
+
+> `list_dashboard_explore_map` 是主站独有（独立包未移植）：一次返回「看板 ↔ 数据表」映射，用来回答「这张表被哪些看板用了」。`list_dashboards` 省略 `spaceUuid` 时也可项目级列全部可见看板。
 
 ---
 
