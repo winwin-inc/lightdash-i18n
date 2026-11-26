@@ -7,6 +7,25 @@
 > -   自 **v2.0** 起产品主版本独立编号
 
 
+## v2.8.2-test.1 (2026-11-26)
+
+> 验证 tag（`v2.8.2-test.1`），本版主题：**产品埋点接入自建 Umami**。
+> v2.8.1 已上线的 MCP 变更（`list_dashboards` 项目级列举、`list_dashboard_explore_map`、
+> 工具数 25 → 26）本版只是合并同步代码，不重复列出。
+
+-   **埋点：接入公司自建 Umami（PV/UV + 业务事件）**
+    -   自托管已硬关官方遥测，这里把数据只发到内网 `collect.*` → Umami；后端配置 `UMAMI_COLLECT_*`（端点/project/token 齐全且 `ENABLED` 为真）才启用，**默认零外发**，`health` 把配置下发给前端
+    -   前端：一次导航只发 1 个请求（`page_view` + `$AppViewScreen` 一包双发），`profile_set` 低频单发
+    -   后端：16 个事件白名单镜像 + 后端 `profile_set`（每用户每月 1 条，写服务端会话属性：`user_uuid`/`user_email`/`org_id`/`client`/`env`）；画像未就绪时**不发**，避免占掉整月去重键
+    -   事件属性补齐：看板/图表 view 补 slug/名称/空间；权限、PAT、登录补 `organizationId`；定时任务标记 `client=scheduler`
+    -   MCP 调用可区分客户端：`mcp_tool_call` 记录 `mcp_client`（`X-Lightdash-Client` 头或 MCP `clientInfo.name`），可区分 msy-x / claude / cursor / 豆包
+-   **埋点修复与打磨**
+    -   `profile_set` 用下发的 `environment`；`profile_set` 增加 `source` 标记（web / server）
+    -   后端画像改为直读缓存，避免高频事件缺名字
+    -   登录 `identify` 也补服务端会话画像（此前只有浏览器侧）
+-   **文档**：`docs/ops/umami-analytics.md`（方案与报文口径）、`docs/ops/umami-analytics-k8s-config.md`（部署交接）
+-   **同步合并**：`dev`（含 v2.8.1 的 MCP 变更与「升版本号必须走 bump-* 脚本」的发版规范）
+
 ## v2.8.1 (2026-11-26)
 
 -   **内置 MCP：看板可以一次拿全（对外有变化）**

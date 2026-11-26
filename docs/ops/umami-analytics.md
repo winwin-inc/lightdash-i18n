@@ -1,6 +1,6 @@
 # 产品埋点：接入公司 Umami（PV/UV + 业务事件）
 
-> **状态：待开发**（分支 `feat/umami-analytics`）。本机自托管 fork 已硬关闭官方遥测（见
+> **状态：待上线验证**（分支 `feat/umami-analytics`，验证 tag `v2.8.2-test.1`）。本机自托管 fork 已硬关闭官方遥测（见
 > [`self-hosted-disable-official-telemetry.md`](./self-hosted-disable-official-telemetry.md)），
 > 本文是**自建**埋点：数据只进公司内网的 `collect.*` → Umami，与官方无关。
 
