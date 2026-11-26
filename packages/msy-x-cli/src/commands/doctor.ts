@@ -24,7 +24,7 @@ import type {
  * `msy-x doctor`（设计稿 §5.3 / dev-plan P0-8）：本地自检 + `--remote` 真实连通验证。
  *
  * - 本地：Node 版本、配置目录/文件权限位、站点解析、凭证（只报布尔与时间，**绝不打印 token 值**）；
- * - `--remote`：initialize + tools/list（期望 25 个工具，不一致 warn 列差异），
+ * - `--remote`：initialize + tools/list（期望 26 个工具，不一致 warn 列差异），
  *   再用 `run_metric_query` 对不存在的 explore 做能力探测（§10.4 判别键修复）：
  *   错误含 `Invalid literal value` → 服务端镜像缺修复（fail，退 5）；
  *   其它业务错误（explore 不存在/权限）→ 修复已就绪（ok）；
@@ -136,7 +136,7 @@ export const doctorCommands: CommandSpec[] = [
 ];
 
 /**
- * v2 工具目录的期望清单（25 个，与 backend McpToolName 一一对应）。
+ * v2 工具目录的期望清单（26 个，与 backend McpToolName 一一对应）。
  * 数量或名单不一致 → warn（新工具无需 CLI 发版即可见，缺工具通常是镜像过旧）。
  * `list_verified_content` 已随服务端下线（content-verification 未移植，工具只能
  * 返回「不支持」），不在期望清单内；若镜像仍暴露它，warn 会提示镜像已过新/过旧。
@@ -534,7 +534,7 @@ const runRemoteChecks = async (
     }
 
     try {
-        // 1) initialize + tools/list：应为 25 个且名单一致，不一致 warn 列差异
+        // 1) initialize + tools/list：数量与名单都一致才算 ok，否则 warn 列差异
         try {
             const catalog = await getToolCatalog(client);
             const names = catalog.map((tool) => tool.name);
@@ -546,7 +546,7 @@ const runRemoteChecks = async (
                     check(
                         'tools-catalog',
                         'ok',
-                        `tools/list 返回 ${names.length} 个工具（25/25）`,
+                        `tools/list 返回 ${names.length} 个工具（${EXPECTED_MCP_TOOL_NAMES.length}/${EXPECTED_MCP_TOOL_NAMES.length}）`,
                     ),
                 );
             } else {
