@@ -46,6 +46,36 @@ git tag -d <tag>                     # 删本地 tag
 
 另外：推 `main` 分支同样需要许可（会触发 `test-and-build.yml`）。
 
+## 版本号与 tag 只能走脚本（强制）
+
+升版本号和打 tag **必须**用仓库脚本，禁止手改 `version` 后自己 commit / 自己 `git tag`。
+
+| 脚本 | 作用域 | 写入文件 | 默认产出 |
+|---|---|---|---|
+| `pnpm bump-version -- <ver>` | 主站（其余所有 workspace） | 根 + 12 个 package.json（跳过 `packages/lightdash-*`、`packages/cli`、`packages/msy-x-cli`） | commit `chore(release): 升级所有包至 <ver>` + tag `v<ver>` |
+| `pnpm bump-msyx -- <ver>` | `packages/msy-x-cli` | `package.json` **和** `src/lib/version.ts` | commit `chore(msy-x-cli): 发布 <ver>` + tag `msyx-v<ver>` |
+| `pnpm bump-mcp -- <ver>` | `packages/lightdash-mcp`（v1 独立包） | `package.json` | commit + tag `mcp-v<ver>` |
+| `pnpm bump-cli -- <ver>` | `packages/cli`（dbt CLI） | `package.json` | commit + tag `cli-v<ver>` |
+
+为什么必须用脚本：
+
+-   **双写点容易漏**：`msy-x-cli` 的版本号同时存在于 `package.json` 与 `src/lib/version.ts`，手改漏一处会让 `version.test.ts` 失败、`msy-x --version` 报错版本；`bump-msyx` 两个都写。
+-   **容易漏文件**：主站版本分布在 14 个 `package.json`（含 `packages/frontend/sdk`），手写文件清单必然漏。
+-   **commit / tag 文案是约定**：历史 tag 消息形如 `lightdash v<ver>` / `msy-x-cli v<ver>`，手打容易漂。
+-   **脚本自带防护**：要求工作区干净、拒绝重复 tag、校验版本号格式。
+
+脚本的坑（真实踩过）：
+
+-   **已是目标版本时脚本只打 tag、不写文件也不 commit**（`bump-msyx` / `bump-mcp` / `bump-cli` 均如此）。所以想要「脚本产的发版 commit」，必须在旧版本号状态下运行；已经手改到目标版本再跑，只会多出一个 tag。
+-   脚本会 `JSON.stringify(pkg, null, 4)` 重写 `package.json`，可能带来整文件格式 diff；这是预期行为，不要手工“修”回去。
+-   脚本**不写 CHANGELOG**：正式版需要人工补 `## vX.Y.Z (YYYY-MM-DD)` 段。
+-   **脚本只会把 tag 打在 HEAD 上**：所以升版本号后不要先追加无关提交/合并，再回来跑脚本补 tag；顺序必须是「合完要发的改动 → bump 脚本（产出 commit + tag）→ 推分支 + 推 tag」。
+
+申请许可时的写法：
+
+-   申请里直接写脚本命令（例如 `pnpm bump-version -- 2.8.1`），并说明它会产生 commit + tag；
+-   未获许可时用 `--no-tag`（四个脚本都支持）先只落版本号，不要用“先打 tag 后补流程”的方式。
+
 ## 请求许可的模板
 
 需要 tag 时，先只输出下面这段（不要边问边做）：

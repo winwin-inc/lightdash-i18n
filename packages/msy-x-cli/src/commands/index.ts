@@ -33,6 +33,7 @@ import { buildQueryFileCalls, queryCommands } from './query';
 import {
     DASHBOARDS_TILE_NOTICE,
     dashboardsCommands,
+    filterDashboardExploreRows,
     filterDashboardTiles,
 } from './dashboards';
 import { chartsCommands } from './charts';
@@ -429,6 +430,18 @@ const dispatch = async (
             logInfo(DASHBOARDS_TILE_NOTICE);
             await runToolCommand(calls, ctx, {
                 transformResult: (result) => filterDashboardTiles(result, tile),
+            });
+            return;
+        }
+    }
+
+    // dashboards map --dashboard：服务端已做权限过滤，本地只收窄到某块看板
+    if (spec.name === 'dashboards map') {
+        const dashboard = str(opts.dashboard);
+        if (dashboard !== null) {
+            await runToolCommand(calls, ctx, {
+                transformResult: (result) =>
+                    filterDashboardExploreRows(result, dashboard),
             });
             return;
         }

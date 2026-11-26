@@ -140,6 +140,30 @@ const buildDeps = ({
         ],
     });
 
+    const dashboardService: AnyType = {
+        getByIdOrSlug,
+        getDashboardExplorePairs: jest.fn().mockResolvedValue({
+            pairs: [
+                {
+                    dashboardUuid: 'dashboard-uuid',
+                    dashboardSlug: 'my-dashboard',
+                    dashboardName: 'My dashboard',
+                    spaceUuid: 'space-uuid',
+                    exploreName: 'orders',
+                },
+                {
+                    dashboardUuid: 'dashboard-uuid',
+                    dashboardSlug: 'my-dashboard',
+                    dashboardName: 'My dashboard',
+                    spaceUuid: 'space-uuid',
+                    exploreName: 'customers',
+                },
+            ],
+            associatedCount: 2,
+            dashboardCount: 1,
+        }),
+    };
+
     const contentService: AnyType = { find };
 
     const deps = {
@@ -148,7 +172,7 @@ const buildDeps = ({
         },
         contentService,
         projectService: { getProject },
-        dashboardService: { getByIdOrSlug },
+        dashboardService,
         mcpContextModel: { getContext },
         organizationModel: {
             get: jest.fn().mockResolvedValue({
@@ -196,7 +220,7 @@ const parseResult = (result: AnyType) =>
     JSON.parse(result.content[0].text as string);
 
 describe('registerContentListTools', () => {
-    it('registers the three content list tools', () => {
+    it('registers the content list tools', () => {
         const { registry, registered } = buildRegistry();
         registerContentListTools(registry, buildDeps().deps);
 
@@ -204,11 +228,13 @@ describe('registerContentListTools', () => {
             McpToolName.LIST_SPACES,
             McpToolName.LIST_DASHBOARDS,
             McpToolName.LIST_CHARTS,
+            McpToolName.LIST_DASHBOARD_EXPLORE_MAP,
         ]);
         expect(registered.map((tool) => tool.name)).toEqual([
             'list_spaces',
             'list_dashboards',
             'list_charts',
+            'list_dashboard_explore_map',
         ]);
         registered.forEach((tool) => {
             expect(tool.config.description).toBeDefined();
@@ -329,6 +355,27 @@ describe('registerContentListTools', () => {
             );
             expect(find.mock.calls[0][3]).toEqual({ page: 2, pageSize: 10 });
         });
+
+        it('lists every visible dashboard of the project when spaceUuid is omitted', async () => {
+            const { registry, registered } = buildRegistry();
+            const { deps, find } = buildDeps({
+                contextProjectUuid: 'project-uuid',
+            });
+            registerContentListTools(registry, deps);
+
+            await registered[1].handler({}, buildContext());
+
+            const filters = find.mock.calls[0][1];
+            expect(filters).toEqual(
+                expect.objectContaining({
+                    projectUuids: ['project-uuid'],
+                    contentTypes: [ContentType.DASHBOARD],
+                }),
+            );
+            // 不传 spaceUuids：由 ContentService 做空间 + 看板白名单的权限过滤
+            expect(filters.spaceUuids).toBeUndefined();
+            expect(find.mock.calls[0][3]).toEqual({ page: 1, pageSize: 50 });
+        });
     });
 
     describe('list_charts', () => {
@@ -381,6 +428,68 @@ describe('registerContentListTools', () => {
                     }),
                 ),
             ).rejects.toBeInstanceOf(ForbiddenError);
+        });
+    });
+
+    describe('list_dashboard_explore_map', () => {
+        it('returns one row per (dashboard, explore) pair with a browser URL', async () => {
+            const { registry, registered } = buildRegistry();
+            const { deps } = buildDeps({
+                contextProjectUuid: 'project-uuid',
+            });
+            registerContentListTools(registry, deps);
+
+            const result = parseResult(
+                await registered[3].handler({}, buildContext()),
+            );
+
+            expect(result).toEqual({
+                rows: [
+                    {
+                        dashboardName: 'My dashboard',
+                        dashboardUuid: 'dashboard-uuid',
+                        dashboardSlug: 'my-dashboard',
+                        spaceUuid: 'space-uuid',
+                        exploreName: 'orders',
+                        webUrl: 'https://lightdash.example.com/projects/project-uuid/dashboards/dashboard-uuid/view',
+                    },
+                    {
+                        dashboardName: 'My dashboard',
+                        dashboardUuid: 'dashboard-uuid',
+                        dashboardSlug: 'my-dashboard',
+                        spaceUuid: 'space-uuid',
+                        exploreName: 'customers',
+                        webUrl: 'https://lightdash.example.com/projects/project-uuid/dashboards/dashboard-uuid/view',
+                    },
+                ],
+                dashboardCount: 1,
+                associatedCount: 2,
+            });
+        });
+
+        it('passes a trimmed exploreName filter to the service', async () => {
+            const { registry, registered } = buildRegistry();
+            const { deps } = buildDeps({
+                contextProjectUuid: 'project-uuid',
+            });
+            const getDashboardExplorePairs = jest.spyOn(
+                deps.dashboardService as unknown as {
+                    getDashboardExplorePairs: () => Promise<unknown>;
+                },
+                'getDashboardExplorePairs',
+            );
+            registerContentListTools(registry, deps);
+
+            await registered[3].handler(
+                { exploreName: '  orders  ' },
+                buildContext(),
+            );
+
+            expect(getDashboardExplorePairs).toHaveBeenCalledWith(
+                expect.anything(),
+                'project-uuid',
+                { exploreName: 'orders' },
+            );
         });
     });
 

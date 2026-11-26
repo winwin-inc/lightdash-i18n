@@ -29,7 +29,10 @@ type ListSpacesArgs = {
 };
 
 type ListDashboardsArgs = ListSpacesArgs & {
-    spaceUuid: string;
+    /**
+     * 省略时空项目级列出：返回该项目下当前用户可见的全部看板。
+     */
+    spaceUuid?: string;
 };
 
 type ListChartsArgs = {
@@ -101,7 +104,10 @@ const listSpacesArgsSchema = {
 const listDashboardsArgsSchema = {
     spaceUuid: z
         .string()
-        .describe('UUID of the space to list the dashboards of.'),
+        .optional()
+        .describe(
+            'UUID of the space to list the dashboards of. Omit it to list every dashboard of the project the caller can view (permission filtered, including dashboards of private spaces the caller has access to).',
+        ),
     projectUuid: z.string().optional().describe(PROJECT_UUID_PARAM_DESCRIPTION),
     ...paginationSchema,
     full: fullSchema,
@@ -115,6 +121,16 @@ const listChartsArgsSchema = {
         ),
     projectUuid: z.string().optional().describe(PROJECT_UUID_PARAM_DESCRIPTION),
     full: fullSchema,
+};
+
+const listDashboardExploreMapArgsSchema = {
+    projectUuid: z.string().optional().describe(PROJECT_UUID_PARAM_DESCRIPTION),
+    exploreName: z
+        .string()
+        .optional()
+        .describe(
+            'Only return the dashboards that use this explore (table). Use it to answer "which dashboards use this table" without pulling the whole map.',
+        ),
 };
 
 /**
@@ -275,7 +291,7 @@ export const registerContentListTools = (
         McpToolName.LIST_DASHBOARDS,
         {
             description:
-                'List the dashboards inside a space of a Lightdash project. Use it to browse the dashboards of a space (not a keyword search - use find_dashboards for that). Each dashboard lists its uuid, name, description and the URL to open it in the browser.',
+                'List the dashboards of a Lightdash project (not a keyword search - use find_dashboards for that). Pass spaceUuid to browse the dashboards of a single space; omit it to list every dashboard the caller can view in the project in one call (permission filtered, and dashboards of private spaces the caller has access to are included). Each dashboard lists its uuid, name, space name, description and the URL to open it in the browser. Results are paginated (pageSize default 50, max 100), so page through when the project has more dashboards.',
             inputSchema: listDashboardsArgsSchema,
         },
         async (args, context) => {
@@ -293,12 +309,23 @@ export const registerContentListTools = (
                 explicitProjectUuid,
             );
 
+            // 空字符串等同于省略：不把它当成一个待匹配的 spaceUuid
+            const scopedSpaceUuid =
+                typeof spaceUuid === 'string' && spaceUuid.trim().length > 0
+                    ? spaceUuid.trim()
+                    : undefined;
+
             const contents = await listContent(
                 deps,
                 context,
                 {
                     projectUuids: [projectUuid],
-                    spaceUuids: [spaceUuid],
+                    // 省略 spaceUuid：项目级列举（仍由 ContentService 做空间 /
+                    // 看板白名单的权限过滤）
+                    spaceUuids:
+                        scopedSpaceUuid === undefined
+                            ? undefined
+                            : [scopedSpaceUuid],
                     contentTypes: [ContentType.DASHBOARD],
                 },
                 page,
@@ -398,6 +425,62 @@ export const registerContentListTools = (
                       }))
                     : items,
             );
+        },
+    );
+
+    registry.register(
+        McpToolName.LIST_DASHBOARD_EXPLORE_MAP,
+        {
+            description:
+                'List which explores (tables) each dashboard uses, or which dashboards use one explore - the reverse of list_charts and the only way to go from a table to its dashboards. Returns `rows`, one per (dashboard, explore) pair, for every dashboard the caller can open (permission filtered, including private spaces the caller has access to), plus the browser URL of the dashboard. Pass exploreName to answer "which dashboards use this table" directly; omit it to get the whole dashboard to table map of the project in a single call (no per-space or per-chart loops). `associatedCount` is the dashboard count before the permission filter: 0 means no dashboard uses this explore, while >0 together with an empty `rows` means the caller cannot open them.',
+            inputSchema: listDashboardExploreMapArgsSchema,
+        },
+        async (args, context) => {
+            const {
+                exploreName,
+                projectUuid: explicitProjectUuid,
+            } = args as {
+                exploreName?: string;
+                projectUuid?: string;
+            };
+
+            const { projectUuid } = await resolveProjectContext(
+                deps,
+                context,
+                explicitProjectUuid,
+            );
+
+            const { pairs, associatedCount, dashboardCount } =
+                await deps.dashboardService.getDashboardExplorePairs(
+                    context.user,
+                    projectUuid,
+                    {
+                        exploreName:
+                            typeof exploreName === 'string' &&
+                            exploreName.trim().length > 0
+                                ? exploreName.trim()
+                                : undefined,
+                    },
+                );
+
+            const { siteUrl } = deps.lightdashConfig;
+            return jsonToolResult({
+                rows: pairs.map((pair) => ({
+                    dashboardName: pair.dashboardName,
+                    dashboardUuid: pair.dashboardUuid,
+                    dashboardSlug: pair.dashboardSlug,
+                    spaceUuid: pair.spaceUuid,
+                    exploreName: pair.exploreName,
+                    webUrl: buildWebUrl(
+                        siteUrl,
+                        projectUuid,
+                        ContentType.DASHBOARD,
+                        pair.dashboardUuid,
+                    ),
+                })),
+                dashboardCount,
+                associatedCount,
+            });
         },
     );
 };

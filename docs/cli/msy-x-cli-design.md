@@ -292,6 +292,7 @@ CLI                                 服务端
 | `dashboards tiles <uuid>` | `get_dashboard_tiles` | `{ dashboardUuid }`（UUID 或 slug；无 `full`） |
 | `dashboards run <uuid> [--tile <slug>] [--limit n] [--value-format raw\|formatted]` | `run_dashboard_tiles` | `{ dashboardUuid, limit?, valueFormat? }`；**服务端跑整板**，`--tile` 仅本地过滤展示 |
 | `dashboards get <uuid> [--full]`（别名 `code`） | `get_dashboard_code` | `{ dashboardUuid, full? }`；返回看板定义 JSON |
+| `dashboards map [--table <exploreName>] [--dashboard <uuid\|slug>]` | `list_dashboard_explore_map` | `{ exploreName?, projectUuid? }`；`--table` 服务端收窄，`--dashboard` 本地收窄 |
 | `charts list --dashboard <uuid>` | `list_charts` | `{ dashboardUuid（必填）, full? }` |
 | `charts find <q>` | `find_charts` | `{ searchQueries: [{ label }], … }` |
 | `charts get <uuid> [--full]` | `get_saved_chart` | `{ savedChartUuid（必填）, full? }` |

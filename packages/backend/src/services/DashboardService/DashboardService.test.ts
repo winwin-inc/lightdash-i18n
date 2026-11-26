@@ -80,6 +80,7 @@ const dashboardModel = {
     getSpaceUuidsByChartUuids: jest.fn(async () => new Set<string>()),
 
     findDashboardContexts: jest.fn(async () => []),
+    findDashboardExplorePairs: jest.fn(async () => []),
 };
 
 const spaceModel = {
@@ -686,6 +687,171 @@ describe('DashboardService', () => {
 
             expect(result.contexts).toEqual([]);
             expect(result.associatedCount).toBe(2);
+        });
+    });
+
+    describe('getDashboardExplorePairs', () => {
+        const buildPair = (
+            overrides: Partial<{
+                dashboardUuid: string;
+                dashboardSlug: string;
+                dashboardName: string;
+                spaceUuid: string;
+                exploreName: string;
+            }> = {},
+        ) => ({
+            dashboardUuid: 'dashboard-uuid',
+            dashboardSlug: 'dashboard-slug',
+            dashboardName: 'dashboard name',
+            spaceUuid: 'spaceUuid',
+            projectUuid: 'projectUuid',
+            organizationUuid: 'organizationUuid',
+            exploreName: 'orders',
+            ...overrides,
+        });
+
+        test('should return every pair of the project sorted by dashboard and explore', async () => {
+            (
+                dashboardModel.findDashboardExplorePairs as jest.Mock
+            ).mockResolvedValueOnce([
+                buildPair({ exploreName: 'customers' }),
+                buildPair({ exploreName: 'orders' }),
+                buildPair({
+                    dashboardUuid: 'dash-2',
+                    dashboardName: 'A dashboard',
+                    exploreName: 'orders',
+                }),
+            ]);
+
+            const result = await service.getDashboardExplorePairs(
+                user,
+                projectUuid,
+            );
+
+            expect(result.associatedCount).toBe(2);
+            expect(result.dashboardCount).toBe(2);
+            expect(
+                result.pairs.map((pair) => [
+                    pair.dashboardName,
+                    pair.exploreName,
+                ]),
+            ).toEqual([
+                ['A dashboard', 'orders'],
+                ['dashboard name', 'customers'],
+                ['dashboard name', 'orders'],
+            ]);
+            expect(dashboardModel.findDashboardExplorePairs).toHaveBeenCalledWith(
+                projectUuid,
+                {},
+            );
+        });
+
+        test('should forward the exploreName filter to the model', async () => {
+            await service.getDashboardExplorePairs(user, projectUuid, {
+                exploreName: 'orders',
+            });
+
+            expect(dashboardModel.findDashboardExplorePairs).toHaveBeenCalledWith(
+                projectUuid,
+                { exploreName: 'orders' },
+            );
+        });
+
+        test('should drop pairs of dashboards outside the client-use allow-list', async () => {
+            (
+                dashboardModel.findDashboardExplorePairs as jest.Mock
+            ).mockResolvedValueOnce([
+                buildPair({ dashboardUuid: 'dash-1' }),
+                buildPair({ dashboardUuid: 'dash-2' }),
+            ]);
+            (
+                service.getAllowedDashboardUuidsForViewer as jest.Mock
+            ).mockResolvedValueOnce(new Set(['dash-1']));
+
+            const result = await service.getDashboardExplorePairs(
+                user,
+                projectUuid,
+            );
+
+            expect(
+                result.pairs.map((pair) => pair.dashboardUuid),
+            ).toEqual(['dash-1']);
+            expect(result.dashboardCount).toBe(1);
+            // counted before the permission filter, to tell "no dashboard"
+            // from "no permission"
+            expect(result.associatedCount).toBe(2);
+        });
+
+        test('should hide every pair when the allow-list is empty', async () => {
+            (
+                dashboardModel.findDashboardExplorePairs as jest.Mock
+            ).mockResolvedValueOnce([
+                buildPair({ dashboardUuid: 'dash-1' }),
+            ]);
+            (
+                service.getAllowedDashboardUuidsForViewer as jest.Mock
+            ).mockResolvedValueOnce(new Set<string>());
+
+            const result = await service.getDashboardExplorePairs(
+                user,
+                projectUuid,
+            );
+
+            expect(result.pairs).toEqual([]);
+            expect(result.dashboardCount).toBe(0);
+            expect(result.associatedCount).toBe(1);
+        });
+
+        test('should drop pairs whose exploreName is not a usable string', async () => {
+            (
+                dashboardModel.findDashboardExplorePairs as jest.Mock
+            ).mockResolvedValueOnce([
+                buildPair({ dashboardUuid: 'dash-1' }),
+                // schema 是 notNullable，这里只模拟脏数据：不能让整张映射抛错
+                buildPair({
+                    dashboardUuid: 'dash-2',
+                    exploreName: null as unknown as string,
+                }),
+                buildPair({
+                    dashboardUuid: 'dash-3',
+                    exploreName: '',
+                }),
+            ]);
+
+            const result = await service.getDashboardExplorePairs(
+                user,
+                projectUuid,
+            );
+
+            expect(result.pairs.map((pair) => pair.dashboardUuid)).toEqual([
+                'dash-1',
+            ]);
+            expect(result.dashboardCount).toBe(1);
+            // 计数仍在过滤前就取，只按 dashboardUuid 去重
+            expect(result.associatedCount).toBe(3);
+        });
+
+        test('should hide pairs when the user cannot view the dashboard ability', async () => {
+            (
+                dashboardModel.findDashboardExplorePairs as jest.Mock
+            ).mockResolvedValueOnce([
+                buildPair({ dashboardUuid: 'dash-1' }),
+            ]);
+            const noViewAbilityUser: SessionUser = {
+                ...user,
+                role: OrganizationMemberRole.EDITOR,
+                ability: new Ability<PossibleAbilities>([
+                    { subject: 'Dashboard', action: ['update'] },
+                ]),
+            };
+
+            const result = await service.getDashboardExplorePairs(
+                noViewAbilityUser,
+                projectUuid,
+            );
+
+            expect(result.pairs).toEqual([]);
+            expect(result.associatedCount).toBe(1);
         });
     });
 

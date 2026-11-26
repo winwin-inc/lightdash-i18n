@@ -48,7 +48,7 @@ export const MCP_DOCS_SECTIONS: McpDocsSection[] = [
   - Project context: \`list_projects\`, \`set_project\`, \`get_current_project\`.
   - Project resolution order: explicit \`projectUuid\` > user default (\`set_project\`) > organization default > server default.
   - Catalog / metadata: \`find_explores\`, \`list_explores\`, \`find_fields\`, \`search_field_values\`.
-  - Content search: \`find_content\`, \`find_spaces\`, \`find_charts\`, \`find_dashboards\`, \`list_spaces\`, \`list_dashboards\`, \`list_charts\`.
+  - Content search: \`find_content\`, \`find_spaces\`, \`find_charts\`, \`find_dashboards\`, \`list_spaces\`, \`list_dashboards\`, \`list_charts\`, \`list_dashboard_explore_map\`.
   - Saved content: \`get_saved_chart\`, \`run_saved_chart\`, \`get_dashboard_tiles\`, \`run_dashboard_tiles\`, \`get_dashboard_code\`.
   - Metrics: \`run_metric_query\`, \`run_semantic_metric_query\`.
   - Documentation: \`get_mcp_docs\` (this tool).
