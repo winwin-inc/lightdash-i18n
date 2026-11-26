@@ -197,6 +197,19 @@ oauthRouter.post('/token', async (req, res, next) => {
 
     try {
         const token = await oauthService.token(oauthReq, oauthRes);
+        // 可观测性：只记「谁用哪种 grant 取到了 token、是否带 refresh_token」，
+        // 绝不记 token 本身。排查「客户端有没有发刷新」就看这条日志：
+        //   grant_type=refresh_token 有记录 → 客户端确实在刷新
+        //   只有 decode 后的 401、没这条 → 客户端没刷新（拿过期 token 硬调）
+        Logger.info('OAuth token issued', {
+            grantType:
+                (oauthReq.body as { grant_type?: string } | undefined)
+                    ?.grant_type ?? 'unknown',
+            clientId:
+                (oauthReq.body as { client_id?: string } | undefined)
+                    ?.client_id ?? null,
+            hasRefreshToken: Boolean(token.refreshToken),
+        });
         res.json({
             access_token: token.accessToken,
             token_type: 'Bearer',
@@ -245,18 +258,22 @@ oauthRouter.post('/introspect', async (req, res) => {
         // Try to authenticate the token
         const tokenData = await oauthService.authenticate(oauthReq, oauthRes);
         if (tokenData && tokenData.accessTokenExpiresAt) {
+            // `iat` 必须按**配置的有效期**反推，不能写成常量：
+            // accessTokenLifetime 可通过 AUTH_OAUTH_SERVER_ACCESS_TOKEN_LIFETIME
+            // 调整（默认 3600），写死会让调长后 introspect 的 iat 偏。
+            const { accessTokenLifetimeSeconds } = oauthService;
+            const expiresAtSeconds = Math.floor(
+                tokenData.accessTokenExpiresAt.getTime() / 1000,
+            );
             const introspectResponse: OAuthIntrospectResponse = {
                 active: true,
                 scope: Array.isArray(tokenData.scope)
                     ? tokenData.scope.join(' ')
                     : tokenData.scope,
-                token_type: 'access_token',
-                exp: Math.floor(
-                    tokenData.accessTokenExpiresAt.getTime() / 1000, // Token expires timestamp
-                ),
-                iat: Math.floor(
-                    tokenData.accessTokenExpiresAt.getTime() / 1000 - 3600, // issued at: token cretaed timestamp
-                ),
+                // RFC 7662: token_type 固定为 `Bearer`（与 /token 端点保持一致）
+                token_type: 'Bearer',
+                exp: expiresAtSeconds, // Token expires timestamp
+                iat: expiresAtSeconds - accessTokenLifetimeSeconds, // issued at
                 sub: tokenData.user.userUuid, // subject: Unique user identifier
                 aud: tokenData.client.id, // audience: Client identifier
                 iss: 'lightdash', // issuer

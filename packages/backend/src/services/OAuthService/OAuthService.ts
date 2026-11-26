@@ -92,6 +92,14 @@ export class OAuthService extends BaseService {
         return `${this.lightdashConfig.siteUrl}`;
     }
 
+    /**
+     * Access token 有效期（秒）。introspect 的 `iat` 需要按它反推签发时间，
+     * 不能用常量——`AUTH_OAUTH_SERVER_ACCESS_TOKEN_LIFETIME` 是可配置的。
+     */
+    public get accessTokenLifetimeSeconds(): number {
+        return this.lightdashConfig.auth.oauthServer?.accessTokenLifetime ?? 3600;
+    }
+
     public async authorize(
         request: OAuth2Server.Request,
         response: OAuth2Server.Response,

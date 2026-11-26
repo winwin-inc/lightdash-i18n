@@ -213,6 +213,22 @@ class InMemoryDeviceFlowService {
             scope: ['mcp:read'],
         };
     }
+
+    /** introspect 用：access token 有效期（秒） */
+    accessTokenLifetimeSeconds = 3600;
+
+    /** introspect 路径：authenticate() 返回的 token（tests 可覆盖该字段） */
+    authenticateResult: AnyType = {
+        accessToken: 'access-token',
+        accessTokenExpiresAt: new Date('2026-11-26T10:00:00.000Z'),
+        client: { id: 'msy-x-cli' },
+        user: { userUuid: TEST_USER.organizationUuid },
+        scope: ['mcp:read'],
+    };
+
+    async authenticate(): Promise<AnyType> {
+        return this.authenticateResult;
+    }
 }
 
 type AppHandle = { server: Server; baseUrl: string };
@@ -225,10 +241,13 @@ const startApp = async (
     {
         withUser = true,
         onError,
+        accessTokenLifetime,
     }: {
         withUser?: boolean;
         /** Custom app-level error middleware (assert the next(error) chain). */
         onError?: express.ErrorRequestHandler;
+        /** 模拟 AUTH_OAUTH_SERVER_ACCESS_TOKEN_LIFETIME（秒） */
+        accessTokenLifetime?: number;
     } = {},
 ): Promise<AppHandle> => {
     const app = express();
@@ -714,5 +733,56 @@ describe('oauthRouter device flow (shared store across replicas)', () => {
         expect(response.status).toEqual(500);
         expect(JSON.parse(response.text)).toEqual({ error: 'internal' });
         expect(propagated.error?.message).toEqual('db down');
+    });
+});
+
+describe('oauthRouter introspect', () => {
+    const EXPIRES_AT = new Date('2026-11-26T10:00:00.000Z');
+    const EXP_SECONDS = Math.floor(EXPIRES_AT.getTime() / 1000);
+
+    const startIntrospectApp = async (accessTokenLifetime?: number) => {
+        const service = new InMemoryDeviceFlowService();
+        if (accessTokenLifetime !== undefined) {
+            service.accessTokenLifetimeSeconds = accessTokenLifetime;
+        }
+        const app = await startApp(service);
+        return { app, service };
+    };
+
+    afterEach(async () => {
+        await Promise.all(
+            openServers.splice(0).map(
+                (server) =>
+                    new Promise<void>((resolve, reject) => {
+                        server.close((err) => (err ? reject(err) : resolve()));
+                    }),
+            ),
+        );
+    });
+
+    it('derives iat from the configured lifetime instead of a hardcoded 3600', async () => {
+        const { app } = await startIntrospectApp(7200);
+        const response = await postJson(app.baseUrl, '/introspect', {
+            token: 'access-token',
+        });
+
+        expect(response.status).toEqual(200);
+        const body = JSON.parse(response.text);
+        expect(body.active).toBe(true);
+        expect(body.exp).toEqual(EXP_SECONDS);
+        // 7200 秒有效期 → iat = exp - 7200；写死 3600 会得到偏大 3600 的 iat
+        expect(body.iat).toEqual(EXP_SECONDS - 7200);
+        // RFC 7662：token_type 固定 Bearer（与 /token 端点一致）
+        expect(body.token_type).toEqual('Bearer');
+    });
+
+    it('falls back to 3600 when no lifetime is configured', async () => {
+        const { app } = await startIntrospectApp(undefined);
+        const response = await postJson(app.baseUrl, '/introspect', {
+            token: 'access-token',
+        });
+
+        const body = JSON.parse(response.text);
+        expect(body.iat).toEqual(EXP_SECONDS - 3600);
     });
 });
